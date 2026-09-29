@@ -10,7 +10,7 @@ How to set up a spec task for good results on Homemade Uno. Pull this in with `#
 
 1. **Verify assets exist.** The task references screen IDs (e.g. `03-game-2v2`, `08a-paused`) and tokens. Confirm the screen exists under `design/uno-design/screens/` and the tokens exist in `theme.css` before building UI.
 2. **Verify tokens.** If a visual value has no token, stop and resolve per `token-policy.md` (closest token, or add a semantic token) rather than inlining a literal.
-3. **Check prerequisites.** Follow the Task Dependency Graph in `tasks.md` — build the engine before the Edge Functions that wrap it, components before the screens that use them.
+3. **Check prerequisites.** Follow the Task Dependency Graph in `tasks.md` — build the engine before the Cloud Functions that wrap it, components before the screens that use them.
 
 ## Running tasks
 
@@ -34,11 +34,11 @@ How to set up a spec task for good results on Homemade Uno. Pull this in with `#
 | `token-policy.md`              | src tsx/ts/css           | which visual values are allowed (tokens only)                                            |
 | `styling.md`                   | src tsx/css              | how classes are written (no dynamic strings, `cn()`)                                     |
 | `component-architecture.md`    | src ts/tsx               | folder layout, naming, reuse, named exports                                              |
-| `conventions/supabase-data.md` | supabase/realtime        | server-authoritative access, versioned actions, RLS                                      |
+| `conventions/firestore-data.md`| firebase/realtime        | server-authoritative access, versioned actions, Firestore Security Rules                 |
 | `conventions/game-engine.md`   | engine/functions         | purity, injected RNG, invariants, property tests                                         |
 | `conventions/animation.md`     | components/design/routes | Motion presets, shared-layout throw, reduced motion                                      |
 | `workflow.md`                  | manual (`#workflow`)     | this task-setup checklist                                                                |
 
 ## TL;DR
 
-Tokens only, never literals. Server is authoritative — clients send versioned intents, never write game tables. The engine is pure and property-tested. Real elements with aria labels. During development: TDD, test only the file you are on. Playwright only for the one screen you are building (vs its PNG) or as a final full smoke check. Before completing: run the full gate and review your own diff.
+Tokens only, never literals. Server is authoritative — clients send versioned intents, never write game docs. The engine is pure and property-tested. Real elements with aria labels. During development: TDD, test only the file you are on. Playwright only for the one screen you are building (vs its PNG) or as a final full smoke check. Before completing: run the full gate and review your own diff.

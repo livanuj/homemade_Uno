@@ -2,9 +2,9 @@
 
 ## Overview
 
-This plan builds Homemade Uno bottom-up so every step compiles and integrates with the ones before it: first the app scaffold and design-token wiring, then the Supabase backend (schema + RLS), then the pure server-side **rules engine** (the correctness surface), then the Edge Functions/RPC that wrap it, then the realtime/presence layer, then the shared UI components and animation system, then all 22 screens, then the end-to-end feature flows, and finally accessibility wiring.
+This plan builds Homemade Uno bottom-up so every step compiles and integrates with the ones before it: first the app scaffold and design-token wiring, then the Firebase backend (Firestore + Security Rules), then the pure server-side **rules engine** (the correctness surface), then the Cloud Functions that wrap it, then the realtime/presence layer, then the shared UI components and animation system, then all 22 screens, then the end-to-end feature flows, and finally accessibility wiring.
 
-The system is **server-authoritative**: the rules engine and all game mutations run in Edge Functions; clients only render state and send versioned action requests. Testing is woven throughout — property-based tests (fast-check, ≥100 iterations each) for the 15 correctness properties live next to the engine, unit tests cover engine edge cases, integration tests cover Edge Functions + RLS, and realtime tests cover sync/reconnect windows.
+The system is **server-authoritative**: the rules engine and all game mutations run in Cloud Functions; clients only render state and send versioned action requests. Testing is woven throughout — property-based tests (fast-check, ≥100 iterations each) for the 15 correctness properties live next to the engine, unit tests cover engine edge cases, integration tests cover Cloud Functions + Firestore Security Rules, and realtime tests cover sync/reconnect windows.
 
 All UI is grounded in the `Design_Spec` (`design/uno-design/design.md`, `screen-map.json`, `theme.css`, `tokens.json`, `screens/`). No invented tokens (Req 20).
 
@@ -13,9 +13,9 @@ All UI is grounded in the `Design_Spec` (`design/uno-design/design.md`, `screen-
 ```mermaid
 graph TD
   T1["1. Scaffold + tokens + PWA + steering"]
-  T2["2. Supabase schema + RLS + auth"]
+  T2["2. Firebase: Firestore + Security Rules + auth"]
   T3["3. Pure rules engine"]
-  T4["4. Edge Functions / RPC wrapping engine"]
+  T4["4. Cloud Functions wrapping engine"]
   T5["5. Realtime + presence + grace/auto-pause"]
   T6["6. Shared UI components"]
   T7["7. Animation system (Motion)"]
@@ -92,7 +92,7 @@ graph TD
 
 - [x] 1. Scaffold the app, wire design tokens, PWA, and the design steering file
   - [x] 1.1 Initialize the Vite + React + TypeScript project and base folder structure
-    - Create the Vite React-TS app; add the `src/` layout from the design's Components and Interfaces section: `main.tsx`, `App.tsx`, `routes/`, `components/`, `game/`, `realtime/`, `supabase/`, `design/`
+    - Create the Vite React-TS app; add the `src/` layout from the design's Components and Interfaces section: `main.tsx`, `App.tsx`, `routes/`, `components/`, `game/`, `realtime/`, `firebase/`, `design/`
     - Configure TypeScript strict mode and path aliases; add the React Router provider skeleton in `App.tsx` with routes for home, lobby, game, game-over, settings, how-to-play
     - _Requirements: 20.3_
 
@@ -126,24 +126,24 @@ graph TD
     - Note the limitation: screenshot diffing catches layout/visual drift only, not semantic correctness or full WCAG (that stays with task 10.3 automated checks + manual AT testing)
     - _Requirements: 19.1, 20.3_
 
-- [ ] 2. Set up Supabase: config, anonymous auth, schema, and RLS
-  - [ ] 2.1 Configure the Supabase client and anonymous auth
-    - Add the typed Supabase client in `src/supabase/`; implement anonymous sign-in so the session `auth.uid()` becomes the persisted `Player_ID`; expose a hook that guarantees a session before any room action
+- [ ] 2. Set up Firebase: config, anonymous auth, Firestore schema, and Security Rules
+  - [ ] 2.1 Configure the Firebase client and anonymous auth
+    - Add the typed Firebase client in `src/firebase/` (app, Firestore, Auth, Functions; wire the Emulator Suite in dev); implement anonymous sign-in so the session `uid` becomes the persisted `Player_ID`; expose a hook that guarantees a session before any room action
     - _Requirements: 2.11, 3.1, 14.6_
 
-  - [ ] 2.2 Write the Postgres schema migrations
-    - Create migrations for `rooms`, `players`, `game_state`, `hands`, and `actions` exactly per the Data Models tables (columns, types, PKs, uniqueness `(room_id, player_id)` and `room_code` unique)
-    - Store `draw_pile` as a server-only ordered `jsonb` column on `game_state`; include `version`, `phase`, `penalty_count`, `pending_penalty_kind`, `paused_by`, `paused_at`, `pending_choice`, `winner`
+  - [ ] 2.2 Define the Firestore document model and converters
+    - Create the room-rooted document layout exactly per the design.md Data Models: `rooms/{roomId}`, `players/{playerId}`, `state/current`, `hands/{playerId}`, `actions/{autoId}`, and a server-only `private/deck` (holding `drawPile`, never client-readable); add typed Firestore data converters for each
+    - Ensure `state/current` carries `version`, `phase`, `penaltyCount`, `pendingPenaltyKind`, `pausedBy`, `pausedAt`, `pendingChoice`, `winner`
     - _Requirements: 14.4, 23.2, 23.3_
 
-  - [ ] 2.3 Write the RLS policies
-    - `hands` SELECT allowed only when `player_id = auth.uid()`, plus partner readability in Team mode (same `team`, same room); no cross-team/non-self reads
-    - Expose a public `game_state` projection view that excludes `draw_pile`; grant no client SELECT on `draw_pile`; make `players`/`rooms` readable within the room (no hand data)
-    - Grant all game-table writes to the service role only (no client INSERT/UPDATE/DELETE on `game_state`, `hands`, `draw_pile`); add a narrow policy letting a caller update only their own `players.last_seen`
+  - [ ] 2.3 Write the Firestore Security Rules
+    - `hands/{playerId}` readable only when `playerId == request.auth.uid`, plus partner readability in Team mode (same team, same room); no cross-team/non-self reads
+    - Make `rooms`/`players`/`state` readable within the room (no hand data); DENY client reads of `private/deck`
+    - DENY client writes to `state`, `hands`, `private/deck`, and `actions`; allow a player to write only their own `players/{uid}` `lastSeen`/presence; all game writes go through Cloud Functions (Admin SDK)
     - _Requirements: 13.8, 14.6, 23.1, 23.2, 23.3_
 
-  - [ ]\* 2.4 Write RLS integration tests
-    - As player A, assert a SELECT on player B's hand returns no rows (Normal); in Team mode assert a partner's hand is readable and an opponent's is not; assert no client role can read `draw_pile`
+  - [ ]\* 2.4 Write Security Rules tests (emulator)
+    - Using `@firebase/rules-unit-testing`: as player A, assert reading player B's hand is denied (Normal); in Team mode assert a partner's hand is readable and an opponent's is not; assert no client can read `private/deck`
     - _Requirements: 14.6, 23.1, 23.2_
 
 - [x] 3. Implement the pure, server-side rules engine (TypeScript module)
@@ -223,58 +223,58 @@ graph TD
     - Reverse and skip in the exact-2-player case; initial-discard reshuffle when the flipped card is an action card; `+2` onto pending `+4` rejected and `wild4` onto `+2` accepted; reshuffle-on-empty vs. no-draw (only top); last-card penalty on ending a turn at 1 card without calling; winning wild requires color before the win resolves
     - _Requirements: 5.5, 6.3, 6.5, 8.6, 9.5, 10.7, 10.8, 11.3_
 
-- [ ] 4. Wrap the engine in Edge Functions / RPC (server-authoritative, versioned)
-  - [ ] 4.1 Add the shared action harness: version check, persist-before-confirm, action log
-    - Implement a service-role helper that row-locks `game_state`, rejects when `based_on_version != version` or the caller is not the active player, applies the engine transition, increments `version`, writes `game_state`/`hands` in one transaction before returning accept, and appends to `actions`
+- [ ] 4. Wrap the engine in Cloud Functions (server-authoritative, versioned)
+  - [ ] 4.1 Add the shared action harness (callable Cloud Function + Firestore transaction)
+    - Implement a callable Cloud Function helper that runs a Firestore transaction: read `state/current`, reject when `basedOnVersion != version` or the caller is not the active player, apply the engine transition, increment `version`, write `state`/`hands` in the transaction before returning accept, and append to `actions` (Admin SDK)
     - _Requirements: 14.4, 14.5_
 
-  - [ ] 4.2 Implement `create_room` and `join`
-    - `create_room`: generate a unique 4-char code (A–Z/0–9 minus `0 O 1 I L`, retry ≤10, abort on failure), insert room (Normal, `lobby`) + host player with `join_order`, return room + invite link
+  - [ ] 4.2 Implement `createRoom` and `join` callable functions
+    - `createRoom`: generate a unique 4-char code (A–Z/0–9 minus `0 O 1 I L`, retry ≤10, abort on failure), write room doc (Normal, `lobby`) + host player doc with `joinOrder`, return room + invite link
     - `join`: validate room exists (else not-found), enforce max 8 players (else room-full), duplicate-name suffixing; deny non-members when the game has started; restore an existing member to their seat/hand on rejoin
     - _Requirements: 1.1, 1.9, 1.10, 1.11, 1.13, 2.3, 2.6, 2.10, 3.2, 3.4, 24.1_
 
-  - [ ] 4.3 Implement `start_game`
-    - Validate mode constraints (Normal ≥2, Team exactly 4); assign seats (team-alternating in 2v2), deal via the engine, set phase `playing`, host first active, direction clockwise; persist and broadcast
+  - [ ] 4.3 Implement `startGame`
+    - Validate mode constraints (Normal ≥2, Team exactly 4); assign seats (team-alternating in 2v2); deal via the engine writing `hands` + `private/deck`; set phase `playing`, host first active, direction clockwise; commit
     - _Requirements: 4.7, 4.8, 5.2, 5.6, 5.7_
 
-  - [ ] 4.4 Implement `play_card`, `choose_color`, `draw_one`, and `keep`
-    - Route each through the harness into the engine (play/validate, wild color set, single draw with reshuffle, keep ends turn); return accept with new public state and the caller's hand, or reject with a reason code
+  - [ ] 4.4 Implement `playCard`, `chooseColor`, `drawOne`, and `keep`
+    - Route each through the harness into the engine (play/validate, wild color set, single draw with reshuffle, keep ends turn); return accept (committed) with new public state and the caller's hand, or reject with a reason code
     - _Requirements: 7.1, 7.2, 7.3, 8.1, 8.2, 9.x, 10.1, 10.2, 10.3, 10.4, 10.5, 14.5_
 
-  - [ ] 4.5 Implement `call_last`, `end_game`, and `leave`
-    - `call_last`: record the call when eligible; `end_game`: end with no winner (Auto_Pause "End game"); `leave`: mark the player left/disconnected, skip their turns immediately with no grace, apply continue-without behavior, and trigger auto-pause if the predicate holds
+  - [ ] 4.5 Implement `callLast`, `endGame`, and `leave`
+    - Callable functions writing Firestore: `callLast` records the call when eligible; `endGame` ends with no winner (Auto_Pause "End game"); `leave` marks the player left/disconnected, skips their turns immediately with no grace, applies continue-without behavior, and triggers auto-pause if the predicate holds
     - _Requirements: 11.1, 11.2, 22.2, 22.3, 25.13_
 
-  - [ ] 4.6 Implement `pause`, `resume`, and `continue_without`
-    - `pause`: set `paused`, `paused_by`, `paused_at`; reject all play/draw/call/color/skip while paused and stop the grace countdown; `resume`: return to active and re-show any `pending_choice` to the same player; `continue_without`: resume and skip the disconnected player (drawing pending penalty if their turn), skipping later turns immediately
+  - [ ] 4.6 Implement `pause`, `resume`, and `continueWithout`
+    - `pause`: Firestore writes to `state/current` setting phase `paused`, `pausedBy`, `pausedAt`; reject all play/draw/call/color/skip while paused and stop the grace countdown; `resume`: return to active and re-show any `pendingChoice` to the same player; `continueWithout`: resume and skip the disconnected player (drawing pending penalty if their turn), skipping later turns immediately
     - _Requirements: 25.1, 25.6, 25.7, 25.9, 25.14_
 
   - [ ] 4.7 Implement host succession and round increment on game end / play-again
     - On host leave/disconnect at lobby or game end, pass host to the longest-present connected player; on "Play again" return everyone to the lobby with the same mode/teams and increment `round_number`
     - _Requirements: 3.6, 12.5, 12.6, 12.7, 15.8_
 
-  - [ ]\* 4.8 Integration tests — server authority
-    - Call `play_card` as a non-active player and with a stale version; assert both reject and state is unchanged; assert state is committed before the accept response
+  - [ ]\* 4.8 Integration tests — server authority (emulator)
+    - Call `playCard` as a non-active player and with a stale version; assert both reject and state is unchanged; assert state is committed before the accept response; run on the Functions + Firestore emulator
     - _Requirements: 14.4, 14.5_
 
 - [ ] 5. Build the realtime client layer, presence, and grace/auto-pause mechanics
-  - [ ] 5.1 Implement channel subscription and the authoritative store
-    - In `src/realtime/`, subscribe to `game_state` (public projection), `players`, and own/partner `hands` rows; hold server state read-only in a store (Zustand or context+reducer); the action client stamps each request with the current `version` and reverts optimistic UI on rejection
+  - [ ] 5.1 Implement Firestore `onSnapshot` subscriptions and the authoritative store
+    - In `src/realtime/`, attach `onSnapshot` listeners to the room doc, the `players` collection, `state/current`, and own/partner `hands` docs; hold server state read-only in a store (Zustand or context+reducer); the action client stamps each request with the current `version` and reverts optimistic UI on rejection
     - _Requirements: 14.1, 14.2, 14.3, 14.5, 14.6_
 
   - [ ] 5.2 Implement presence, connection state, and the server-enforced heartbeat
-    - Track `player_id` in channel presence; flip `connection_state` on join/leave; periodically update only the caller's own `players.last_seen`; the server compares `now() - last_seen` against the 60s Grace_Period before any skip
+    - Track presence via RTDB `onDisconnect` or a heartbeat doc; flip `connection_state` on join/leave; periodically update only the caller's own `players/{uid}` `lastSeen`; the server (Cloud Function) compares `now − lastSeen` against the 60s Grace_Period before any skip
     - _Requirements: 15.1, 15.6_
 
   - [ ] 5.3 Implement reconnect resync
-    - On reconnect, re-subscribe and load the current authoritative public state and the caller's own hand within 5s; restore seat/hand per Requirement 3
+    - On reconnect, re-attach the `onSnapshot` listeners and load the current authoritative public state and the caller's own hand within 5s; restore seat/hand per Requirement 3
     - _Requirements: 3.2, 14.7, 15.2, 15.4_
 
   - [ ] 5.4 Implement grace-period auto-skip and auto-pause/auto-resume
-    - When it becomes a disconnected active player's turn, run the 60s countdown; skip and draw pending penalty when elapsed and not paused; skip later turns immediately; start Auto_Pause when the predicate holds and auto-resume when the condition clears
+    - A scheduled/callable Cloud Function enforces the countdown against `lastSeen`: when it becomes a disconnected active player's turn, run the 60s countdown; skip and draw pending penalty when elapsed and not paused; skip later turns immediately; start Auto_Pause when the predicate holds and auto-resume when the condition clears
     - _Requirements: 15.3, 15.5, 15.7, 25.8, 25.10, 25.12_
 
-  - [ ]\* 5.5 Realtime sync tests
+  - [ ]\* 5.5 Realtime sync tests (emulator)
     - Two subscribed clients receive new public state within 2s of an accepted action; lobby membership/mode/host changes propagate within 2s; a reconnecting client receives public state + own hand within 5s; presence disconnect drives server-enforced grace/skip and auto-pause
     - _Requirements: 14.1, 14.2, 14.3, 14.7, 15.3, 25.10_
 
@@ -296,12 +296,12 @@ graph TD
     - _Requirements: 20.1, 20.3_
 
 - [ ] 7. Build the animation system with Motion for React
-  - [-] 7.1 Implement card-flight and turn animations
+  - [x] 7.1 Implement card-flight and turn animations
     - Shared `layoutId={card.id}` play/throw (spring 380/30, random −10°…+10°); opponent card flight + `rotateY 180→0` flip; draw slide-and-flip; deal stagger (60ms round-robin); select raise; illegal-tap shake; turn-pill cross-fade + turn pulse; wild color-change ring/glow cross-fade
     - Handle interrupted shared transitions by committing the card to the final discard position
     - _Requirements: 5.4, 7.3, 8.3, 10.6, 17.1, 17.2, 17.3, 17.4, 17.7_
 
-  - [-] 7.2 Implement overlay/drag/pause animations and reduced-motion handling
+  - [x] 7.2 Implement overlay/drag/pause animations and reduced-motion handling
     - Menu drawer slide + backdrop fade; bottom sheet slide-up + spotlight scale; dialog fade/scale; toast slide+fade; drag lift/tilt + drop spring; pause overlay fade; countdown ring drain; confetti burst
     - Add a `prefers-reduced-motion` hook that swaps flights for instant moves, removes the turn pulse, and renders confetti statically
     - _Requirements: 17.5, 17.6, 17.8, 17.9, 17.10_
@@ -344,7 +344,7 @@ graph TD
 
 - [ ] 9. Wire the end-to-end feature flows
   - [ ] 9.1 Wire create / join / rejoin flows
-    - Home → `create_room` → Lobby; invite-link open with/without stored name; join by code; copy-link confirmation and clipboard-failure fallback; native share with clipboard fallback; rejoin restores seat/hand; return an in-progress member to their game on launch
+    - Home → `createRoom` → Lobby; invite-link open with/without stored name; join by code; copy-link confirmation and clipboard-failure fallback; native share with clipboard fallback; rejoin restores seat/hand; return an in-progress member to their game on launch
     - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 2.8, 2.9, 3.2, 3.3_
 
   - [ ] 9.2 Wire lobby mode selection and real-time team drag-and-drop
@@ -352,11 +352,11 @@ graph TD
     - _Requirements: 4.6, 4.9, 4.10, 4.11, 4.13, 21.2, 21.3, 21.4, 21.5, 21.6, 21.7_
 
   - [ ] 9.3 Wire start + deal into the table
-    - Host Start (enabled only when constraints met) triggers `start_game`; render the staggered deal into the table and transition guests into `03`/`04`
+    - Host Start (enabled only when constraints met) triggers `startGame`; render the staggered deal into the table and transition guests into `03`/`04`
     - _Requirements: 5.2, 5.3, 5.4_
 
   - [ ] 9.4 Wire play / draw / wild / stacking / last-card into the table
-    - Card tap → `play_card` with illegal-tap shake on reject; wild → picker → `choose_color`; draw pile → `draw_one` → play/keep sheet; stacking prompts and toasts; "LAST CARD!" enable/record and forgot-to-call penalty toast; turn/penalty/skip/reverse toasts
+    - Card tap → `playCard` with illegal-tap shake on reject; wild → picker → `chooseColor`; draw pile → `drawOne` → play/keep sheet; stacking prompts and toasts; "LAST CARD!" enable/record and forgot-to-call penalty toast; turn/penalty/skip/reverse toasts
     - _Requirements: 6.10, 7.3, 8.3, 8.4, 9.x, 10.1, 10.2, 10.6, 11.1, 11.2, 11.3_
 
   - [ ] 9.5 Wire win, play-again, and host transfer
@@ -389,7 +389,7 @@ graph TD
 - Tasks marked with `*` are optional (all test sub-tasks) and can be skipped for a faster MVP; core implementation tasks are never optional.
 - Each task references specific requirement criteria for traceability; property-test tasks additionally cite the property number they implement via `_Properties: N_`.
 - Property-based tests target the pure rules engine (Properties 1–15), each running ≥100 fast-check iterations and tagged `Feature: homemade-uno, Property N`.
-- Realtime delivery, RLS-enforced hidden hands, presence-driven grace/skip, PWA/animation, and accessibility are verified with integration, realtime, component, and manual tests rather than as properties.
+- Realtime delivery, Security-Rules-enforced hidden hands, presence-driven grace/skip, PWA/animation, and accessibility are verified with integration, realtime, component, and manual tests rather than as properties.
 - Full WCAG conformance requires manual testing with assistive technologies and expert accessibility review; automated checks cover only the mechanics.
 - Playwright visual checks (task 1.7 + the per-screen sub-bullets under task 8) render each screen at the 390×844 design viewport and compare against the `design/uno-design/screens/*.png` references; they catch visual/layout drift only — semantic and accessibility correctness stays with tasks 10.x and manual testing.
 - All UI is grounded in the Design_Spec tokens/screens; no invented tokens (Req 20), enforced by the always-included Design_Steering_File.

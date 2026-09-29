@@ -9,7 +9,7 @@ Every task runs on its own branch, is committed and pushed when green, and ends 
 ## 1. Before starting a task — branch from the previous branch
 
 - Branch off the branch the previous task used (the current `HEAD`), NOT `main`/`master`. This stacks each task on the work before it, matching the incremental task order.
-- Name the branch after the task: `task/<number>-<short-slug>`, e.g. `task/2-supabase-schema-rls`, `task/3.1-engine-deck-shuffle`.
+- Name the branch after the task: `task/<number>-<short-slug>`, e.g. `task/2-firebase-firestore-rules`, `task/3.1-engine-deck-shuffle`.
 
 ```bash
 # from the previous task's branch (do NOT checkout main first)
