@@ -12,6 +12,7 @@
  */
 import { WILD_QUADRANT_FILL } from "@/design/suits";
 import { cn } from "@/lib/cn";
+import type { CSSProperties } from "react";
 
 export type CardBackVariant = "draw-pile" | "side-seat" | "top-seat";
 
@@ -53,6 +54,8 @@ export interface CardBackProps {
   "aria-label"?: string;
   /** Click handler — only meaningful for the tappable draw-pile variant. */
   onClick?: () => void;
+  /** Inline style — e.g. CSS vars driving a decorative fan transform. */
+  style?: CSSProperties;
 }
 
 export function CardBack({
@@ -60,6 +63,7 @@ export function CardBack({
   className,
   "aria-label": ariaLabel,
   onClick,
+  style,
 }: CardBackProps) {
   const box = cn(
     "grid place-items-center border-surface bg-card-back",
@@ -76,6 +80,7 @@ export function CardBack({
           VARIANT_BOX["draw-pile"],
           className,
         )}
+        style={style}
         onClick={onClick}
       >
         {/* Three stacked backs offset by 0, 2, 4px; lower two are deeper. */}
@@ -105,6 +110,7 @@ export function CardBack({
       role="img"
       aria-label={ariaLabel ?? "Face-down card"}
       className={cn(box, "shadow-card", className)}
+      style={style}
     >
       <QuadrantEmblem variant={variant} />
     </div>

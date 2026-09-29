@@ -1,5 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { UnsupportedViewport } from "@/components/UnsupportedViewport";
+import { RoomStoreProvider } from "@/game/view/store";
 import { useViewportSupported } from "@/lib/useViewportSupported";
 import { GameOverRoute } from "@/routes/GameOverRoute";
 import { GameRoute } from "@/routes/GameRoute";
@@ -26,9 +27,11 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 export function App() {
   return (
     <BrowserRouter>
-      <Layout>
-        <ViewportGuard />
-      </Layout>
+      <RoomStoreProvider>
+        <Layout>
+          <ViewportGuard />
+        </Layout>
+      </RoomStoreProvider>
     </BrowserRouter>
   );
 }
