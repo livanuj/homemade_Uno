@@ -19,7 +19,7 @@ src/
     engine/           # PURE rules engine — no React, no I/O (see conventions/game-engine.md)
     view/             # client view-models derived from server state
   realtime/           # channel subscription, presence, reconnect
-  supabase/           # client, anon auth, typed queries, Edge Function callers
+  firebase/           # app init, anon auth, typed converters, Cloud Function callers
   design/             # motion presets, token/cn helpers
   lib/                # cn(), small pure utilities
 ```
@@ -51,4 +51,4 @@ Before adding a component, search `src/components/` for an existing one (the des
 ## Server state is read-only truth
 
 - FORBIDDEN: mutating game state on the client or writing game tables directly.
-- REQUIRED: derive all rendering from the realtime store; send intents through the action client (see `conventions/supabase-data.md`).
+- REQUIRED: derive all rendering from the realtime store; send intents through the action client (see `conventions/firestore-data.md`).
