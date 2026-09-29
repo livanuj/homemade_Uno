@@ -1,0 +1,109 @@
+rules_version = '2';
+
+// Firestore Security Rules for Homemade Uno.
+//
+// The game is SERVER-AUTHORITATIVE: all game-mutating writes happen through
+// Cloud Functions using the Admin SDK, which BYPASSES these rules entirely.
+// Therefore these rules govern only what a *client* (an anonymous-auth session)
+// may read and write. The default posture is deny; every allowance below is
+// deliberately narrow.
+//
+// Enforces Requirements 13.8, 14.6, 23.1, 23.2, 23.3. See design.md
+// "Firestore Security Rules (read/write scope)".
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers -----------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The requesting client is an authed member of the room iff they have a
+    // player doc in that room (their doc id is their auth uid, Req 3.1).
+    function isRoomMember(roomId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid));
+    }
+
+    // The requester's own player doc in this room (for team comparison).
+    function requesterPlayer(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid)).data;
+    }
+
+    // The target hand-owner's player doc in this room.
+    function targetPlayer(roomId, targetId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)/players/$(targetId)).data;
+    }
+
+    // Team-mode partner readability: same room, both have a non-null team, and
+    // the teams match. Reads the requester's own player doc + the target's.
+    function isPartner(roomId, targetId) {
+      return isRoomMember(roomId)
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(targetId))
+        && requesterPlayer(roomId).team != null
+        && requesterPlayer(roomId).team == targetPlayer(roomId, targetId).team;
+    }
+
+    // A client may update ONLY its own presence fields (lastSeen + optionally
+    // connectionState) and nothing else. `affectedKeys` is the set of fields
+    // whose values actually change in this write.
+    function onlyPresenceFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['lastSeen', 'connectionState']);
+    }
+
+    // ---- rooms/{roomId} ----------------------------------------------------
+    // Public within the room: code, host, mode, phase, round. No hand data.
+    // All writes go through Cloud Functions (Admin SDK) — denied to clients.
+    match /rooms/{roomId} {
+      allow read: if isRoomMember(roomId);
+      allow write: if false;
+
+      // ---- players/{playerId} ---------------------------------------------
+      // Readable by any authed member of the room (names, seat, team,
+      // connection). A player may write ONLY their own presence fields on their
+      // own doc; every other field and every other player's doc is server-only.
+      match /players/{playerId} {
+        allow read: if isRoomMember(roomId);
+        allow update: if isSignedIn()
+          && request.auth.uid == playerId
+          && onlyPresenceFieldsChanged();
+        allow create, delete: if false;
+      }
+
+      // ---- state/{stateId} (state/current) --------------------------------
+      // Public game state (no draw pile). Readable by members; writes are
+      // server-only.
+      match /state/{stateId} {
+        allow read: if isRoomMember(roomId);
+        allow write: if false;
+      }
+
+      // ---- hands/{playerId} -----------------------------------------------
+      // Own hand always readable; partner's hand readable in Team mode (same
+      // team, same room). No cross-team / non-self reads. Writes are
+      // server-only.
+      match /hands/{playerId} {
+        allow read: if isSignedIn()
+          && (request.auth.uid == playerId || isPartner(roomId, playerId));
+        allow write: if false;
+      }
+
+      // ---- private/** (deck) ----------------------------------------------
+      // The draw-pile order. DENY ALL client reads and writes — only Cloud
+      // Functions (Admin SDK) touch it (Req 23.2).
+      match /private/{docId} {
+        allow read, write: if false;
+      }
+
+      // ---- actions/{autoId} -----------------------------------------------
+      // Append-only server-written audit log. Denied to clients.
+      match /actions/{actionId} {
+        allow read: if isRoomMember(roomId);
+        allow write: if false;
+      }
+    }
+  }
+}

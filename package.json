@@ -10,11 +10,15 @@
     "typecheck": "tsc -b --noEmit",
     "e2e": "playwright test",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:rules": "firebase emulators:exec --only firestore,auth --project demo-homemade-uno \"vitest run --config firestore/vitest.rules.config.ts\"",
+    "test:integration": "npm run test:rules",
+    "emulators": "firebase emulators:start --only firestore,auth --project demo-homemade-uno"
   },
   "dependencies": {
     "@tailwindcss/vite": "4.3.3",
     "clsx": "2.1.1",
+    "firebase": "^12.19.0",
     "motion": "^13.4.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -23,6 +27,7 @@
     "tailwindcss": "4.3.3"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@playwright/test": "^1.63.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
