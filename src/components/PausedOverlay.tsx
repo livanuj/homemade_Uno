@@ -20,13 +20,21 @@
  * `elapsedLabel`) and the primary handler; the menu stays available while
  * paused (Req 25.15) and is rendered by the table, not here. Reuses `Backdrop`,
  * `Button`, `OfflineAvatar` (reuse-before-create). Tokens only
- * (token-policy.md). Motion (overlay fade) and focus management are wired in
- * tasks 7 and 10; `className` is the seam.
+ * (token-policy.md).
+ *
+ * Motion (Task 7.2): the overlay fades in with the card scaling 0.96 → 1 and
+ * fades out on resume (`pauseFade`), driven by `AnimatePresence` on `open`; the
+ * backdrop fades with it (Req 17.10). The backdrop stays inert — pausing is not
+ * dismissed by tapping outside. Reduced motion (Req 17.6): both become instant.
+ * Focus management is wired in task 10. `open` defaults to `true` so existing
+ * call sites keep working.
  */
-import { useId } from "react";
+import { instant, pauseFade } from "@/design/motion";
 import { cn } from "@/lib/cn";
-import { Backdrop } from "./Backdrop";
+import { AnimatePresence, motion } from "motion/react";
+import { useId } from "react";
 import { Button } from "./Button";
+import { MotionBackdrop } from "./MotionBackdrop";
 import { OfflineAvatar } from "./OfflineAvatar";
 
 export type PausedVariant = "break" | "waiting" | "auto";
@@ -61,13 +69,26 @@ export interface PausedOverlayProps {
   primaryCaption?: string;
   /** Primary action handler: Resume / Continue without / End game. */
   onPrimary: () => void;
+  /**
+   * Drives the fade-in / fade-out-on-resume via `AnimatePresence` (Req 17.10).
+   * Defaults to `true` so existing call sites keep working.
+   */
+  open?: boolean;
+  /** Honor reduced motion (Req 17.6) — pass from `usePrefersReducedMotion()`. */
+  reduced?: boolean;
   className?: string;
 }
 
 /** Pause glyph shown in the `break` variant's `bg-paper` circle. */
 function PauseIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <rect x="6" y="5" width="4" height="14" rx="1.5" />
       <rect x="14" y="5" width="4" height="14" rx="1.5" />
     </svg>
@@ -91,6 +112,8 @@ export function PausedOverlay({
   offlineTeam,
   primaryCaption,
   onPrimary,
+  open = true,
+  reduced = false,
   className,
 }: PausedOverlayProps) {
   const titleId = useId();
@@ -103,77 +126,92 @@ export function PausedOverlay({
         : "End game";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center px-6">
-      {/* Backdrop is inert: pausing is not dismissed by tapping outside. */}
-      <Backdrop />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={bodyId}
-        className={cn(
-          "relative flex w-[calc(100%-48px)] max-w-[342px] flex-col gap-[18px]",
-          "bg-surface rounded-panel shadow-cta p-6",
-          className,
-        )}
-      >
-        {/* Header: pause glyph (break) or offline avatar (waiting / auto). */}
-        {variant === "break" ? (
-          <span className="grid size-12 place-items-center rounded-full bg-paper text-ink">
-            <PauseIcon />
-          </span>
-        ) : (
-          <div className="flex items-center gap-3">
-            <OfflineAvatar name={offlineName ?? "?"} cardCount={offlineCardCount} />
-            {variant === "auto" && offlineTeam ? (
-              <span
-                className={cn(
-                  "text-caption font-extrabold tracking-[0.06em]",
-                  TEAM_LABEL[offlineTeam],
-                )}
-              >
-                TEAM {offlineTeam}
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 grid place-items-center px-6">
+          {/* Backdrop is inert: pausing is not dismissed by tapping outside. */}
+          <MotionBackdrop reduced={reduced} />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={bodyId}
+            variants={pauseFade}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            {...(reduced ? { transition: instant } : {})}
+            className={cn(
+              "relative flex w-[calc(100%-48px)] max-w-[342px] flex-col gap-[18px]",
+              "bg-surface rounded-panel shadow-cta p-6",
+              className,
+            )}
+          >
+            {/* Header: pause glyph (break) or offline avatar (waiting / auto). */}
+            {variant === "break" ? (
+              <span className="grid size-12 place-items-center rounded-full bg-paper text-ink">
+                <PauseIcon />
               </span>
             ) : (
-              offlineName && (
-                <span className="text-label text-ink-muted">
-                  {offlineName} · offline
-                </span>
-              )
+              <div className="flex items-center gap-3">
+                <OfflineAvatar
+                  name={offlineName ?? "?"}
+                  cardCount={offlineCardCount}
+                />
+                {variant === "auto" && offlineTeam ? (
+                  <span
+                    className={cn(
+                      "text-caption font-extrabold tracking-[0.06em]",
+                      TEAM_LABEL[offlineTeam],
+                    )}
+                  >
+                    TEAM {offlineTeam}
+                  </span>
+                ) : (
+                  offlineName && (
+                    <span className="text-label text-ink-muted">
+                      {offlineName} · offline
+                    </span>
+                  )
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        <div className="flex flex-col gap-1.5">
-          <h2 id={titleId} className="font-display text-sheet text-ink">
-            {title}
-          </h2>
-          <p id={bodyId} className="text-paragraph text-ink-muted">
-            {body}
-          </p>
+            <div className="flex flex-col gap-1.5">
+              <h2 id={titleId} className="font-display text-sheet text-ink">
+                {title}
+              </h2>
+              <p id={bodyId} className="text-paragraph text-ink-muted">
+                {body}
+              </p>
+            </div>
+
+            {/* "Paused for m:ss" pill with a turn-colored dot. */}
+            <span className="inline-flex items-center gap-2 self-start rounded-full bg-paper px-3 py-2 text-label text-ink">
+              <span
+                aria-hidden="true"
+                className="size-2.5 rounded-full bg-turn"
+              />
+              {elapsedLabel}
+            </span>
+
+            <div className="flex flex-col gap-1.5">
+              <Button
+                variant={PRIMARY_VARIANT[variant]}
+                onClick={onPrimary}
+                className="w-full"
+              >
+                {primaryLabel}
+              </Button>
+              {primaryCaption && (
+                <p className="text-center text-label font-semibold text-ink-muted">
+                  {primaryCaption}
+                </p>
+              )}
+            </div>
+          </motion.div>
         </div>
-
-        {/* "Paused for m:ss" pill with a turn-colored dot. */}
-        <span className="inline-flex items-center gap-2 self-start rounded-full bg-paper px-3 py-2 text-label text-ink">
-          <span aria-hidden="true" className="size-2.5 rounded-full bg-turn" />
-          {elapsedLabel}
-        </span>
-
-        <div className="flex flex-col gap-1.5">
-          <Button
-            variant={PRIMARY_VARIANT[variant]}
-            onClick={onPrimary}
-            className="w-full"
-          >
-            {primaryLabel}
-          </Button>
-          {primaryCaption && (
-            <p className="text-center text-label font-semibold text-ink-muted">
-              {primaryCaption}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

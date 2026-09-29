@@ -9,8 +9,9 @@
  * keyboard-operable and carries an accessible name (Requirement 18); when
  * `onActivate` is omitted it renders as an inert `aria-hidden` layer.
  *
- * Motion (backdrop fade) is wired in task 7; this component stays static and
- * accepts `className` as the seam for those animation classes.
+ * The backdrop-fade motion (Task 7.2) lives in {@link "./MotionBackdrop"},
+ * which reuses {@link BACKDROP_BASE} so the animated and static scrims share
+ * one class. This component stays static; `className` is the seam.
  */
 import { cn } from "@/lib/cn";
 
@@ -22,23 +23,24 @@ export interface BackdropProps {
   className?: string;
 }
 
+/** Shared base classes so the static and animated (MotionBackdrop) scrims agree. */
+export const BACKDROP_BASE = "fixed inset-0 bg-ink/50";
+
 export function Backdrop({
   onActivate,
   label = "Close",
   className,
 }: BackdropProps) {
-  const base = "fixed inset-0 bg-ink/50";
-
   if (onActivate) {
     return (
       <button
         type="button"
         aria-label={label}
         onClick={onActivate}
-        className={cn(base, "cursor-default", className)}
+        className={cn(BACKDROP_BASE, "cursor-default", className)}
       />
     );
   }
 
-  return <div aria-hidden="true" className={cn(base, className)} />;
+  return <div aria-hidden="true" className={cn(BACKDROP_BASE, className)} />;
 }

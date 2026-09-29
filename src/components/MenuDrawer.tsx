@@ -12,14 +12,19 @@
  * `Backdrop`, `IconButton`, `Button`, `Switch`. Every value is a token
  * (token-policy.md); suit/team classes come from static maps (styling.md).
  *
- * Structure only — the slide-in animation, Escape handling, and focus trap are
- * wired in tasks 7 and 10. The panel exposes `onClose` and accepts `className`
- * as the seam for the drawer-slide motion.
+ * Motion (Task 7.2): the drawer slides in from `x=100%` over 250ms
+ * (`drawerSlide`) while the backdrop fades to 50% (`MotionBackdrop`), driven by
+ * `AnimatePresence` on the `open` prop so it also animates on unmount (Req
+ * 17.5). Reduced motion (Req 17.6): both become instant. Escape handling and
+ * the focus trap are wired in task 10. `open` defaults to `true` so the drawer
+ * renders when a caller omits it.
  */
+import { drawerSlide, instant } from "@/design/motion";
 import { cn } from "@/lib/cn";
-import { Backdrop } from "./Backdrop";
+import { AnimatePresence, motion } from "motion/react";
 import { Button } from "./Button";
 import { IconButton } from "./IconButton";
+import { MotionBackdrop } from "./MotionBackdrop";
 import { Switch } from "./Switch";
 
 /** A player's remaining-card count, shown under "CARDS LEFT". */
@@ -65,6 +70,14 @@ export interface MenuDrawerProps {
   onLeave: () => void;
   /** Tap-backdrop-to-close / close-button (§5.10). */
   onClose: () => void;
+  /**
+   * Drives the enter/exit animation via `AnimatePresence` (Req 17.5). Defaults
+   * to `true` so callers that mount/unmount the drawer themselves still get the
+   * entrance, and existing call sites keep working.
+   */
+  open?: boolean;
+  /** Honor reduced motion (Req 17.6) — pass from `usePrefersReducedMotion()`. */
+  reduced?: boolean;
   className?: string;
 }
 
@@ -101,152 +114,174 @@ export function MenuDrawer({
   onHowToPlay,
   onLeave,
   onClose,
+  open = true,
+  reduced = false,
   className,
 }: MenuDrawerProps) {
   const teamA = cardCounts.filter((c) => c.team === "A");
   const teamB = cardCounts.filter((c) => c.team === "B");
 
   return (
-    <div className="fixed inset-0 z-40">
-      <Backdrop onActivate={onClose} label="Close menu" />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="menu-drawer-title"
-        className={cn(
-          "absolute inset-y-0 right-0 flex w-[82.5%] max-w-[340px] flex-col gap-[18px]",
-          "bg-surface rounded-l-drawer shadow-drawer px-5 pb-safe pt-safe",
-          className,
-        )}
-      >
-        {/* 1. Title + close button. */}
-        <div className="flex items-center justify-between pt-5">
-          <h2
-            id="menu-drawer-title"
-            className="font-display text-sheet text-ink"
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-40">
+          <MotionBackdrop
+            onActivate={onClose}
+            label="Close menu"
+            reduced={reduced}
+          />
+          <motion.aside
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="menu-drawer-title"
+            variants={drawerSlide}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            {...(reduced ? { transition: instant } : {})}
+            className={cn(
+              "absolute inset-y-0 right-0 flex w-[82.5%] max-w-[340px] flex-col gap-[18px]",
+              "bg-surface rounded-l-drawer shadow-drawer px-5 pb-safe pt-safe",
+              className,
+            )}
           >
-            Menu
-          </h2>
-          <IconButton aria-label="Close" onClick={onClose}>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </IconButton>
-        </div>
-
-        {/* 2. Room box (on paper) with Copy link. */}
-        <div className="flex items-center justify-between rounded-row bg-paper px-3.5 py-3">
-          <span className="text-label tracking-[0.08em] text-ink">
-            ROOM · {roomCode}
-          </span>
-          <Button variant="outline" onClick={onCopyLink} className="h-9 px-4">
-            Copy link
-          </Button>
-        </div>
-
-        {/* 3. CARDS LEFT, grouped by team in 2v2. */}
-        <div className="flex flex-col gap-1.5">
-          <p className="text-caption font-extrabold tracking-[0.08em] text-ink-muted">
-            CARDS LEFT
-          </p>
-          {isTeamMode ? (
-            <div className="flex flex-col gap-2.5">
-              {(
-                [
-                  ["A", teamA],
-                  ["B", teamB],
-                ] as const
-              ).map(([team, members]) => (
-                <div key={team} className="flex flex-col">
-                  <p
-                    className={cn(
-                      "text-caption font-extrabold tracking-[0.06em]",
-                      TEAM_LABEL[team],
-                    )}
-                  >
-                    TEAM {team}
-                  </p>
-                  <ul>
-                    {members.map((entry) => (
-                      <CardCountRow key={entry.playerId} entry={entry} />
-                    ))}
-                  </ul>
-                </div>
-              ))}
+            {/* 1. Title + close button. */}
+            <div className="flex items-center justify-between pt-5">
+              <h2
+                id="menu-drawer-title"
+                className="font-display text-sheet text-ink"
+              >
+                Menu
+              </h2>
+              <IconButton aria-label="Close" onClick={onClose}>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </IconButton>
             </div>
-          ) : (
-            <ul>
-              {cardCounts.map((entry) => (
-                <CardCountRow key={entry.playerId} entry={entry} />
-              ))}
-            </ul>
-          )}
-        </div>
 
-        {/* 4. Divider. */}
-        <hr className="border-0 border-t border-felt-edge" />
-
-        {/* 5. Three switches. */}
-        <div className="flex flex-col">
-          <div className="flex min-h-14 items-center justify-between">
-            <span id="menu-sound-label" className="text-body text-ink">
-              Sound effects
-            </span>
-            <Switch
-              aria-labelledby="menu-sound-label"
-              checked={soundOn}
-              onCheckedChange={onSoundChange}
-            />
-          </div>
-          {vibrationSupported && (
-            <div className="flex min-h-14 items-center justify-between">
-              <span id="menu-vibration-label" className="text-body text-ink">
-                Vibration
+            {/* 2. Room box (on paper) with Copy link. */}
+            <div className="flex items-center justify-between rounded-row bg-paper px-3.5 py-3">
+              <span className="text-label tracking-[0.08em] text-ink">
+                ROOM · {roomCode}
               </span>
-              <Switch
-                aria-labelledby="menu-vibration-label"
-                checked={vibrationOn}
-                onCheckedChange={onVibrationChange}
-              />
+              <Button
+                variant="outline"
+                onClick={onCopyLink}
+                className="h-9 px-4"
+              >
+                Copy link
+              </Button>
             </div>
-          )}
-          <div className="flex min-h-14 items-center justify-between">
-            <span id="menu-highlight-label" className="text-body text-ink">
-              Highlight playable cards
-            </span>
-            <Switch
-              aria-labelledby="menu-highlight-label"
-              checked={highlightOn}
-              onCheckedChange={onHighlightChange}
-            />
-          </div>
-        </div>
 
-        {/* 6. Spacer pushes the actions to the bottom. */}
-        <div className="flex-1" />
+            {/* 3. CARDS LEFT, grouped by team in 2v2. */}
+            <div className="flex flex-col gap-1.5">
+              <p className="text-caption font-extrabold tracking-[0.08em] text-ink-muted">
+                CARDS LEFT
+              </p>
+              {isTeamMode ? (
+                <div className="flex flex-col gap-2.5">
+                  {(
+                    [
+                      ["A", teamA],
+                      ["B", teamB],
+                    ] as const
+                  ).map(([team, members]) => (
+                    <div key={team} className="flex flex-col">
+                      <p
+                        className={cn(
+                          "text-caption font-extrabold tracking-[0.06em]",
+                          TEAM_LABEL[team],
+                        )}
+                      >
+                        TEAM {team}
+                      </p>
+                      <ul>
+                        {members.map((entry) => (
+                          <CardCountRow key={entry.playerId} entry={entry} />
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul>
+                  {cardCounts.map((entry) => (
+                    <CardCountRow key={entry.playerId} entry={entry} />
+                  ))}
+                </ul>
+              )}
+            </div>
 
-        {/* 7. Pause game, How to play, Leave game (danger → confirm dialog). */}
-        <div className="flex flex-col gap-2.5 pb-5">
-          <Button variant="primary" onClick={onPause}>
-            Pause game
-          </Button>
-          <Button variant="soft" onClick={onHowToPlay}>
-            How to play
-          </Button>
-          <Button variant="danger" onClick={onLeave}>
-            Leave game
-          </Button>
+            {/* 4. Divider. */}
+            <hr className="border-0 border-t border-felt-edge" />
+
+            {/* 5. Three switches. */}
+            <div className="flex flex-col">
+              <div className="flex min-h-14 items-center justify-between">
+                <span id="menu-sound-label" className="text-body text-ink">
+                  Sound effects
+                </span>
+                <Switch
+                  aria-labelledby="menu-sound-label"
+                  checked={soundOn}
+                  onCheckedChange={onSoundChange}
+                />
+              </div>
+              {vibrationSupported && (
+                <div className="flex min-h-14 items-center justify-between">
+                  <span
+                    id="menu-vibration-label"
+                    className="text-body text-ink"
+                  >
+                    Vibration
+                  </span>
+                  <Switch
+                    aria-labelledby="menu-vibration-label"
+                    checked={vibrationOn}
+                    onCheckedChange={onVibrationChange}
+                  />
+                </div>
+              )}
+              <div className="flex min-h-14 items-center justify-between">
+                <span id="menu-highlight-label" className="text-body text-ink">
+                  Highlight playable cards
+                </span>
+                <Switch
+                  aria-labelledby="menu-highlight-label"
+                  checked={highlightOn}
+                  onCheckedChange={onHighlightChange}
+                />
+              </div>
+            </div>
+
+            {/* 6. Spacer pushes the actions to the bottom. */}
+            <div className="flex-1" />
+
+            {/* 7. Pause game, How to play, Leave game (danger → confirm dialog). */}
+            <div className="flex flex-col gap-2.5 pb-5">
+              <Button variant="primary" onClick={onPause}>
+                Pause game
+              </Button>
+              <Button variant="soft" onClick={onHowToPlay}>
+                How to play
+              </Button>
+              <Button variant="danger" onClick={onLeave}>
+                Leave game
+              </Button>
+            </div>
+          </motion.aside>
         </div>
-      </aside>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

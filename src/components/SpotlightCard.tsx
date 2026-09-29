@@ -9,13 +9,19 @@
  * PlayingCard button is disabled and marked `aria-hidden` — the actionable
  * choices ("Play it" / "Keep it") live in the sheet below.
  *
- * Reuses `PlayingCard` (reuse-before-create). Tokens only (token-policy.md);
- * the `scale-125` transform is a Tailwind utility, not an animation, so no
- * motion import is needed. `className` is the seam for the task-7 spotlight
- * scale-in.
+ * Reuses `PlayingCard` (reuse-before-create). Tokens only (token-policy.md).
+ *
+ * Motion (Task 7.2): on mount the card scales 0.9 → 1.25 (`spotlightScale`,
+ * the sheet's spring) as the bottom sheet slides up (Req 17.9). The `1.25`
+ * final scale matches the design's enlarged drawn card; the Motion `scale`
+ * replaces the former static `scale-125` utility so both live under one
+ * preset. Reduced motion (Req 17.6): the card renders at its final `1.25`
+ * scale with no scale-in.
  */
+import { instant, spotlightScale } from "@/design/motion";
 import type { CardValue, Suit } from "@/design/suits";
 import { cn } from "@/lib/cn";
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { PlayingCard } from "./PlayingCard";
 
@@ -26,6 +32,8 @@ export interface SpotlightCardProps {
   value: CardValue;
   /** Caption shown in the pill above the card. Defaults to "You drew". */
   caption?: ReactNode;
+  /** Honor reduced motion (Req 17.6) — pass from `usePrefersReducedMotion()`. */
+  reduced?: boolean;
   className?: string;
 }
 
@@ -33,6 +41,7 @@ export function SpotlightCard({
   suit,
   value,
   caption = "You drew",
+  reduced = false,
   className,
 }: SpotlightCardProps) {
   return (
@@ -40,15 +49,22 @@ export function SpotlightCard({
       <span className="inline-flex items-center rounded-full bg-surface px-3 py-1 text-label text-ink shadow-cta">
         {caption}
       </span>
-      <PlayingCard
-        {...(suit ? { suit } : {})}
-        value={value}
-        variant="hero"
-        disabled
-        aria-hidden="true"
-        tabIndex={-1}
-        className="scale-125 drop-shadow-[0_12px_24px_rgba(40,30,40,0.35)]"
-      />
+      <motion.div
+        variants={spotlightScale}
+        initial={reduced ? false : "hidden"}
+        animate="visible"
+        {...(reduced ? { transition: instant } : {})}
+        className="drop-shadow-[0_12px_24px_rgba(40,30,40,0.35)]"
+      >
+        <PlayingCard
+          {...(suit ? { suit } : {})}
+          value={value}
+          variant="hero"
+          disabled
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+      </motion.div>
     </div>
   );
 }
