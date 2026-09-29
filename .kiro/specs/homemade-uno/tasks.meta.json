@@ -1,0 +1,96 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Initialize the Vite + React + TypeScript project and base folder structure": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790685848128
+      },
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686285012
+      }
+    ],
+    "1.2 Install and wire Tailwind CSS v4 with `theme.css`": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686311564
+      },
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686688110
+      }
+    ],
+    "1.6 Set up the test runner and fast-check": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686313063
+      },
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686689006
+      }
+    ],
+    "1.7 Set up Playwright for visual UI verification": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686313713
+      },
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686689929
+      }
+    ],
+    "1.3 Add the PWA manifest, service worker, and mobile viewport/root shell": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686698969
+      },
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790687056919
+      }
+    ],
+    "1.5 Create the always-included Design_Steering_File": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790686700119
+      },
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790687059520
+      }
+    ],
+    "1.4 Add the unsupported-viewport guard": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790687059748
+      },
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790687231958
+      }
+    ],
+    "1. Scaffold the app, wire design tokens, PWA, and the design steering file": [
+      {
+        "executionId": "120e86ec-8273-4c5a-a038-c0c6438499c9",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790687232091
+      }
+    ]
+  }
+}

@@ -26,16 +26,18 @@ How to set up a spec task for good results on Homemade Uno. Pull this in with `#
 
 ## Steering quick reference
 
-| File | Loads | Governs |
-|---|---|---|
-| `verification.md` | always | TDD, scoped-vs-full test phases, Playwright two-case policy, self-review, done-criteria |
-| `token-policy.md` | src tsx/ts/css | which visual values are allowed (tokens only) |
-| `styling.md` | src tsx/css | how classes are written (no dynamic strings, `cn()`) |
-| `component-architecture.md` | src ts/tsx | folder layout, naming, reuse, named exports |
-| `conventions/supabase-data.md` | supabase/realtime | server-authoritative access, versioned actions, RLS |
-| `conventions/game-engine.md` | engine/functions | purity, injected RNG, invariants, property tests |
-| `conventions/animation.md` | components/design/routes | Motion presets, shared-layout throw, reduced motion |
-| `workflow.md` | manual (`#workflow`) | this task-setup checklist |
+| File                           | Loads                    | Governs                                                                                  |
+| ------------------------------ | ------------------------ | ---------------------------------------------------------------------------------------- |
+| `design-fidelity.md`           | always                   | the non-negotiable design-fidelity principle; points to `token-policy.md` / `styling.md` |
+| `verification.md`              | always                   | TDD, scoped-vs-full test phases, Playwright two-case policy, self-review, done-criteria  |
+| `git-workflow.md`              | always                   | per-task branch (from previous branch), commit+push when green, open PR titled with the task |
+| `token-policy.md`              | src tsx/ts/css           | which visual values are allowed (tokens only)                                            |
+| `styling.md`                   | src tsx/css              | how classes are written (no dynamic strings, `cn()`)                                     |
+| `component-architecture.md`    | src ts/tsx               | folder layout, naming, reuse, named exports                                              |
+| `conventions/supabase-data.md` | supabase/realtime        | server-authoritative access, versioned actions, RLS                                      |
+| `conventions/game-engine.md`   | engine/functions         | purity, injected RNG, invariants, property tests                                         |
+| `conventions/animation.md`     | components/design/routes | Motion presets, shared-layout throw, reduced motion                                      |
+| `workflow.md`                  | manual (`#workflow`)     | this task-setup checklist                                                                |
 
 ## TL;DR
 
