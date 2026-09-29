@@ -342,7 +342,7 @@ export const playAgain = onCall(async (request) => {
     // mode/teams — retain `team`, reset seatIndex (re-dealt at next start).
     for (const p of players) {
       if (p.doc.hasLeft) continue;
-      tx.update(playerRef(roomId, p.id), { seatIndex: null });
+      tx.update(playerRef(roomId, p.id), { seatIndex: null, cardCount: 0 });
       // Clear the player's hand doc from the finished round.
       tx.delete(handRef(roomId, p.id));
     }

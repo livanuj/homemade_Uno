@@ -1,31 +1,31 @@
 /**
  * Game over route — screen `07-game-over` and its variants (design.md §5.25).
  *
- * The design's `07` is the 2v2 team-win example; the `screen-map.json`
- * "not_yet_designed" notes add three variants that share the same layout:
- *   - Normal-mode single winner ("Maya wins!", one avatar) — Req 12.1
- *   - Guest view ("Waiting for the host" instead of "Play again") — Req 12.5
- *   - "Game ended" (Auto_Pause end): no winner, no confetti — Req 25.13
+ * One presentational component (`GameOverScreen`) renders all four variants
+ * from a `GameResultView`: winner vs. no-winner, one vs. two winner avatars,
+ * team vs. flat results grouping, and host "Play again" vs. guest waiting.
  *
- * One component renders all four from a `GameResultView`: whether there is a
- * winner, one vs. two winner avatars, the results grouping (by team in 2v2),
- * and host vs. guest primary control are all *state*, not separate screens.
+ * Two containers feed it:
+ *  - `LiveGameOver` (the real route): derives the `GameResultView` from the
+ *    live realtime channel (`state/current.phase === "ended"`, `winner`, plus
+ *    each player's denormalized count) through `mappers.ts`, wires "Play again"
+ *    (host → `playAgain`, returns everyone to the lobby with the round bumped)
+ *    and "Back to home" to the Cloud Functions / navigation. Host transfer is
+ *    handled server-side on leave, so `selfIsHost` simply reflects the current
+ *    host after any succession (Req 12.7).
+ *  - `FixtureGameOver` (preview/tests): when a `?state=` param is present,
+ *    renders the Task-8 fixture variant so Playwright captures and the unit
+ *    tests keep working.
  *
- * The view-model comes from the injectable fixtures seam (task 8.1): the four
- * variants map to the `team-win` / `normal-win` / `guest` / `ended` fixtures in
- * `@/game/view/fixtures`, chosen by a `?state=` query param so Playwright (and
- * links) reach each distinct screen. The realtime Firestore wiring lands in
- * task 5; the "Play again" / "Back to home" interactions are task 9.5 — here
- * the buttons are present with intentional no-op seams.
- *
- * REUSED components (not recreated): `Confetti` (§5.25), `Avatar` (§5.3) for
- * winner avatars + results rows, and `Button` (§5.4) for the primary / soft
- * CTAs. Every value is a token (token-policy.md); no firebase import.
+ * REUSED components: `Confetti`, `Avatar`, `Button`. Tokens only.
  */
 import { Avatar, type AvatarRing } from "@/components/Avatar";
 import { Button } from "@/components/Button";
 import { Confetti } from "@/components/Confetti";
+import { callAction } from "@/firebase/callAction";
+import { useSession } from "@/firebase/useSession";
 import { makeResultView } from "@/game/view/fixtures";
+import { toResultView } from "@/game/view/mappers";
 import type {
   GameResultView,
   ResultPlayerView,
@@ -33,7 +33,9 @@ import type {
 } from "@/game/view/types";
 import { cn } from "@/lib/cn";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
-import { useSearchParams } from "react-router-dom";
+import { useRoomChannel } from "@/realtime/useRoomChannel";
+import { useEffect, useMemo } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 /** Team → Avatar ring token. Non-team players (Normal) use the neutral `ink` ring. */
 const TEAM_RING: Record<TeamId, AvatarRing> = {
@@ -51,6 +53,84 @@ const TEAM_BADGE: Record<TeamId, string> = {
 function ringFor(player: ResultPlayerView): AvatarRing {
   return player.team ? TEAM_RING[player.team] : "ink";
 }
+
+/** Handlers for the result screen; a container supplies them. */
+interface ResultHandlers {
+  onPlayAgain(): void;
+  onBackHome(): void;
+}
+
+/** The default route: fixture preview when `?state=` is set, else live. */
+export function GameOverRoute() {
+  const [params] = useSearchParams();
+  if (params.get("state")) return <FixtureGameOver />;
+  return <LiveGameOver />;
+}
+
+// ---------------------------------------------------------------------------
+// Live container.
+// ---------------------------------------------------------------------------
+
+function LiveGameOver() {
+  const navigate = useNavigate();
+  const { code } = useParams();
+  const { playerId } = useSession();
+  const roomId = code ?? null;
+  const { store } = useRoomChannel(roomId, playerId);
+
+  const view = useMemo(() => toResultView(store), [store]);
+
+  // The host's "Play again" returns everyone to the lobby; guests follow when
+  // the room flips back to `lobby` via the room snapshot.
+  useEffect(() => {
+    if (store.room?.phase === "lobby") {
+      navigate(`/room/${code}`, { replace: true });
+    }
+  }, [store.room?.phase, code, navigate]);
+
+  if (!view || !roomId) {
+    return <ResultLoading />;
+  }
+
+  const handlers: ResultHandlers = {
+    onPlayAgain: () => void callAction("playAgain", { roomId }),
+    onBackHome: () => navigate("/"),
+  };
+
+  return <GameOverScreen view={view} handlers={handlers} />;
+}
+
+/** Loading shell until the ended state hydrates. */
+function ResultLoading() {
+  return (
+    <main className="grid h-dvh w-full place-items-center bg-paper">
+      <span role="status" className="text-body text-ink-muted">
+        Tallying the round…
+      </span>
+    </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fixture container (preview / tests via ?state=).
+// ---------------------------------------------------------------------------
+
+function FixtureGameOver() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const view = makeResultView(params.get("state"));
+  const handlers: ResultHandlers = {
+    onPlayAgain: () => {
+      /* preview seam */
+    },
+    onBackHome: () => navigate("/"),
+  };
+  return <GameOverScreen view={view} handlers={handlers} />;
+}
+
+// ---------------------------------------------------------------------------
+// Presentational screen + pieces.
+// ---------------------------------------------------------------------------
 
 /**
  * One "CARDS LEFT" row: avatar, name, an optional team-colored "Went out"
@@ -80,15 +160,13 @@ function ResultRow({ player }: { player: ResultPlayerView }) {
 
 /**
  * The "CARDS LEFT" results card (§5.25). In 2v2 the rows are grouped by team
- * (winning team first) with a `felt-edge` divider between the two teams; in
- * Normal it is one flat list.
+ * (winning team first); in Normal it is one flat list.
  */
 function ResultsCard({ view }: { view: GameResultView }) {
   const isTeam = view.mode === "team";
 
   let body: React.ReactNode;
   if (isTeam) {
-    // Group by team, winning team first (matches the reference: A then B).
     const winningTeam = view.winners[0]?.team;
     const teams: TeamId[] = winningTeam === "B" ? ["B", "A"] : ["A", "B"];
     const rowsFor = (team: TeamId) =>
@@ -119,16 +197,19 @@ function ResultsCard({ view }: { view: GameResultView }) {
   );
 }
 
-export function GameOverRoute() {
-  const [params] = useSearchParams();
-  const view = makeResultView(params.get("state"));
+function GameOverScreen({
+  view,
+  handlers,
+}: {
+  view: GameResultView;
+  handlers: ResultHandlers;
+}) {
   const reduced = usePrefersReducedMotion();
-
   const hasWinner = view.kind !== "none";
 
   return (
     <main className="relative flex h-dvh flex-col gap-[18px] overflow-hidden bg-paper px-5 pt-4 pb-7 pt-safe pb-safe">
-      {/* Confetti bursts only when there IS a winner (no confetti for "Game ended", Req 25.13). */}
+      {/* Confetti bursts only when there IS a winner (Req 25.13). */}
       {hasWinner && <Confetti reduced={reduced} />}
 
       {/* Winners + title */}
@@ -158,16 +239,11 @@ export function GameOverRoute() {
 
       <div className="grow" />
 
-      {/* Primary control: host "Play again" vs. guest waiting; "Back to home" for all. */}
+      {/* Primary control: host "Play again" vs. guest waiting; "Back to home". */}
       <div className="relative flex flex-col items-center gap-2.5">
         {view.selfIsHost ? (
           <>
-            <Button
-              variant="primary"
-              onClick={() => {
-                /* task 9.5 wires "Play again" (return to lobby, bump round) */
-              }}
-            >
+            <Button variant="primary" onClick={handlers.onPlayAgain}>
               Play again
             </Button>
             <span className="text-label font-semibold text-ink-muted">
@@ -182,13 +258,7 @@ export function GameOverRoute() {
             Waiting for the host
           </span>
         )}
-        <Button
-          variant="soft"
-          className="w-full"
-          onClick={() => {
-            /* task 9.5 wires "Back to home" navigation */
-          }}
-        >
+        <Button variant="soft" className="w-full" onClick={handlers.onBackHome}>
           Back to home
         </Button>
       </div>
