@@ -5,22 +5,24 @@
  * seam that currently uses fixtures. Nothing here is wired into the app yet —
  * the fixture store still backs the screens.
  */
-export { app, auth, db, functions, useEmulator } from "./client";
 export { ensureSession, onSession, type Session } from "./auth";
-export { useSession, type SessionStatus, type UseSessionResult } from "./useSession";
-export * from "./types";
+export { callAction, type ActionName, type CallResult } from "./callAction";
+export { app, auth, db, functions, useEmulator } from "./client";
 export {
-  actionConverter,
-  actionsRef,
-  deckConverter,
-  deckRef,
-  handConverter,
-  handRef,
-  playerConverter,
-  playerRef,
-  playersRef,
-  roomConverter,
-  roomRef,
-  stateConverter,
-  stateRef,
+    actionConverter,
+    actionsRef,
+    deckConverter,
+    deckRef,
+    handConverter,
+    handRef,
+    playerConverter,
+    playerRef,
+    playersRef,
+    roomConverter,
+    roomRef,
+    stateConverter,
+    stateRef
 } from "./converters";
+export * from "./types";
+export { useSession, type SessionStatus, type UseSessionResult } from "./useSession";
+
