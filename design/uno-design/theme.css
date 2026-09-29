@@ -1,0 +1,149 @@
+/*
+  Homemade Uno — Tailwind CSS v4 theme ("Paper Café" color theme)
+  Import this file once (e.g. in src/index.css). Every token below becomes a utility:
+  --color-ink -> bg-ink / text-ink / border-ink, --text-title -> text-title,
+  --radius-card -> rounded-card, --shadow-card -> shadow-card, etc.
+  Fonts: load Bricolage Grotesque (500,700,800) and Manrope (500,600,700,800) from Google Fonts in index.html.
+*/
+@import "tailwindcss";
+
+@theme {
+  /* ---------- Fonts ---------- */
+  --font-display: "Bricolage Grotesque", Georgia, serif;   /* headings, room codes, card numerals, primary CTAs */
+  --font-sans: "Manrope", "Helvetica Neue", sans-serif;     /* everything else (default body font) */
+
+  /* ---------- Surfaces & text ---------- */
+  --color-paper: #F2EBDD;        /* app background */
+  --color-felt: #E7DCC8;         /* game table oval */
+  --color-felt-edge: #D6CCBA;    /* table border, dividers */
+  --color-surface: #FFFDF8;      /* cards/panels, input fill, card borders */
+  --color-ink: #2B2320;          /* primary text, primary buttons */
+  --color-ink-muted: #6E625A;    /* secondary text, captions */
+  --color-ink-faint: #9A8E84;    /* placeholders only */
+  --color-line: #CFC3AE;         /* input borders, chip outlines, switch off */
+  --color-avatar: #E3D8C5;       /* avatar fill */
+  --color-card-back: #3A302B;    /* face-down cards */
+  --color-card-back-deep: #2B2320; /* wild card base, lower cards in draw pile */
+  --color-danger: #B23E28;       /* leave game, input errors, ✗ badges */
+  --color-turn: #E0A423;         /* active-turn ring/glow */
+
+  /* ---------- Card suits (fill / ink-on-white / ink-on-fill) ---------- */
+  --color-suit-red: #D4533B;
+  --color-suit-red-ink: #B23E28;
+  --color-suit-yellow: #E0A423;
+  --color-suit-yellow-ink: #9A6B0A;
+  --color-suit-yellow-on: #3B2A08;  /* corner text on yellow (white fails contrast) */
+  --color-suit-green: #5B8F4E;
+  --color-suit-green-ink: #456E3B;
+  --color-suit-blue: #36598F;
+  --color-suit-blue-ink: #2C4A78;
+
+  /* ---------- Teams (2v2 only) ---------- */
+  --color-team-a: #9C4A7A;
+  --color-team-b: #2E7D7A;
+
+  /* ---------- Type scale (size / line-height / tracking / weight) ---------- */
+  --text-code: 2.625rem;          /* 42px room code (lobby) */
+  --text-code--line-height: 1;
+  --text-code--letter-spacing: 0.14em;
+  --text-code--font-weight: 800;
+
+  --text-hero: 2.5rem;            /* 40px app title (home) */
+  --text-hero--line-height: 1.1;
+  --text-hero--letter-spacing: -0.01em;
+  --text-hero--font-weight: 800;
+
+  --text-sheet: 1.625rem;         /* 26px drawer title, small room code */
+  --text-sheet--line-height: 1.15;
+  --text-sheet--font-weight: 800;
+
+  --text-title: 1.25rem;          /* 20px screen title */
+  --text-title--line-height: 1.2;
+  --text-title--font-weight: 700;
+
+  --text-cta: 1.125rem;           /* 18px primary call-to-action */
+  --text-cta--line-height: 1;
+  --text-cta--font-weight: 800;
+
+  --text-input: 1.0625rem;        /* 17px text inputs */
+  --text-input--line-height: 1.4;
+  --text-input--font-weight: 600;
+
+  --text-body: 0.9375rem;         /* 15px names, rows, buttons */
+  --text-body--line-height: 1.4;
+  --text-body--font-weight: 700;
+
+  --text-label: 0.8125rem;        /* 13px form labels, chips, pills */
+  --text-label--line-height: 1.3;
+  --text-label--font-weight: 700;
+
+  --text-paragraph: 0.9375rem;    /* 15px running text: How to play, dialogs, sheets */
+  --text-paragraph--line-height: 1.5;
+  --text-paragraph--font-weight: 500;
+
+  --text-caption: 0.75rem;        /* 12px descriptions, badges, section headers */
+  --text-caption--line-height: 1.3;
+  --text-caption--font-weight: 600;
+
+  --text-micro: 0.6875rem;        /* 11px meta under names */
+  --text-micro--line-height: 1.3;
+  --text-micro--font-weight: 600;
+
+  /* Card numerals */
+  --text-card-lg: 1.625rem;       /* 26px center numeral, discard pile */
+  --text-card-lg--line-height: 1;
+  --text-card-lg--font-weight: 800;
+  --text-card: 1.5rem;            /* 24px center numeral, hand card */
+  --text-card--line-height: 1;
+  --text-card--font-weight: 800;
+  --text-card-corner: 0.8125rem;  /* 13px corner index */
+  --text-card-corner--line-height: 1;
+  --text-card-corner--font-weight: 800;
+
+  /* ---------- Radii ---------- */
+  --radius-card-back: 7px;
+  --radius-card-sm: 8px;          /* partner / small cards */
+  --radius-card: 12px;            /* hand + pile cards */
+  --radius-card-lg: 14px;         /* hero cards on home */
+  --radius-row: 14px;             /* player rows */
+  --radius-input: 16px;
+  --radius-section: 18px;         /* team cards, mode card, room box */
+  --radius-panel: 22px;           /* room code panel */
+  --radius-drawer: 24px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-panel: 0 2px 8px rgba(40, 30, 40, 0.08);
+  --shadow-card: 0 6px 14px rgba(40, 30, 40, 0.18);
+  --shadow-card-lifted: 0 0 0 3px #2B2320, 0 14px 24px rgba(40, 30, 40, 0.3);
+  --shadow-cta: 0 6px 16px rgba(40, 30, 40, 0.25);
+  --shadow-drawer: -12px 0 32px rgba(40, 30, 40, 0.25);
+  --shadow-sheet: 0 -12px 32px rgba(40, 30, 40, 0.25);   /* bottom sheets */
+  --shadow-turn: 0 0 0 4px rgba(224, 164, 35, 0.3), 0 0 18px rgba(224, 164, 35, 0.6);
+  --inset-shadow-felt: inset 0 0 60px rgba(40, 30, 40, 0.12);
+
+  /* ---------- Motion ---------- */
+  --ease-card: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-turn-pulse: turn-pulse 1.6s ease-in-out infinite;
+  @keyframes turn-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(224, 164, 35, 0.3), 0 0 18px rgba(224, 164, 35, 0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(224, 164, 35, 0.15), 0 0 26px rgba(224, 164, 35, 0.35); }
+  }
+}
+
+/* Installed-app (PWA) safe areas: content never sits under the notch or home bar. */
+@utility pt-safe { padding-top: max(16px, env(safe-area-inset-top)); }
+@utility pb-safe { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
+@layer base {
+  html, body { height: 100%; }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    overscroll-behavior: none;            /* no pull-to-refresh mid-game */
+    -webkit-tap-highlight-color: transparent;
+  }
+  input::placeholder { color: var(--color-ink-faint); }
+  :focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: 1ms !important; }
+  }
+}

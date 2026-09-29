@@ -1,0 +1,1007 @@
+{
+  "app": "Homemade Uno",
+  "color_theme": "Paper Café",
+  "design_viewport": {
+    "w": 390,
+    "h": 844
+  },
+  "how_to_use": [
+    "Find a requirement in requirement_index to get the screens that implement it.",
+    "Open each screen's image to see it and its html for exact values.",
+    "Build with tokens from theme.css only; see design.md for components.",
+    "Screens with kind \"overlay\" are drawn on top of the screen named in shown_over; build them as components, not routes.",
+    "Requirement numbers refer to requirements.md after applying requirements-updates.md."
+  ],
+  "screens": [
+    {
+      "id": "01-home",
+      "order": 1,
+      "board_name": "Homemade Uno · Home",
+      "image": "screens/01-home.png",
+      "html": "screens/01-home.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "First screen when there's no room. Card-fan hero, \"Homemade Uno\" title and tagline, \"Your name\" input, \"Create a room\" button, an \"or join a friend\" divider, the room-code input with \"Join\", a \"How to play\" link, and a settings button. Opens with the code pre-filled when a friend follows an invite link.",
+      "requirements": [
+        "1.1",
+        "1.7",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.5"
+      ],
+      "entered_from": [
+        "App launch with no active room",
+        "Invite link (code pre-filled)",
+        "Back from any side page"
+      ],
+      "leads_to": [
+        {
+          "screen": "02a-lobby-just-created",
+          "trigger": "Tap \"Create a room\""
+        },
+        {
+          "screen": "02f-lobby-guest",
+          "trigger": "Tap \"Join\" with a valid code (game not started)"
+        },
+        {
+          "screen": "01b-home-room-not-found",
+          "trigger": "Tap \"Join\" with an unknown code"
+        },
+        {
+          "screen": "01c-game-already-started",
+          "trigger": "Join a room whose game is in progress"
+        },
+        {
+          "screen": "01d-settings",
+          "trigger": "Tap the settings button"
+        },
+        {
+          "screen": "01e-how-to-play",
+          "trigger": "Tap \"How to play\""
+        }
+      ]
+    },
+    {
+      "id": "01b-home-room-not-found",
+      "order": 2,
+      "board_name": "Homemade Uno · Home · room not found",
+      "image": "screens/01b-home-room-not-found.png",
+      "html": "screens/01b-home-room-not-found.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Home after \"Join\" with a code that matches no room. The code field gets a red border and a red message appears under it: \"No room uses the code ABCD. Check the code with your friend and try again.\" The player stays on Home.",
+      "requirements": [
+        "2.4"
+      ],
+      "entered_from": [
+        "01-home"
+      ],
+      "leads_to": [
+        {
+          "screen": "01-home",
+          "trigger": "Edit the code (error clears)"
+        }
+      ]
+    },
+    {
+      "id": "01c-game-already-started",
+      "order": 3,
+      "board_name": "Homemade Uno · Game already started",
+      "image": "screens/01c-game-already-started.png",
+      "html": "screens/01c-game-already-started.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Full screen shown when someone opens an invite link to a game that's already in progress and they weren't part of it. Fanned card backs, the room code, \"This game has already started\", a short explanation, and \"Back to home\".",
+      "requirements": [
+        "3.5"
+      ],
+      "entered_from": [
+        "01-home",
+        "Invite link"
+      ],
+      "leads_to": [
+        {
+          "screen": "01-home",
+          "trigger": "Tap \"Back to home\""
+        }
+      ]
+    },
+    {
+      "id": "01d-settings",
+      "order": 4,
+      "board_name": "Homemade Uno · Settings",
+      "image": "screens/01d-settings.png",
+      "html": "screens/01d-settings.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Opened from the Home settings button. Editable name, switches for Sound effects, Vibration (hidden on devices without vibration), and Highlight playable cards, a \"How to play\" link, and the app version.",
+      "requirements": [
+        "1.7",
+        "16.7"
+      ],
+      "entered_from": [
+        "01-home"
+      ],
+      "leads_to": [
+        {
+          "screen": "01e-how-to-play",
+          "trigger": "Tap \"How to play\""
+        },
+        {
+          "screen": "01-home",
+          "trigger": "Tap back"
+        }
+      ]
+    },
+    {
+      "id": "01e-how-to-play",
+      "order": 5,
+      "board_name": "Homemade Uno · How to play",
+      "image": "screens/01e-how-to-play.png",
+      "html": "screens/01e-how-to-play.html",
+      "size": {
+        "w": 390,
+        "h": 2012
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Scrolling rules page opened from Home, Settings, or the in-game menu. Sections: goal, your turn (with ✓/✗ matching examples), action cards, stacking, last card, 2v2 teams, and what happens when someone drops out.",
+      "requirements": [
+        "16.5"
+      ],
+      "entered_from": [
+        "01-home",
+        "01d-settings",
+        "05-menu"
+      ],
+      "leads_to": [
+        {
+          "screen": "(previous screen)",
+          "trigger": "Tap back"
+        }
+      ]
+    },
+    {
+      "id": "02a-lobby-just-created",
+      "order": 6,
+      "board_name": "Homemade Uno · Lobby · just created",
+      "image": "screens/02a-lobby-just-created.png",
+      "html": "screens/02a-lobby-just-created.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "What the host sees right after \"Create a room\". Room-code panel with \"Copy link\" and \"Share invite\", the mode control set to Normal, only the host listed plus a dashed \"Share the link to invite friends\" slot, and \"Start game\" disabled with \"Invite at least 1 more player to start\".",
+      "requirements": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "4.1",
+        "4.2",
+        "4.7"
+      ],
+      "entered_from": [
+        "01-home"
+      ],
+      "leads_to": [
+        {
+          "screen": "02b-lobby-normal",
+          "trigger": "Friends join (Normal selected)"
+        },
+        {
+          "screen": "02c-lobby-2v2-waiting",
+          "trigger": "Host taps \"Play 2v2\""
+        },
+        {
+          "screen": "01-home",
+          "trigger": "Tap back (leave room)"
+        }
+      ]
+    },
+    {
+      "id": "02b-lobby-normal",
+      "order": 7,
+      "board_name": "Homemade Uno · Lobby · normal game",
+      "image": "screens/02b-lobby-normal.png",
+      "html": "screens/02b-lobby-normal.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Host view in Normal mode with 5 players in one list. \"Play 2v2\" is greyed out with the note \"2v2 needs exactly 4 players. It unlocks if the room gets back to 4.\" \"Start game\" is enabled.",
+      "requirements": [
+        "4.2",
+        "4.4",
+        "4.9"
+      ],
+      "entered_from": [
+        "02a-lobby-just-created",
+        "02c-lobby-2v2-waiting (host taps \"Normal\", or a 5th player joins)",
+        "07-game-over (\"Play again\")"
+      ],
+      "leads_to": [
+        {
+          "screen": "02c-lobby-2v2-waiting",
+          "trigger": "Host taps \"Play 2v2\" (only with 4 or fewer players)"
+        },
+        {
+          "screen": "04-game-normal",
+          "trigger": "Host taps \"Start game\""
+        }
+      ]
+    },
+    {
+      "id": "02c-lobby-2v2-waiting",
+      "order": 8,
+      "board_name": "Homemade Uno · Lobby · 2v2 waiting",
+      "image": "screens/02c-lobby-2v2-waiting.png",
+      "html": "screens/02c-lobby-2v2-waiting.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Host has selected \"Play 2v2\" with only 3 players. Team A and Team B cards, one dashed \"Waiting for a player\" slot, drag handles on each row, and \"Start game\" disabled with \"2v2 needs exactly 4 players. 3 of 4 have joined.\"",
+      "requirements": [
+        "4.5",
+        "4.6",
+        "4.8"
+      ],
+      "entered_from": [
+        "02a-lobby-just-created",
+        "02b-lobby-normal"
+      ],
+      "leads_to": [
+        {
+          "screen": "02d-lobby-2v2-ready",
+          "trigger": "4th player joins"
+        },
+        {
+          "screen": "02b-lobby-normal",
+          "trigger": "Host taps \"Normal\", or a 5th player joins (auto-switch + toast)"
+        }
+      ]
+    },
+    {
+      "id": "02d-lobby-2v2-ready",
+      "order": 9,
+      "board_name": "Homemade Uno · Lobby · 2v2 ready",
+      "image": "screens/02d-lobby-2v2-ready.png",
+      "html": "screens/02d-lobby-2v2-ready.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Host view with exactly 4 players in 2v2. Two full teams, a six-dot drag handle on every row, the hint \"Drag to change teams\", and \"Start game\" enabled.",
+      "requirements": [
+        "4.5",
+        "21.1"
+      ],
+      "entered_from": [
+        "02c-lobby-2v2-waiting",
+        "07-game-over (\"Play again\")"
+      ],
+      "leads_to": [
+        {
+          "screen": "02e-lobby-dragging",
+          "trigger": "Host drags a player row"
+        },
+        {
+          "screen": "03-game-2v2",
+          "trigger": "Host taps \"Start game\""
+        },
+        {
+          "screen": "02c-lobby-2v2-waiting",
+          "trigger": "A player leaves"
+        }
+      ]
+    },
+    {
+      "id": "02e-lobby-dragging",
+      "order": 10,
+      "board_name": "Homemade Uno · Lobby · dragging a player",
+      "image": "screens/02e-lobby-dragging.png",
+      "html": "screens/02e-lobby-dragging.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "The moment the host drags Leo from Team B onto Maya in Team A. Leo's row is lifted and tilted, Maya's row shows a dashed \"Swap\" target, Leo's old slot is a dashed placeholder, and the hint reads \"Drop on a player to swap\".",
+      "requirements": [
+        "21.2",
+        "21.3",
+        "21.4",
+        "21.5",
+        "17.8"
+      ],
+      "entered_from": [
+        "02d-lobby-2v2-ready"
+      ],
+      "leads_to": [
+        {
+          "screen": "02d-lobby-2v2-ready",
+          "trigger": "Drop (swap or move) or cancel"
+        }
+      ]
+    },
+    {
+      "id": "02f-lobby-guest",
+      "order": 11,
+      "board_name": "Homemade Uno · Lobby · guest view",
+      "image": "screens/02f-lobby-guest.png",
+      "html": "screens/02f-lobby-guest.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "What non-host players see (here, Maya). The mode is read-only (\"chosen by the host\"), there are no drag handles, and \"Waiting for Alex to start the game\" with a \"Leave room\" button replaces \"Start game\".",
+      "requirements": [
+        "4.3",
+        "4.10",
+        "21.7"
+      ],
+      "entered_from": [
+        "01-home (join)",
+        "Invite link with a stored name"
+      ],
+      "leads_to": [
+        {
+          "screen": "03-game-2v2",
+          "trigger": "Host starts a 2v2 game"
+        },
+        {
+          "screen": "04-game-normal",
+          "trigger": "Host starts a normal game"
+        },
+        {
+          "screen": "01-home",
+          "trigger": "Tap \"Leave room\""
+        }
+      ]
+    },
+    {
+      "id": "03-game-2v2",
+      "order": 12,
+      "board_name": "Homemade Uno · 2v2 table",
+      "image": "screens/03-game-2v2.png",
+      "html": "screens/03-game-2v2.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "2v2 game in progress on your turn. Partner's hand face-up and tilted at the top, opponents' card backs angled on the sides, draw and discard piles with the direction ring, the turn pill, your avatar with the \"LAST CARD!\" button, and your fanned hand with unplayable cards dimmed and the selected card raised.",
+      "requirements": [
+        "6.4",
+        "6.5",
+        "7.5",
+        "11.1",
+        "13.1",
+        "13.2",
+        "13.3",
+        "13.4"
+      ],
+      "entered_from": [
+        "02d-lobby-2v2-ready",
+        "02f-lobby-guest"
+      ],
+      "leads_to": [
+        {
+          "screen": "05-menu",
+          "trigger": "Tap the menu button"
+        },
+        {
+          "screen": "06a-wild-color-picker",
+          "trigger": "Play a Wild or Wild +4"
+        },
+        {
+          "screen": "06b-drew-playable-card",
+          "trigger": "Draw a playable card"
+        },
+        {
+          "screen": "06c-player-disconnected",
+          "trigger": "A player loses connection (state of this table)"
+        },
+        {
+          "screen": "07-game-over",
+          "trigger": "A team wins"
+        }
+      ]
+    },
+    {
+      "id": "04-game-normal",
+      "order": 13,
+      "board_name": "Homemade Uno · Normal table",
+      "image": "screens/04-game-normal.png",
+      "html": "screens/04-game-normal.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Normal game with 5 players on someone else's turn. Four opponents with card backs (two tilted at the top, two angled at the sides), the active player's avatar glowing, and the turn pill naming them and the current color.",
+      "requirements": [
+        "5.6",
+        "6.4",
+        "6.5",
+        "13.3"
+      ],
+      "entered_from": [
+        "02b-lobby-normal",
+        "02f-lobby-guest"
+      ],
+      "leads_to": [
+        {
+          "screen": "05-menu",
+          "trigger": "Tap the menu button"
+        },
+        {
+          "screen": "06a-wild-color-picker",
+          "trigger": "Play a Wild or Wild +4"
+        },
+        {
+          "screen": "06b-drew-playable-card",
+          "trigger": "Draw a playable card"
+        },
+        {
+          "screen": "06c-player-disconnected",
+          "trigger": "A player loses connection (state of this table)"
+        },
+        {
+          "screen": "07-game-over",
+          "trigger": "A player wins"
+        }
+      ]
+    },
+    {
+      "id": "05-menu",
+      "order": 14,
+      "board_name": "Homemade Uno · In-game menu",
+      "image": "screens/05-menu.png",
+      "html": "screens/05-menu.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "03-game-2v2 or 04-game-normal",
+      "description": "Drawer that slides in from the right when the menu button is tapped. Room code with \"Copy link\", cards left per player (grouped by team in 2v2), the three setting switches, \"How to play\", and \"Leave game\".",
+      "requirements": [
+        "1.3",
+        "22.1"
+      ],
+      "entered_from": [
+        "03-game-2v2",
+        "04-game-normal"
+      ],
+      "leads_to": [
+        {
+          "screen": "06d-leave-confirm",
+          "trigger": "Tap \"Leave game\""
+        },
+        {
+          "screen": "01e-how-to-play",
+          "trigger": "Tap \"How to play\""
+        },
+        {
+          "screen": "(game table)",
+          "trigger": "Tap close or the backdrop"
+        }
+      ]
+    },
+    {
+      "id": "06a-wild-color-picker",
+      "order": 15,
+      "board_name": "Homemade Uno · Wild · choose a color",
+      "image": "screens/06a-wild-color-picker.png",
+      "html": "screens/06a-wild-color-picker.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "03-game-2v2 (shown) or 04-game-normal",
+      "description": "Bottom sheet over the table right after playing a Wild or Wild +4. Shows the card played, \"Choose a color\", who draws next, and four large color buttons, each with its shape and name. There is no cancel option.",
+      "requirements": [
+        "8.1",
+        "8.2",
+        "9.6"
+      ],
+      "entered_from": [
+        "03-game-2v2",
+        "04-game-normal"
+      ],
+      "leads_to": [
+        {
+          "screen": "(game table)",
+          "trigger": "Pick a color (required, no cancel)"
+        }
+      ]
+    },
+    {
+      "id": "06b-drew-playable-card",
+      "order": 16,
+      "board_name": "Homemade Uno · Drew a playable card",
+      "image": "screens/06b-drew-playable-card.png",
+      "html": "screens/06b-drew-playable-card.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "03-game-2v2 (shown) or 04-game-normal",
+      "description": "After drawing a card that can be played. The drawn card is shown enlarged (\"You drew\"), with a sheet saying \"Red 3 fits the pile\" and the buttons \"Play it\" and \"Keep it\" (which ends the turn).",
+      "requirements": [
+        "10.2"
+      ],
+      "entered_from": [
+        "03-game-2v2",
+        "04-game-normal"
+      ],
+      "leads_to": [
+        {
+          "screen": "(game table)",
+          "trigger": "\"Play it\" plays the card; \"Keep it\" ends the turn"
+        }
+      ]
+    },
+    {
+      "id": "06c-player-disconnected",
+      "order": 17,
+      "board_name": "Homemade Uno · Player disconnected",
+      "image": "screens/06c-player-disconnected.png",
+      "html": "screens/06c-player-disconnected.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "04-game-normal (shown) or 03-game-2v2 — a state of the table, not a separate route",
+      "description": "Normal game where Nora lost connection on her turn. Her avatar is faded with an offline badge and a countdown ring, her name reads \"Nora · offline\", the pill says \"Waiting for Nora · skipping in 42s\", and a \"Nora lost connection\" toast appears.",
+      "requirements": [
+        "15.1",
+        "15.3",
+        "15.5"
+      ],
+      "entered_from": [
+        "03-game-2v2",
+        "04-game-normal"
+      ],
+      "leads_to": [
+        {
+          "screen": "(game table)",
+          "trigger": "Player reconnects, or their turn is skipped after 60s"
+        }
+      ]
+    },
+    {
+      "id": "06d-leave-confirm",
+      "order": 18,
+      "board_name": "Homemade Uno · Leave game · confirm",
+      "image": "screens/06d-leave-confirm.png",
+      "html": "screens/06d-leave-confirm.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "03-game-2v2 (shown) or 04-game-normal",
+      "description": "Dialog after tapping \"Leave game\" in the menu. \"Leave this game?\" with an explanation that your turns will be skipped and you can come back through the invite link, then \"Stay in game\" (main) and \"Leave game\" (red).",
+      "requirements": [
+        "22.1",
+        "22.2"
+      ],
+      "entered_from": [
+        "05-menu"
+      ],
+      "leads_to": [
+        {
+          "screen": "01-home",
+          "trigger": "Tap \"Leave game\""
+        },
+        {
+          "screen": "(game table)",
+          "trigger": "Tap \"Stay in game\""
+        }
+      ]
+    },
+    {
+      "id": "07-game-over",
+      "order": 19,
+      "board_name": "Homemade Uno · Game over · team wins",
+      "image": "screens/07-game-over.png",
+      "html": "screens/07-game-over.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "page",
+      "shown_over": null,
+      "description": "Result screen shown to everyone when the game ends (2v2 example). Confetti in the four card shapes, the winners' avatars, \"Team A wins!\", who played the last card, cards left per player, \"Play again\" (host only; others see \"Waiting for the host\"), and \"Back to home\".",
+      "requirements": [
+        "12.1",
+        "12.2",
+        "12.3",
+        "12.4",
+        "12.5"
+      ],
+      "entered_from": [
+        "03-game-2v2",
+        "04-game-normal"
+      ],
+      "leads_to": [
+        {
+          "screen": "02d-lobby-2v2-ready / 02b-lobby-normal",
+          "trigger": "Host taps \"Play again\" (same mode and teams)"
+        },
+        {
+          "screen": "01-home",
+          "trigger": "Tap \"Back to home\""
+        }
+      ]
+    },
+    {
+      "id": "08a-paused",
+      "board_name": "Homemade Uno · Game paused",
+      "image": "screens/08a-paused.png",
+      "html": "screens/08a-paused.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "03-game-2v2 (shown) or 04-game-normal",
+      "description": "Paused overlay when nobody is disconnected. Pause icon, \"Game paused\", \"Maya paused the game. Anyone can resume when everyone's ready.\", a \"Paused for 2:14\" status, and \"Resume game\" for any connected player.",
+      "requirements": [
+        "25.3",
+        "25.4",
+        "25.7",
+        "25.15"
+      ],
+      "entered_from": [
+        "05-menu (\"Pause game\")"
+      ],
+      "leads_to": [
+        {
+          "screen": "(game table)",
+          "trigger": "Any connected player taps \"Resume game\""
+        }
+      ]
+    },
+    {
+      "id": "08b-paused-waiting",
+      "board_name": "Homemade Uno · Paused · waiting for a player",
+      "image": "screens/08b-paused-waiting.png",
+      "html": "screens/08b-paused-waiting.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "04-game-normal (shown) or 03-game-2v2",
+      "description": "Paused overlay while Nora is offline. Her faded avatar with an offline badge, \"Waiting for Nora\", who paused, \"It resumes by itself when Nora is back.\", a \"Paused for 1:05\" status, and \"Continue without Nora\" with the note that her turns will be skipped until she returns.",
+      "requirements": [
+        "25.5",
+        "25.8",
+        "25.9"
+      ],
+      "entered_from": [
+        "06c-player-disconnected (\"Pause and wait\")",
+        "05-menu (\"Pause game\") while someone is offline"
+      ],
+      "leads_to": [
+        {
+          "screen": "(game table)",
+          "trigger": "Nora reconnects (automatic resume, toast \"Nora is back\")"
+        },
+        {
+          "screen": "(game table)",
+          "trigger": "Any connected player taps \"Continue without Nora\""
+        }
+      ]
+    },
+    {
+      "id": "08c-paused-team-offline",
+      "board_name": "Homemade Uno · Paused · a team is offline",
+      "image": "screens/08c-paused-team-offline.png",
+      "html": "screens/08c-paused-team-offline.html",
+      "size": {
+        "w": 390,
+        "h": 844
+      },
+      "kind": "overlay",
+      "shown_over": "03-game-2v2 (shown); in Normal mode it appears when fewer than 2 players are connected",
+      "description": "Automatic pause because both Team B players disconnected. Both faded avatars with offline badges, \"Team B lost connection\", \"The game paused by itself. It resumes when Leo or Sara comes back.\", a \"Paused for 3:40\" status, and \"End game\" in red.",
+      "requirements": [
+        "25.10",
+        "25.11",
+        "25.12",
+        "25.13",
+        "15.7"
+      ],
+      "entered_from": [
+        "03-game-2v2 (both players of one team disconnect)",
+        "04-game-normal (fewer than 2 players connected)"
+      ],
+      "leads_to": [
+        {
+          "screen": "(game table)",
+          "trigger": "A missing player reconnects (automatic resume)"
+        },
+        {
+          "screen": "07-game-over (variant \"Game ended\", not yet designed)",
+          "trigger": "Any connected player taps \"End game\""
+        }
+      ]
+    }
+  ],
+  "requirement_index": {
+    "1.1": [
+      "01-home",
+      "02a-lobby-just-created"
+    ],
+    "1.2": [
+      "02a-lobby-just-created"
+    ],
+    "1.3": [
+      "02a-lobby-just-created",
+      "05-menu"
+    ],
+    "1.4": [
+      "02a-lobby-just-created"
+    ],
+    "1.7": [
+      "01-home",
+      "01d-settings"
+    ],
+    "2.1": [
+      "01-home"
+    ],
+    "2.2": [
+      "01-home"
+    ],
+    "2.3": [
+      "01-home"
+    ],
+    "2.4": [
+      "01b-home-room-not-found"
+    ],
+    "2.5": [
+      "01-home"
+    ],
+    "3.5": [
+      "01c-game-already-started"
+    ],
+    "4.1": [
+      "02a-lobby-just-created"
+    ],
+    "4.2": [
+      "02a-lobby-just-created",
+      "02b-lobby-normal"
+    ],
+    "4.3": [
+      "02f-lobby-guest"
+    ],
+    "4.4": [
+      "02b-lobby-normal"
+    ],
+    "4.5": [
+      "02c-lobby-2v2-waiting",
+      "02d-lobby-2v2-ready"
+    ],
+    "4.6": [
+      "02c-lobby-2v2-waiting"
+    ],
+    "4.7": [
+      "02a-lobby-just-created"
+    ],
+    "4.8": [
+      "02c-lobby-2v2-waiting"
+    ],
+    "4.9": [
+      "02b-lobby-normal"
+    ],
+    "4.10": [
+      "02f-lobby-guest"
+    ],
+    "5.6": [
+      "04-game-normal"
+    ],
+    "6.4": [
+      "03-game-2v2",
+      "04-game-normal"
+    ],
+    "6.5": [
+      "03-game-2v2",
+      "04-game-normal"
+    ],
+    "7.5": [
+      "03-game-2v2"
+    ],
+    "8.1": [
+      "06a-wild-color-picker"
+    ],
+    "8.2": [
+      "06a-wild-color-picker"
+    ],
+    "9.6": [
+      "06a-wild-color-picker"
+    ],
+    "10.2": [
+      "06b-drew-playable-card"
+    ],
+    "11.1": [
+      "03-game-2v2"
+    ],
+    "12.1": [
+      "07-game-over"
+    ],
+    "12.2": [
+      "07-game-over"
+    ],
+    "12.3": [
+      "07-game-over"
+    ],
+    "12.4": [
+      "07-game-over"
+    ],
+    "12.5": [
+      "07-game-over"
+    ],
+    "13.1": [
+      "03-game-2v2"
+    ],
+    "13.2": [
+      "03-game-2v2"
+    ],
+    "13.3": [
+      "03-game-2v2",
+      "04-game-normal"
+    ],
+    "13.4": [
+      "03-game-2v2"
+    ],
+    "15.1": [
+      "06c-player-disconnected"
+    ],
+    "15.3": [
+      "06c-player-disconnected"
+    ],
+    "15.5": [
+      "06c-player-disconnected"
+    ],
+    "16.5": [
+      "01e-how-to-play"
+    ],
+    "16.7": [
+      "01d-settings"
+    ],
+    "17.8": [
+      "02e-lobby-dragging"
+    ],
+    "21.1": [
+      "02d-lobby-2v2-ready"
+    ],
+    "21.2": [
+      "02e-lobby-dragging"
+    ],
+    "21.3": [
+      "02e-lobby-dragging"
+    ],
+    "21.4": [
+      "02e-lobby-dragging"
+    ],
+    "21.5": [
+      "02e-lobby-dragging"
+    ],
+    "21.7": [
+      "02f-lobby-guest"
+    ],
+    "22.1": [
+      "05-menu",
+      "06d-leave-confirm"
+    ],
+    "22.2": [
+      "06d-leave-confirm"
+    ],
+        "15.7": [
+      "08c-paused-team-offline"
+    ],
+    "25.3": [
+      "08a-paused"
+    ],
+    "25.4": [
+      "08a-paused"
+    ],
+    "25.5": [
+      "08b-paused-waiting"
+    ],
+    "25.7": [
+      "08a-paused"
+    ],
+    "25.8": [
+      "08b-paused-waiting"
+    ],
+    "25.9": [
+      "08b-paused-waiting"
+    ],
+    "25.10": [
+      "08c-paused-team-offline"
+    ],
+    "25.11": [
+      "08c-paused-team-offline"
+    ],
+    "25.12": [
+      "08c-paused-team-offline"
+    ],
+    "25.13": [
+      "08c-paused-team-offline"
+    ],
+    "25.15": [
+      "08a-paused"
+    ]
+  },
+  "not_yet_designed": [
+    {
+      "for_requirement": "2.7",
+      "state": "Room full",
+      "note": "Home error state like 01b-home-room-not-found with \"This room is full (8 players).\""
+    },
+    {
+      "for_requirement": "4.9a",
+      "state": "Auto-switch to Normal toast",
+      "note": "Lobby toast: \"Switched to a normal game. 2v2 needs exactly 4 players.\""
+    },
+    {
+      "for_requirement": "15.7",
+      "state": "Game ended early",
+      "note": "Variant of 07-game-over titled \"Game ended\" when fewer than 2 players remain connected."
+    },
+    {
+      "for_requirement": "12.5",
+      "state": "Guest game over",
+      "note": "Variant of 07-game-over with \"Waiting for the host\" instead of \"Play again\"."
+    },
+    {
+      "for_requirement": "12.1",
+      "state": "Normal-mode winner",
+      "note": "Variant of 07-game-over with one winner avatar and \"Maya wins!\""
+    },
+    {
+      "for_requirement": "25.13",
+      "state": "Game ended",
+      "note": "Variant of 07-game-over titled \"Game ended\", with no winner and no confetti."
+    }
+  ]
+}

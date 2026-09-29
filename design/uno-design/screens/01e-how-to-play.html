@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>01e-how-to-play — Homemade Uno · How to play</title>
+<!--
+  Homemade Uno design reference: 01e-how-to-play
+  Board: Homemade Uno · How to play
+  Requirements: 16.5
+  Static reference only. Inline styles hold exact px/hex values; rebuild with the Tailwind tokens in ../theme.css (see ../design.md).
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:Manrope,'Helvetica Neue',sans-serif;background:#F2EBDD;color:#2B2320}
+a{color:#2B2320}a:hover{color:#000000}
+input::placeholder{color:#9A8E84}
+</style>
+</head>
+<body>
+<div style="width: 390px; min-height: 2012px; box-sizing: border-box; padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 16px; background: #F2EBDD; font-family: Manrope, sans-serif; color: #2B2320">
+<div style="display: flex; align-items: center; justify-content: space-between; height: 44px; flex-shrink: 0">
+<button type="button" aria-label="Back" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: none; background: #FFFDF8; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2B2320" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 700">How to play</h1>
+<span style="width: 44px"></span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 4px 4px 8px">
+<p style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 26px; font-weight: 800; line-height: 1.15">Be the first to play every card in your hand.</p>
+<p style="margin: 0; font-size: 15px; font-weight: 500; line-height: 1.5; color: #6E625A">Everyone starts with 7 cards. In 2v2, your team wins as soon as either of you runs out.</p>
+</div>
+<section style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 18px; background: #FFFDF8; box-shadow: 0 2px 8px rgba(40, 30, 40, 0.08)">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2">On your turn</h2>
+<p style="margin: 0; font-size: 15px; font-weight: 500; line-height: 1.5; color: #2B2320">Play one card that matches the color on the pile, or has the same number or symbol. If you can’t play, or would rather not, tap the draw pile to take one card. If it fits, you can play it straight away.</p>
+<div style="display: flex; align-items: flex-end; justify-content: space-between; padding: 12px 4px 4px">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #D4533B; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #B23E28">7</span></div><span style="font-size: 12px; font-weight: 700">On the pile</span></div>
+<div style="width: 1px; align-self: stretch; background: #D6CCBA"></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><div style="position: relative"><div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #D4533B; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #B23E28">3</span></div><span style="position: absolute; right: -6px; bottom: -6px; width: 22px; height: 22px; border-radius: 50%; background: #456E3B; display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFFDF8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span></div><span style="font-size: 12px; font-weight: 600; color: #6E625A">Same color</span></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><div style="position: relative"><div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #36598F; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #2C4A78">7</span></div><span style="position: absolute; right: -6px; bottom: -6px; width: 22px; height: 22px; border-radius: 50%; background: #456E3B; display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFFDF8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span></div><span style="font-size: 12px; font-weight: 600; color: #6E625A">Same number</span></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><div style="position: relative"><div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #E0A423; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #9A6B0A">2</span></div><span style="position: absolute; right: -6px; bottom: -6px; width: 22px; height: 22px; border-radius: 50%; background: #B23E28; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFDF8" stroke-width="3.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span></div><span style="font-size: 12px; font-weight: 600; color: #6E625A">No match</span></div>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 18px; background: #FFFDF8; box-shadow: 0 2px 8px rgba(40, 30, 40, 0.08); gap: 4px">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2">Action cards</h2>
+<div style="display: flex; align-items: center; gap: 14px; padding: 8px 0">
+<div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #D4533B; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 14px; font-weight: 800; color: #B23E28">+2</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 800">Draw two</span><span style="font-size: 13px; font-weight: 500; line-height: 1.4; color: #6E625A">The next player draws 2 cards and misses their turn.</span></div>
+</div>
+<div style="height: 1px; background: #D6CCBA"></div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 8px 0">
+<div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #E0A423; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #9A6B0A">⊘</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 800">Skip</span><span style="font-size: 13px; font-weight: 500; line-height: 1.4; color: #6E625A">The next player misses their turn.</span></div>
+</div>
+<div style="height: 1px; background: #D6CCBA"></div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 8px 0">
+<div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #5B8F4E; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #456E3B">⇄</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 800">Reverse</span><span style="font-size: 13px; font-weight: 500; line-height: 1.4; color: #6E625A">Play changes direction. With 2 players, it works like a skip.</span></div>
+</div>
+<div style="height: 1px; background: #D6CCBA"></div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 8px 0">
+<div role="img" aria-label="Wild draw four" style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #2B2320; overflow: hidden; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr));"><span style="background: #D4533B"></span><span style="background: #E0A423"></span><span style="background: #36598F"></span><span style="background: #5B8F4E"></span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 800">Wild</span><span style="font-size: 13px; font-weight: 500; line-height: 1.4; color: #6E625A">Play it on anything, then choose the next color.</span></div>
+</div>
+<div style="height: 1px; background: #D6CCBA"></div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 8px 0">
+<div role="img" aria-label="Wild draw four" style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #2B2320; overflow: hidden; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr));"><span style="background: #D4533B"></span><span style="background: #E0A423"></span><span style="background: #36598F"></span><span style="background: #5B8F4E"></span><span style="position: absolute; left: 8px; top: 19px; width: 26px; height: 25px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 12px; font-weight: 800; color: #2B2320">+4</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 800">Wild draw four</span><span style="font-size: 13px; font-weight: 500; line-height: 1.4; color: #6E625A">Choose the next color. The next player draws 4 and misses their turn.</span></div>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 18px; background: #FFFDF8; box-shadow: 0 2px 8px rgba(40, 30, 40, 0.08)">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2">Stacking</h2>
+<p style="margin: 0; font-size: 15px; font-weight: 500; line-height: 1.5; color: #2B2320">When a +2 or +4 is played on you, you can pass it on by playing your own. A +2 goes on a +2, and a +4 goes on either one. A +2 can’t go on a +4. The total keeps growing until someone can’t stack and draws all of it.</p>
+<div style="display: flex; align-items: center; gap: 10px; padding: 8px 4px 2px">
+<div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #36598F; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 14px; font-weight: 800; color: #2C4A78">+2</span></div><span style="font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 800; color: #6E625A">+</span><div style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #5B8F4E; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 14px; font-weight: 800; color: #456E3B">+2</span></div><span style="font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 800; color: #6E625A">+</span><div role="img" aria-label="Wild draw four" style="position: relative; flex-shrink: 0; width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #2B2320; overflow: hidden; box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr));"><span style="background: #D4533B"></span><span style="background: #E0A423"></span><span style="background: #36598F"></span><span style="background: #5B8F4E"></span><span style="position: absolute; left: 8px; top: 19px; width: 26px; height: 25px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 12px; font-weight: 800; color: #2B2320">+4</span></div>
+<span style="margin-left: auto; padding: 8px 12px; border-radius: 999px; background: #2B2320; color: #FFFDF8; font-size: 13px; font-weight: 800">Draw 8</span>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 18px; background: #FFFDF8; box-shadow: 0 2px 8px rgba(40, 30, 40, 0.08)">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2">Last card!</h2>
+<p style="margin: 0; font-size: 15px; font-weight: 500; line-height: 1.5; color: #2B2320">When you have 2 cards on your turn, tap LAST CARD! before you play. If you forget, you draw 2 cards.</p>
+<span style="align-self: flex-start; margin-top: 4px; padding: 10px 18px; border-radius: 999px; border: 2px solid #2B2320; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 15px; font-weight: 800; letter-spacing: 0.04em">LAST CARD!</span>
+</section>
+<section style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 18px; background: #FFFDF8; box-shadow: 0 2px 8px rgba(40, 30, 40, 0.08)">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2">2v2 teams</h2>
+<p style="margin: 0; font-size: 15px; font-weight: 500; line-height: 1.5; color: #2B2320">With exactly 4 players, you play in two teams. Your partner sits across from you, and you can see each other’s cards. Your team wins when either of you plays your last card.</p>
+<div style="display: flex; gap: 16px; padding-top: 4px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #9C4A7A"><span style="width: 12px; height: 12px; border-radius: 50%; background: #9C4A7A"></span>Team A</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #2E7D7A"><span style="width: 12px; height: 12px; border-radius: 50%; background: #2E7D7A"></span>Team B</span>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 18px; background: #FFFDF8; box-shadow: 0 2px 8px rgba(40, 30, 40, 0.08)">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2">If someone drops out</h2>
+<p style="margin: 0; font-size: 15px; font-weight: 500; line-height: 1.5; color: #2B2320">There’s no turn timer. If a player loses connection during their turn, they get 60 seconds to come back. After that their turn is skipped, and any cards they owe are drawn for them.</p>
+</section>
+</div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>07-game-over — Homemade Uno · Game over · team wins</title>
+<!--
+  Homemade Uno design reference: 07-game-over
+  Board: Homemade Uno · Game over · team wins
+  Requirements: 12.1–12.5
+  Static reference only. Inline styles hold exact px/hex values; rebuild with the Tailwind tokens in ../theme.css (see ../design.md).
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:Manrope,'Helvetica Neue',sans-serif;background:#F2EBDD;color:#2B2320}
+a{color:#2B2320}a:hover{color:#000000}
+input::placeholder{color:#9A8E84}
+</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; padding: 16px 20px 28px; display: flex; flex-direction: column; gap: 18px; background: #F2EBDD; font-family: Manrope, sans-serif; color: #2B2320">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 300px"><span aria-hidden="true" style="position: absolute; left: 38px; top: 64px; font-size: 26px; line-height: 1; color: #D4533B; transform: rotate(0deg)">●</span><span aria-hidden="true" style="position: absolute; left: 96px; top: 30px; font-size: 22px; line-height: 1; color: #E0A423; transform: rotate(18deg)">▲</span><span aria-hidden="true" style="position: absolute; left: 300px; top: 40px; font-size: 24px; line-height: 1; color: #5B8F4E; transform: rotate(-12deg)">■</span><span aria-hidden="true" style="position: absolute; left: 344px; top: 92px; font-size: 28px; line-height: 1; color: #36598F; transform: rotate(0deg)">◆</span><span aria-hidden="true" style="position: absolute; left: 60px; top: 150px; font-size: 22px; line-height: 1; color: #36598F; transform: rotate(20deg)">◆</span><span aria-hidden="true" style="position: absolute; left: 28px; top: 230px; font-size: 20px; line-height: 1; color: #5B8F4E; transform: rotate(30deg)">■</span><span aria-hidden="true" style="position: absolute; left: 336px; top: 196px; font-size: 22px; line-height: 1; color: #E0A423; transform: rotate(0deg)">●</span><span aria-hidden="true" style="position: absolute; left: 292px; top: 256px; font-size: 26px; line-height: 1; color: #D4533B; transform: rotate(-20deg)">▲</span><span aria-hidden="true" style="position: absolute; left: 150px; top: 52px; font-size: 19px; line-height: 1; color: #36598F; transform: rotate(0deg)">●</span><span aria-hidden="true" style="position: absolute; left: 242px; top: 92px; font-size: 20px; line-height: 1; color: #5B8F4E; transform: rotate(35deg)">▲</span><span aria-hidden="true" style="position: absolute; left: 188px; top: 20px; font-size: 19px; line-height: 1; color: #D4533B; transform: rotate(15deg)">■</span><span aria-hidden="true" style="position: absolute; left: 120px; top: 262px; font-size: 20px; line-height: 1; color: #E0A423; transform: rotate(0deg)">◆</span></div>
+<div style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 96px">
+<div style="display: flex">
+<div style="position: relative; flex-shrink: 0; width: 72px; height: 72px; box-sizing: border-box; border-radius: 50%; border: 3px solid #9C4A7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #2B2320; font-size: 24px; box-shadow: 0 6px 16px rgba(40, 30, 40, 0.18);">Y</div>
+<div style="position: relative; flex-shrink: 0; width: 72px; height: 72px; box-sizing: border-box; border-radius: 50%; border: 3px solid #9C4A7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #2B2320; margin-left: -16px; font-size: 24px; box-shadow: 0 6px 16px rgba(40, 30, 40, 0.18);">M</div>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 40px; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em">Team A wins!</h1>
+<p style="margin: 0; font-size: 15px; font-weight: 500; color: #6E625A">Maya played her last card</p>
+</div>
+</div>
+<div style="position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 18px; background: #FFFDF8; box-shadow: 0 2px 8px rgba(40, 30, 40, 0.08)">
+<span style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #6E625A">CARDS LEFT</span>
+<div style="display: flex; align-items: center; gap: 10px; height: 40px"><div style="position: relative; flex-shrink: 0; width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; border: 3px solid #9C4A7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #2B2320; font-size: 13px;">Y</div><span style="flex-grow: 1; font-size: 15px; font-weight: 700">You</span><span style="min-width: 28px; height: 26px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: #F2EBDD; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">3</span></div>
+<div style="display: flex; align-items: center; gap: 10px; height: 40px"><div style="position: relative; flex-shrink: 0; width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; border: 3px solid #9C4A7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #2B2320; font-size: 13px;">M</div><span style="flex-grow: 1; font-size: 15px; font-weight: 700">Maya</span><span style="padding: 3px 8px; border-radius: 999px; background: #9C4A7A; color: #FFFDF8; font-size: 11px; font-weight: 700">Went out</span><span style="min-width: 28px; height: 26px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: #F2EBDD; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">0</span></div>
+<div style="height: 1px; margin: 4px 0; background: #D6CCBA"></div>
+<div style="display: flex; align-items: center; gap: 10px; height: 40px"><div style="position: relative; flex-shrink: 0; width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; border: 3px solid #2E7D7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #2B2320; font-size: 13px;">L</div><span style="flex-grow: 1; font-size: 15px; font-weight: 700">Leo</span><span style="min-width: 28px; height: 26px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: #F2EBDD; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">4</span></div>
+<div style="display: flex; align-items: center; gap: 10px; height: 40px"><div style="position: relative; flex-shrink: 0; width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; border: 3px solid #2E7D7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #2B2320; font-size: 13px;">S</div><span style="flex-grow: 1; font-size: 15px; font-weight: 700">Sara</span><span style="min-width: 28px; height: 26px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: #F2EBDD; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span></div>
+</div>
+<div style="flex-grow: 1"></div>
+<div style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px">
+<button type="button" style="width: 100%; height: 56px; flex-shrink: 0; border-radius: 999px; border: none; background: #2B2320; color: #FFFDF8; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 18px; font-weight: 800; box-shadow: 0 6px 16px rgba(40, 30, 40, 0.25);">Play again</button>
+<span style="font-size: 13px; font-weight: 600; color: #6E625A">Everyone stays in room K7QX</span>
+<button type="button" style="width: 100%; height: 50px; flex-shrink: 0; border-radius: 999px; border: none; background: #F2EBDD; color: #2B2320; font-family: Manrope, sans-serif; font-size: 15px; font-weight: 700">Back to home</button>
+</div>
+</div>
+</body>
+</html>

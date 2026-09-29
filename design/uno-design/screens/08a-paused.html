@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>08a-paused — Homemade Uno · Game paused</title>
+<!--
+  Homemade Uno design reference: 08a-paused
+  Board: Homemade Uno · Game paused
+  Kind: overlay, shown over 03-game-2v2 (shown) or 04-game-normal
+  Requirements: 25.3, 25.4, 25.7, 25.15
+  Static reference only. Inline styles hold exact px/hex values; rebuild with the Tailwind tokens in ../theme.css (see ../design.md and ../design-pause.md).
+  The game table underneath is context only; build only the overlay for this screen.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:Manrope,'Helvetica Neue',sans-serif;background:#F2EBDD;color:#2B2320}
+a{color:#2B2320}a:hover{color:#000000}
+input::placeholder{color:#9A8E84}
+</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #F2EBDD; font-family: Manrope, sans-serif; color: #2B2320">
+
+<div style="position: absolute; left: 20px; top: 150px; width: 350px; height: 470px; box-sizing: border-box; border-radius: 50%; background: #E7DCC8; border: 2px solid #D6CCBA; box-shadow: inset 0 0 60px rgba(40, 30, 40, 0.20)"></div>
+
+<div style="position: absolute; left: 16px; right: 16px; top: 16px; height: 44px; display: flex; align-items: center; justify-content: space-between">
+<span style="padding: 10px 14px; border-radius: 999px; background: #FFFDF8; font-size: 13px; font-weight: 700; letter-spacing: 0.08em">ROOM · K7QX</span>
+<span style="padding: 10px 14px; border-radius: 999px; border: 1px solid #CFC3AE; font-size: 13px; font-weight: 700; color: #6E625A">2v2 · Round 1</span>
+<button type="button" aria-label="Menu" style="width: 44px; height: 44px; border-radius: 50%; border: none; background: #FFFDF8; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2B2320" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+</div>
+
+<div style="position: absolute; left: 0; top: 70px; width: 390px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="width: 40px; height: 40px; box-sizing: border-box; border-radius: 50%; border: 3px solid #9C4A7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px">M</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 14px; font-weight: 700">Maya</span>
+<span style="font-size: 11px; font-weight: 600; color: #9C4A7A">Partner · 5 cards</span>
+</div>
+</div>
+<div style="perspective: 420px; padding-top: 2px">
+<div style="display: flex; transform: rotateX(42deg); transform-origin: 50% 100%">
+<div style="width: 46px; height: 68px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #E0A423; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(40, 30, 40, 0.18)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #9A6B0A">5</span></div>
+<div style="width: 46px; height: 68px; margin-left: -8px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #5B8F4E; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(40, 30, 40, 0.18)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #456E3B">1</span></div>
+<div style="width: 46px; height: 68px; margin-left: -8px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #36598F; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(40, 30, 40, 0.18)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #2C4A78">8</span></div>
+<div style="width: 46px; height: 68px; margin-left: -8px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #D4533B; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(40, 30, 40, 0.18)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 14px; font-weight: 800; color: #B23E28">+2</span></div>
+<div style="width: 46px; height: 68px; margin-left: -8px; box-sizing: border-box; border-radius: 8px; border: 2px solid #FFFDF8; background: #E0A423; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(40, 30, 40, 0.18)"><span style="width: 28px; height: 28px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #9A6B0A">⇄</span></div>
+</div>
+</div>
+</div>
+
+<div style="position: absolute; left: 8px; top: 272px; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+<div style="position: relative; width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; border: 3px solid #2E7D7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px">L<span style="position: absolute; right: -8px; bottom: -4px; min-width: 22px; height: 22px; border-radius: 999px; background: #2B2320; color: #F2EBDD; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">6</span></div>
+<span style="font-size: 13px; font-weight: 700">Leo</span>
+<div style="perspective: 360px; margin-top: 6px">
+<div style="display: flex; flex-direction: column; align-items: center; transform: rotateY(52deg); transform-origin: 0 50%">
+<div style="width: 40px; height: 58px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+</div>
+</div>
+</div>
+
+<div style="position: absolute; right: 8px; top: 272px; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+<div style="position: relative; width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; border: 3px solid #2E7D7A; background: #E3D8C5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px">S<span style="position: absolute; left: -8px; bottom: -4px; min-width: 22px; height: 22px; border-radius: 999px; background: #2B2320; color: #F2EBDD; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">4</span></div>
+<span style="font-size: 13px; font-weight: 700">Sara</span>
+<div style="perspective: 360px; margin-top: 6px">
+<div style="display: flex; flex-direction: column; align-items: center; transform: rotateY(-52deg); transform-origin: 100% 50%">
+<div style="width: 40px; height: 58px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+<div style="width: 40px; height: 58px; margin-top: -42px; box-sizing: border-box; border-radius: 7px; border: 2px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 6px rgba(40, 30, 40, 0.18)"><div style="width: 18px; height: 18px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><div style="background: #D4533B"></div><div style="background: #E0A423"></div><div style="background: #36598F"></div><div style="background: #5B8F4E"></div></div></div>
+</div>
+</div>
+</div>
+
+<svg style="position: absolute; left: 90px; top: 290px" width="210" height="210" viewBox="0 0 210 210" fill="none" aria-hidden="true">
+<circle cx="105" cy="105" r="96" stroke="#D4533B" stroke-opacity="0.35" stroke-width="2" stroke-dasharray="10 12"></circle>
+<path d="M190 70 l6 14 l-15 -2" stroke="#D4533B" stroke-opacity="0.8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M20 140 l-6 -14 l15 2" stroke="#D4533B" stroke-opacity="0.8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+
+<div style="position: absolute; left: 105px; top: 340px; width: 180px; height: 116px; display: flex; align-items: center; justify-content: center; gap: 22px">
+<button type="button" aria-label="Draw a card" style="position: relative; width: 70px; height: 104px; padding: 0; border: none; background: transparent">
+<span style="position: absolute; left: 4px; top: 4px; width: 70px; height: 104px; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #2B2320"></span>
+<span style="position: absolute; left: 2px; top: 2px; width: 70px; height: 104px; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #2B2320"></span>
+<span style="position: absolute; left: 0; top: 0; width: 70px; height: 104px; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #3A302B; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 12px rgba(40, 30, 40, 0.20)"><span style="width: 30px; height: 30px; border-radius: 50%; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><span style="background: #D4533B"></span><span style="background: #E0A423"></span><span style="background: #36598F"></span><span style="background: #5B8F4E"></span></span></span>
+</button>
+<div style="position: relative; width: 74px; height: 108px">
+<div style="position: absolute; left: 0; top: 0; width: 74px; height: 108px; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #36598F; transform: rotate(-12deg); display: flex; align-items: center; justify-content: center"><span style="width: 42px; height: 42px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 26px; font-weight: 800; color: #2C4A78">7</span></div>
+<div style="position: absolute; left: 0; top: 0; width: 74px; height: 108px; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #D4533B; transform: rotate(8deg); box-shadow: 0 8px 18px rgba(40, 30, 40, 0.23), 0 0 24px rgba(212, 83, 59, 0.45); display: flex; align-items: center; justify-content: center"><span style="position: absolute; top: 4px; left: 7px; font-size: 13px; font-weight: 800; color: #FFFFFF">7</span><span style="position: absolute; bottom: 4px; right: 7px; font-size: 10px; color: #FFFFFF">●</span><span style="width: 42px; height: 42px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 26px; font-weight: 800; color: #B23E28">7</span></div>
+</div>
+</div>
+
+<div style="position: absolute; left: 0; top: 512px; width: 390px; display: flex; justify-content: center">
+<span style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #FFFDF8; font-size: 13px; font-weight: 700"><span style="width: 12px; height: 12px; border-radius: 50%; background: #D4533B"></span>Your turn · match red or play a wild</span>
+</div>
+
+<div style="position: absolute; left: 16px; right: 16px; top: 596px; height: 48px; display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; border: 3px solid #9C4A7A; background: #E3D8C5; box-shadow: 0 0 0 4px rgba(156, 74, 122, 0.25), 0 0 18px rgba(156, 74, 122, 0.5); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px">Y</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 14px; font-weight: 700">You</span>
+<span style="font-size: 11px; font-weight: 600; color: #9C4A7A">Team A · 7 cards</span>
+</div>
+</div>
+<button type="button" style="height: 44px; padding: 0 18px; border-radius: 999px; border: 2px solid #2B2320; background: transparent; color: #2B2320; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 15px; font-weight: 800; letter-spacing: 0.04em">LAST CARD!</button>
+</div>
+
+<div style="position: absolute; left: 0; top: 664px; width: 390px; height: 180px">
+<button type="button" aria-label="Blue 4, not playable" style="position: absolute; left: 34px; top: 44px; width: 70px; height: 104px; padding: 0; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #36598F; transform: rotate(-15deg); filter: brightness(0.55); box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center"><span style="position: absolute; top: 4px; left: 7px; font-family: Manrope, sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF">4</span><span style="position: absolute; bottom: 4px; right: 7px; font-size: 10px; color: #FFFFFF">◆</span><span style="width: 40px; height: 40px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 24px; font-weight: 800; color: #2C4A78">4</span></button>
+<button type="button" aria-label="Green 9, not playable" style="position: absolute; left: 76px; top: 32px; width: 70px; height: 104px; padding: 0; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #5B8F4E; transform: rotate(-10deg); filter: brightness(0.55); box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center"><span style="position: absolute; top: 4px; left: 7px; font-family: Manrope, sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF">9</span><span style="position: absolute; bottom: 4px; right: 7px; font-size: 10px; color: #FFFFFF">■</span><span style="width: 40px; height: 40px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 24px; font-weight: 800; color: #456E3B">9</span></button>
+<button type="button" aria-label="Yellow 2, not playable" style="position: absolute; left: 118px; top: 25px; width: 70px; height: 104px; padding: 0; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #E0A423; transform: rotate(-5deg); filter: brightness(0.55); box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center"><span style="position: absolute; top: 4px; left: 7px; font-family: Manrope, sans-serif; font-size: 13px; font-weight: 800; color: #3B2A08">2</span><span style="position: absolute; bottom: 4px; right: 7px; font-size: 10px; color: #3B2A08">▲</span><span style="width: 40px; height: 40px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 24px; font-weight: 800; color: #9A6B0A">2</span></button>
+<button type="button" aria-label="Blue draw two, not playable" style="position: absolute; left: 202px; top: 25px; width: 70px; height: 104px; padding: 0; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #36598F; transform: rotate(5deg); filter: brightness(0.55); box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center"><span style="position: absolute; top: 4px; left: 7px; font-family: Manrope, sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF">+2</span><span style="position: absolute; bottom: 4px; right: 7px; font-size: 10px; color: #FFFFFF">◆</span><span style="width: 40px; height: 40px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 20px; font-weight: 800; color: #2C4A78">+2</span></button>
+<button type="button" aria-label="Green reverse, not playable" style="position: absolute; left: 244px; top: 32px; width: 70px; height: 104px; padding: 0; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #5B8F4E; transform: rotate(10deg); filter: brightness(0.55); box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: flex; align-items: center; justify-content: center"><span style="position: absolute; top: 4px; left: 7px; font-family: Manrope, sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF">⇄</span><span style="position: absolute; bottom: 4px; right: 7px; font-size: 10px; color: #FFFFFF">■</span><span style="width: 40px; height: 40px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 22px; font-weight: 800; color: #456E3B">⇄</span></button>
+<button type="button" aria-label="Wild draw four" style="position: absolute; left: 286px; top: 44px; width: 70px; height: 104px; padding: 0; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #3A302B; overflow: hidden; transform: rotate(15deg); box-shadow: 0 6px 14px rgba(40, 30, 40, 0.18); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr))"><span style="background: #D4533B"></span><span style="background: #E0A423"></span><span style="background: #36598F"></span><span style="background: #5B8F4E"></span><span style="position: absolute; left: 12px; top: 30px; width: 40px; height: 38px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 16px; font-weight: 800; color: #2B2320">+4</span></button>
+<button type="button" aria-label="Red skip, selected" style="position: absolute; left: 160px; top: 0px; width: 70px; height: 104px; padding: 0; box-sizing: border-box; border-radius: 12px; border: 3px solid #FFFDF8; background: #D4533B; box-shadow: 0 0 0 3px #9C4A7A, 0 14px 24px rgba(40, 30, 40, 0.25); display: flex; align-items: center; justify-content: center"><span style="position: absolute; top: 4px; left: 7px; font-family: Manrope, sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF">⊘</span><span style="position: absolute; bottom: 4px; right: 7px; font-size: 10px; color: #FFFFFF">●</span><span style="width: 40px; height: 40px; border-radius: 50%; background: #FFFDF8; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 24px; font-weight: 800; color: #B23E28">⊘</span></button>
+</div>
+
+
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: rgba(43, 35, 32, 0.5)"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="pause-title" style="position: absolute; left: 24px; top: 220px; width: 342px; box-sizing: border-box; padding: 24px; border-radius: 22px; background: #FFFDF8; box-shadow: 0 6px 16px rgba(40, 30, 40, 0.25); display: flex; flex-direction: column; gap: 18px">
+<span style="width: 48px; height: 48px; border-radius: 50%; background: #F2EBDD; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="#2B2320" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"></rect><rect x="14" y="5" width="4" height="14" rx="1.5"></rect></svg></span>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 id="pause-title" style="margin: 0; font-family: 'Bricolage Grotesque', Georgia, serif; font-size: 26px; font-weight: 800; line-height: 1.15">Game paused</h2>
+<p style="margin: 0; font-size: 15px; font-weight: 500; line-height: 1.45; color: #6E625A">Maya paused the game. Anyone can resume when everyone’s ready.</p>
+</div>
+<span style="display: flex; align-items: center; gap: 8px; align-self: flex-start; padding: 8px 12px; border-radius: 999px; background: #F2EBDD; font-size: 13px; font-weight: 700"><span style="width: 10px; height: 10px; border-radius: 50%; background: #E0A423"></span>Paused for 2:14</span>
+<button type="button" style="height: 50px; border-radius: 999px; border: none; background: #2B2320; color: #FFFDF8; font-family: Manrope, sans-serif; font-size: 15px; font-weight: 800">Resume game</button>
+</div>
+</div>
+</body>
+</html>
