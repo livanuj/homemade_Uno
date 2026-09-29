@@ -424,3 +424,283 @@ export function makeGameView(state: string | null): GameView {
   const id: GameStateId = isGameStateId(state) ? state : "04";
   return GAME_FIXTURES[id]();
 }
+
+// ---------------------------------------------------------------------------
+// Paused-overlay fixtures (task 8.7) — the `08a`/`08b`/`08c` states as
+// `PausedView`s that mount the `PausedOverlay` over the game table.
+//
+// These drive the paused states deterministically without a backend, so
+// Playwright (via `?overlay=paused-break|paused-waiting|paused-auto`) and tests
+// reach each distinct screen. When the realtime layer + Cloud Functions land,
+// the same `PausedView` shape is derived from `state/current` (`phase`,
+// `pausedBy`, `pausedAt`) + player `connection`, and these survive only for
+// tests. The "Paused for m:ss" is a static value here; the live clock and the
+// resume / continue / end-game wiring are task 9.6. Nothing here imports
+// firebase.
+// ---------------------------------------------------------------------------
+
+import type {
+    PausedOverlayId,
+    PausedView,
+} from "./types";
+
+/**
+ * `08a-paused` — a manual "break" pause over the 2v2 table. Maya paused; any
+ * connected player can resume when everyone's ready (Req 25.3/25.4/25.7).
+ */
+function pausedBreak(): PausedView {
+  return {
+    variant: "break",
+    title: "Game paused",
+    body: "Maya paused the game. Anyone can resume when everyone's ready.",
+    elapsedLabel: "Paused for 2:14",
+    tableState: "03",
+  };
+}
+
+/**
+ * `08b-paused-waiting` — paused to wait for a disconnected player over the
+ * normal table. Leo paused; it resumes by itself when Nora is back, or anyone
+ * can "Continue without Nora" (whose turns are then skipped) (Req 25.5/25.8/25.9).
+ */
+function pausedWaiting(): PausedView {
+  return {
+    variant: "waiting",
+    title: "Waiting for Nora",
+    body: "Leo paused the game. It resumes by itself when Nora is back.",
+    elapsedLabel: "Paused for 1:05",
+    offlineName: "Nora",
+    offlineCardCount: 5,
+    primaryCaption: "Nora's turns will be skipped until she returns",
+    tableState: "04",
+  };
+}
+
+/**
+ * `08c-paused-team-offline` — a server auto-pause because a whole team (Team B:
+ * Leo + Sara) went offline, over the 2v2 table (Team B is a 2v2 concept). It
+ * resumes by itself when either comes back; the host can "End game" (danger)
+ * (Req 25.10/25.11/25.13).
+ */
+function pausedAuto(): PausedView {
+  return {
+    variant: "auto",
+    title: "Team B lost connection",
+    body: "The game paused by itself. It resumes when Leo or Sara comes back.",
+    elapsedLabel: "Paused for 3:40",
+    offlineName: "Leo",
+    offlineTeam: "B",
+    tableState: "03",
+  };
+}
+
+/** Map each paused overlay id to its `PausedView` builder. */
+const PAUSED_FIXTURES: Record<PausedOverlayId, () => PausedView> = {
+  "paused-break": pausedBreak,
+  "paused-waiting": pausedWaiting,
+  "paused-auto": pausedAuto,
+};
+
+/** All valid paused overlay ids, for validating an `?overlay=` query param. */
+export const PAUSED_OVERLAY_IDS = Object.keys(
+  PAUSED_FIXTURES,
+) as PausedOverlayId[];
+
+/** Type guard: is `value` one of the three paused overlay ids? */
+export function isPausedOverlayId(
+  value: string | null,
+): value is PausedOverlayId {
+  return value !== null && (PAUSED_OVERLAY_IDS as string[]).includes(value);
+}
+
+/**
+ * Resolve an `?overlay=` value to a `PausedView`, or `null` when it is not a
+ * paused overlay id (so the route renders the plain table). Kept null-returning
+ * so task 8.5 can own other `?overlay=` values without colliding.
+ */
+export function makePausedView(overlay: string | null): PausedView | null {
+  return isPausedOverlayId(overlay) ? PAUSED_FIXTURES[overlay]() : null;
+}
+
+// ---------------------------------------------------------------------------
+// Game-over fixtures (task 8.6) — screen `07-game-over` and its variants as
+// `GameResultView`s.
+//
+// These drive the Game over route deterministically without a backend, so
+// Playwright (via `?state=team-win|normal-win|guest|ended`) and tests reach
+// each variant. When the realtime layer + Cloud Functions land, the same
+// `GameResultView` shape is produced from `onSnapshot` on `state/current`
+// (`winner`, `phase`) + the `players` collection, and these fixtures survive
+// only for tests. Nothing here imports firebase.
+//
+// The `team-win` fixture mirrors the `07-game-over.png` reference exactly: a
+// 2v2 win by Team A (You + Maya), Maya played her last card, counts You 3 /
+// Maya 0 / Leo 4 / Sara 2, room K7QX, host view.
+// ---------------------------------------------------------------------------
+
+import type {
+    GameResultView,
+    ResultPlayerView,
+    ResultStateId,
+} from "./types";
+
+/** The canned room code shared by the result fixtures (matches the table). */
+const RESULT_CODE = "K7QX";
+
+/** Build a result row with sensible defaults (not a winner, did not go out). */
+function resultPlayer(
+  id: string,
+  name: string,
+  cardCount: number,
+  extra: Partial<ResultPlayerView> = {},
+): ResultPlayerView {
+  return { id, name, cardCount, isWinner: false, wentOut: false, ...extra };
+}
+
+/**
+ * `team-win` — the `07-game-over` reference. Team A (You + Maya) wins in 2v2;
+ * Maya played the last card. Confetti + two winner avatars, host view with
+ * "Play again".
+ */
+function resultTeamWin(): GameResultView {
+  const you = resultPlayer("self", "You", 3, { team: "A", isWinner: true });
+  const maya = resultPlayer("maya", "Maya", 0, {
+    team: "A",
+    isWinner: true,
+    wentOut: true,
+  });
+  const leo = resultPlayer("leo", "Leo", 4, { team: "B" });
+  const sara = resultPlayer("sara", "Sara", 2, { team: "B" });
+  return {
+    selfId: "self",
+    kind: "team",
+    mode: "team",
+    title: "Team A wins!",
+    subtitle: "Maya played her last card",
+    winners: [you, maya],
+    players: [you, maya, leo, sara],
+    selfIsHost: true,
+    room: {
+      code: RESULT_CODE,
+      inviteLink: inviteLinkForCode(RESULT_CODE),
+      mode: "team",
+      phase: "ended",
+      roundNumber: 1,
+      players: [
+        { id: "self", name: "You", joinOrder: 0, isHost: true, connection: "online", team: "A" },
+        { id: "maya", name: "Maya", joinOrder: 1, isHost: false, connection: "online", team: "A" },
+        { id: "leo", name: "Leo", joinOrder: 2, isHost: false, connection: "online", team: "B" },
+        { id: "sara", name: "Sara", joinOrder: 3, isHost: false, connection: "online", team: "B" },
+      ],
+    },
+  };
+}
+
+/**
+ * `normal-win` — Normal-mode single winner (Req 12.1). Maya emptied her hand;
+ * one winner avatar and the title "Maya wins!". Host view.
+ */
+function resultNormalWin(): GameResultView {
+  const maya = resultPlayer("maya", "Maya", 0, { isWinner: true, wentOut: true });
+  const you = resultPlayer("self", "You", 3);
+  const leo = resultPlayer("leo", "Leo", 5);
+  const sara = resultPlayer("sara", "Sara", 2);
+  return {
+    selfId: "self",
+    kind: "player",
+    mode: "normal",
+    title: "Maya wins!",
+    subtitle: "Maya played her last card",
+    winners: [maya],
+    players: [maya, you, leo, sara],
+    selfIsHost: true,
+    room: {
+      code: RESULT_CODE,
+      inviteLink: inviteLinkForCode(RESULT_CODE),
+      mode: "normal",
+      phase: "ended",
+      roundNumber: 1,
+      players: [
+        { id: "self", name: "You", joinOrder: 0, isHost: true, connection: "online" },
+        { id: "maya", name: "Maya", joinOrder: 1, isHost: false, connection: "online" },
+        { id: "leo", name: "Leo", joinOrder: 2, isHost: false, connection: "online" },
+        { id: "sara", name: "Sara", joinOrder: 3, isHost: false, connection: "online" },
+      ],
+    },
+  };
+}
+
+/**
+ * `guest` — the same 2v2 win as `team-win` but seen by a guest (Req 12.5): the
+ * primary "Play again" is replaced by "Waiting for the host". Viewer is Sara
+ * (Team B, a non-winner, non-host) so the guest treatment is unambiguous.
+ */
+function resultGuest(): GameResultView {
+  return {
+    ...resultTeamWin(),
+    selfId: "sara",
+    selfIsHost: false,
+  };
+}
+
+/**
+ * `ended` — the "Game ended" variant (Req 25.13): the game was ended from an
+ * Auto_Pause, so there is NO winner and NO confetti. The title reads "Game
+ * ended", there is no subtitle, and the results card still shows every
+ * player's remaining count. Host view still offers "Play again"; "Back to
+ * home" is present for all.
+ */
+function resultEnded(): GameResultView {
+  const you = resultPlayer("self", "You", 3, { team: "A" });
+  const maya = resultPlayer("maya", "Maya", 1, { team: "A" });
+  const leo = resultPlayer("leo", "Leo", 4, { team: "B" });
+  const sara = resultPlayer("sara", "Sara", 2, { team: "B" });
+  return {
+    selfId: "self",
+    kind: "none",
+    mode: "team",
+    title: "Game ended",
+    winners: [],
+    players: [you, maya, leo, sara],
+    selfIsHost: true,
+    room: {
+      code: RESULT_CODE,
+      inviteLink: inviteLinkForCode(RESULT_CODE),
+      mode: "team",
+      phase: "ended",
+      roundNumber: 1,
+      players: [
+        { id: "self", name: "You", joinOrder: 0, isHost: true, connection: "online", team: "A" },
+        { id: "maya", name: "Maya", joinOrder: 1, isHost: false, connection: "online", team: "A" },
+        { id: "leo", name: "Leo", joinOrder: 2, isHost: false, connection: "offline", team: "B" },
+        { id: "sara", name: "Sara", joinOrder: 3, isHost: false, connection: "offline", team: "B" },
+      ],
+    },
+  };
+}
+
+/** Map each game-over state id to its `GameResultView` builder. */
+const RESULT_FIXTURES: Record<ResultStateId, () => GameResultView> = {
+  "team-win": resultTeamWin,
+  "normal-win": resultNormalWin,
+  guest: resultGuest,
+  ended: resultEnded,
+};
+
+/** All valid game-over state ids, for validating a `?state=` query param. */
+export const RESULT_STATE_IDS = Object.keys(RESULT_FIXTURES) as ResultStateId[];
+
+/** Type guard: is `value` one of the game-over state ids? */
+export function isResultStateId(value: string | null): value is ResultStateId {
+  return value !== null && (RESULT_STATE_IDS as string[]).includes(value);
+}
+
+/**
+ * Resolve a `?state=` value to a `GameResultView`. Unknown / missing values
+ * fall back to `team-win` (the `07-game-over` reference) so a bare
+ * `/room/:code/game-over` still renders.
+ */
+export function makeResultView(state: string | null): GameResultView {
+  const id: ResultStateId = isResultStateId(state) ? state : "team-win";
+  return RESULT_FIXTURES[id]();
+}

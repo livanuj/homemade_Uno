@@ -26,6 +26,7 @@ import { CardBack, type CardBackVariant } from "@/components/CardBack";
 import { Chip } from "@/components/Chip";
 import { IconButton } from "@/components/IconButton";
 import { MotionCard } from "@/components/MotionCard";
+import { OfflineAvatar } from "@/components/OfflineAvatar";
 import { PlayingCard } from "@/components/PlayingCard";
 import { TurnPill, type TurnPillTone } from "@/components/TurnPill";
 import type { Suit } from "@/design/suits";
@@ -194,30 +195,49 @@ function BackStack({ kind, count }: { kind: SeatKind; count: number }) {
 // Seats.
 // ---------------------------------------------------------------------------
 
-/** One opponent seat — avatar (ring + real-count badge) + name + face-down backs. */
+/**
+ * One opponent seat — avatar (ring + real-count badge) + name + face-down
+ * backs. When the seat is disconnected (`seat.connection === "offline"`, Req
+ * 15.1) it renders the faded `OfflineAvatar` instead, with the grace
+ * `CountdownRing` when a `countdown` is supplied (its turn, §5.20); the name
+ * line reads "· offline" and the seat is the `06c-player-disconnected` state.
+ */
 function OpponentSeat({
   seat,
   kind,
   ring,
   activeTurn,
+  countdown,
   style,
 }: {
   seat: OpponentSeatView;
   kind: SeatKind;
   ring: AvatarRing;
   activeTurn: boolean;
+  countdown?: { progress: number; secondsLeft: number };
   style: CSSProperties;
 }) {
+  const offline = seat.connection === "offline";
   return (
     <div className="absolute flex flex-col items-center gap-1" style={style}>
-      <Avatar
-        name={seat.name}
-        size={44}
-        ring={ring}
-        cardCount={seat.cardCount}
-        activeTurn={activeTurn}
-      />
-      <span className="text-caption font-bold text-ink">{seat.name}</span>
+      {offline ? (
+        <OfflineAvatar
+          name={seat.name}
+          cardCount={seat.cardCount}
+          {...(countdown ? { countdown } : {})}
+        />
+      ) : (
+        <Avatar
+          name={seat.name}
+          size={44}
+          ring={ring}
+          cardCount={seat.cardCount}
+          activeTurn={activeTurn}
+        />
+      )}
+      <span className="text-caption font-bold text-ink">
+        {offline ? `${seat.name} · offline` : seat.name}
+      </span>
       <div className={kind === "top" ? undefined : "mt-1.5"}>
         <BackStack kind={kind} count={seat.cardCount} />
       </div>
@@ -430,6 +450,13 @@ export interface GameTableProps {
   /** Call "LAST CARD!" (task 9 wires the flow). */
   onCallLastCard?: () => void;
   /**
+   * Grace countdown for a disconnected opponent whose turn it is (§5.20, Req
+   * 15.3): maps the seat id to `{ progress, secondsLeft }` so its
+   * `OfflineAvatar` drains a `CountdownRing`. Additive seam used by the
+   * `06c-player-disconnected` overlay (task 8.5); the live value is task 5.
+   */
+  seatCountdown?: Record<string, { progress: number; secondsLeft: number }>;
+  /**
    * Overlay slot rendered OVER the table (task 8.5 menu/sheets, 8.7 paused).
    * Left as a clean seam here; 8.4 does not implement any overlay.
    */
@@ -443,6 +470,7 @@ export function GameTable({
   onMenu,
   onDraw,
   onCallLastCard,
+  seatCountdown,
   overlay,
 }: GameTableProps) {
   const isTeam = view.room.mode === "team";
@@ -486,6 +514,7 @@ export function GameTable({
       {/* Opponent seats — face-down backs with the 3D recipe (§6). */}
       {seatLayout(view).map(({ seat, kind, style }) => {
         const seatActive = view.activeSeatId === seat.id;
+        const countdown = seatCountdown?.[seat.id];
         return (
           <OpponentSeat
             key={seat.id}
@@ -493,6 +522,7 @@ export function GameTable({
             kind={kind}
             ring={ringForOpponent(seat, isTeam, seatActive)}
             activeTurn={seatActive}
+            {...(countdown ? { countdown } : {})}
             style={style}
           />
         );

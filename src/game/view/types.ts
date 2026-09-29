@@ -236,3 +236,152 @@ export type JoinFailureReason =
 export type RoomActionResult =
   | { ok: true; room: RoomView }
   | { ok: false; reason: JoinFailureReason };
+
+// ---------------------------------------------------------------------------
+// Paused-overlay projection (task 8.7) — screens `08a-paused`,
+// `08b-paused-waiting`, `08c-paused-team-offline`.
+//
+// The paused states render the `PausedOverlay` (§11/§12) OVER the game table.
+// They are STATE on top of a `GameView`, not separate routes, so the table
+// underneath keeps rendering (and its menu stays reachable, Req 25.15) while
+// the overlay drives which variant/copy shows. The realtime layer (task 5) will
+// derive this same shape from `state/current` (`phase` `paused`/`auto_paused`,
+// `pausedBy`, `pausedAt`, plus player `connection`); the interactions
+// (resume / continue-without / end-game wiring) are task 9.6. Nothing here
+// imports firebase.
+// ---------------------------------------------------------------------------
+
+import type { PausedVariant } from "@/components/PausedOverlay";
+
+/**
+ * The projection that drives the `PausedOverlay` over the table. Carries the
+ * variant, the copy the design screens show, and the offline-player details the
+ * `waiting` / `auto` headers need. The `elapsedLabel` is the "Paused for m:ss"
+ * text — a static value from the fixture for the capture; the live ticking
+ * clock is task 9.6.
+ */
+export interface PausedView {
+  /** Which `PausedOverlay` variant to show (`break` / `waiting` / `auto`). */
+  variant: PausedVariant;
+  /** Heading, e.g. "Game paused", "Waiting for Nora", "Team B lost connection". */
+  title: string;
+  /** Explanation paragraph under the title. */
+  body: string;
+  /** "Paused for m:ss" pill text (static in the fixture). */
+  elapsedLabel: string;
+  /** Offline player's name — shown in the `waiting` / `auto` avatar header. */
+  offlineName?: string;
+  /** Offline player's remaining card count (badge on the header avatar). */
+  offlineCardCount?: number;
+  /** Team label for the `auto` variant header (e.g. "B"). */
+  offlineTeam?: TeamId;
+  /** Helper caption under the primary action (used by the `waiting` variant). */
+  primaryCaption?: string;
+  /**
+   * Which underlying table (`03` 2v2 / `04` normal) the overlay sits over —
+   * the reference screens show `08a` over 2v2 and `08b`/`08c` over normal.
+   */
+  tableState: GameStateId;
+}
+
+/**
+ * The three paused screen states, used as the `?overlay=` query-param value so
+ * Playwright can reach each fixture and the route can pick the matching
+ * `PausedView` without a backend. Kept distinct from the menu/sheet overlay
+ * values (task 8.5) so the two never collide.
+ */
+export type PausedOverlayId =
+  | "paused-break" // `08a` — manual pause ("Game paused" + Resume game)
+  | "paused-waiting" // `08b` — waiting for a disconnected player (Continue without)
+  | "paused-auto"; // `08c` — auto-pause, a whole team offline (End game)
+
+// ---------------------------------------------------------------------------
+// Game-over projection (task 8.6) — screen `07-game-over` and its variants.
+//
+// Shown to everyone once `state/current.phase === "ended"`. It is DERIVED from
+// the authoritative public state: the `winner` field (Normal → a player, Team →
+// a team, or none when the game was ended from an Auto_Pause), plus each
+// player's remaining-card count and who played the last card. No hands are
+// needed here — only counts — so this stays inside what Security Rules expose.
+//
+// The realtime layer (task 5) maps `onSnapshot` on `state/current` + `players`
+// into this shape; today the result fixtures (`fixtures.ts`) produce it, keyed
+// by `?state=` so Playwright and links reach each variant. The screen + these
+// types are ADD-only over the existing lobby/table view-models.
+// ---------------------------------------------------------------------------
+
+/**
+ * What kind of outcome the game ended with (Req 12.1/12.2, Req 25.13):
+ * - `player` — Normal_Mode: a single winner emptied their hand.
+ * - `team`   — Team_Mode: a whole team wins (either partner emptied a hand).
+ * - `none`   — the game was ended from an Auto_Pause ("Game ended"); there is
+ *              no winner and no confetti.
+ */
+export type ResultKind = "player" | "team" | "none";
+
+/**
+ * One row in the "CARDS LEFT" results card (§5.25). Carries just what the row
+ * renders: the player's identity, their remaining count, whether they are on
+ * the winning side (drives the winner ring), and whether they went out (the
+ * team-colored "Went out" badge on the player who played the last card).
+ */
+export interface ResultPlayerView {
+  id: string;
+  name: string;
+  /** Remaining cards held when the game ended (Req 12.3). */
+  cardCount: number;
+  /** 2v2 team assignment; undefined in Normal_Mode. */
+  team?: TeamId;
+  /** True when this player is on the winning player/team — winning-ring + grouping. */
+  isWinner: boolean;
+  /** True for the player who played the final card ("Went out" badge, Req 12.3). */
+  wentOut: boolean;
+}
+
+/**
+ * The full game-over projection consumed by `GameOverRoute`. Everything the
+ * result screen and its four variants need, with nothing tied to a live turn.
+ */
+export interface GameResultView {
+  room: RoomView;
+  /** The viewer's own player id. */
+  selfId: string;
+  /** Outcome kind — selects confetti/title treatment and the "Game ended" variant. */
+  kind: ResultKind;
+  /** Game mode of the finished game — 2v2 groups the results card by team. */
+  mode: GameMode;
+  /**
+   * The result title, already composed for the outcome:
+   * "Team A wins!" / "Maya wins!" / "Game ended" (Req 12.1, 25.13).
+   */
+  title: string;
+  /**
+   * Optional subtitle naming who played the last card, e.g. "Maya played her
+   * last card" (Req 12.3). Omitted for the no-winner "Game ended" variant.
+   */
+  subtitle?: string;
+  /**
+   * The winners shown as overlapping avatars at the top (§5.25): one in Normal,
+   * two in 2v2, none for "Game ended". Ordered as displayed.
+   */
+  winners: ResultPlayerView[];
+  /** Every player's remaining-count row for the "CARDS LEFT" card (Req 12.3). */
+  players: ResultPlayerView[];
+  /**
+   * Whether the viewer is the Host — the Host sees "Play again"; guests see
+   * "Waiting for the host" (Req 12.5). After host transfer (Req 12.7) the new
+   * host is reflected here.
+   */
+  selfIsHost: boolean;
+}
+
+/**
+ * The game-over screen states used as the `?state=` query-param value so
+ * Playwright can reach each variant and the route can pick the matching
+ * `GameResultView` without a backend.
+ */
+export type ResultStateId =
+  | "team-win" // 2v2 team win (the `07-game-over` reference), host view
+  | "normal-win" // Normal single winner ("Maya wins!"), host view
+  | "guest" // guest view — "Waiting for the host" instead of "Play again"
+  | "ended"; // "Game ended" — no winner, no confetti (Req 25.13)
