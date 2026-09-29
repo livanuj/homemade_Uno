@@ -1,0 +1,18 @@
+/*
+  App entry stylesheet.
+
+  Imports the design system's single source of truth (theme.css) — do NOT
+  duplicate tokens here. theme.css itself does `@import "tailwindcss";` and
+  declares the `@theme` tokens, `@utility pt-safe/pb-safe`, and `@layer base`.
+
+  Because the theme lives outside `src/` (in `design/`), Tailwind v4's
+  automatic content detection — which is anchored at the importing CSS file's
+  directory — needs to be told where our markup lives. The `@source` directives
+  below make Tailwind scan the app source (and the design HTML screen refs) for
+  class usage so utilities used in components are never purged. token-policy.md
+  requires importing the one theme.css, never copying it into src/.
+*/
+@import "../design/uno-design/theme.css";
+
+@source "./";
+@source "../index.html";

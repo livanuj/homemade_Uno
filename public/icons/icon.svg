@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Homemade Uno">
+  <!-- Placeholder app icon. Colors are the design "paper" (#F2EBDD) and "ink" (#2B2320)
+       token values; a static asset (not a component) so literal hex is acceptable here.
+       Replace with final art later. -->
+  <rect width="512" height="512" rx="112" fill="#F2EBDD" />
+  <rect x="146" y="96" width="220" height="320" rx="40" fill="#2B2320" />
+  <text x="256" y="300" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="200" font-weight="700" fill="#F2EBDD">U</text>
+</svg>

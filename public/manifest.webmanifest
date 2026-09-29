@@ -1,0 +1,19 @@
+{
+  "name": "Homemade Uno",
+  "short_name": "Uno",
+  "description": "Card nights with friends, right from your phone.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2EBDD",
+  "theme_color": "#F2EBDD",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

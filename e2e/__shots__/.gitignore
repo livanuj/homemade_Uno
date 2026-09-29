@@ -1,0 +1,4 @@
+# Raw Playwright captures are scratch output for eyeballing against design refs.
+# Committed visual-regression baselines live in e2e/__screenshots__/ instead.
+*
+!.gitignore
