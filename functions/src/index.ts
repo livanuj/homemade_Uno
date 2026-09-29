@@ -14,6 +14,7 @@ export {
     endGame,
     leave, pause, playAgain, resume
 } from "./lifecycle";
+export { setMode, setTeams } from "./lobby";
 export { setConnection } from "./presence";
 export { createRoom, join } from "./rooms";
 export { startGame } from "./start";

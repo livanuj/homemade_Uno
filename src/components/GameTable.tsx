@@ -386,10 +386,16 @@ function HandFan({
   view,
   highlight,
   width,
+  onPlayCard,
+  shakeCardId,
 }: {
   view: GameView;
   highlight: boolean;
   width: number;
+  /** Tap a hand card → attempt to play it (Task 9.4). */
+  onPlayCard?: (cardId: string) => void;
+  /** The card id currently shaking after an illegal-tap rejection (Req 7.3). */
+  shakeCardId?: string | null;
 }) {
   const n = view.hand.length;
   const liftRing =
@@ -420,7 +426,9 @@ function HandFan({
               variant="hand"
               selected={selected}
               dim={highlight && !card.playable}
+              shake={shakeCardId === card.id}
               reduced
+              {...(onPlayCard ? { onClick: () => onPlayCard(card.id) } : {})}
             />
           </div>
         );
@@ -449,6 +457,10 @@ export interface GameTableProps {
   onDraw?: () => void;
   /** Call "LAST CARD!" (task 9 wires the flow). */
   onCallLastCard?: () => void;
+  /** Tap a hand card → attempt to play it (Task 9.4). */
+  onPlayCard?: (cardId: string) => void;
+  /** The card id currently shaking after an illegal-tap rejection (Req 7.3). */
+  shakeCardId?: string | null;
   /**
    * Grace countdown for a disconnected opponent whose turn it is (§5.20, Req
    * 15.3): maps the seat id to `{ progress, secondsLeft }` so its
@@ -470,6 +482,8 @@ export function GameTable({
   onMenu,
   onDraw,
   onCallLastCard,
+  onPlayCard,
+  shakeCardId,
   seatCountdown,
   overlay,
 }: GameTableProps) {
@@ -583,7 +597,13 @@ export function GameTable({
       </div>
 
       {/* Your hand fan (§7.7). */}
-      <HandFan view={view} highlight={highlight} width={width} />
+      <HandFan
+        view={view}
+        highlight={highlight}
+        width={width}
+        {...(onPlayCard ? { onPlayCard } : {})}
+        {...(shakeCardId !== undefined ? { shakeCardId } : {})}
+      />
 
       {/* Overlay slot — task 8.5 / 8.7 render here over the table. */}
       {overlay}
