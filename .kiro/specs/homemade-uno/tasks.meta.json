@@ -227,6 +227,34 @@
         "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
         "timestamp": 1790689161246
       }
+    ],
+    "6.1 Implement card and avatar primitives": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693281155
+      }
+    ],
+    "6.2 Implement buttons, chips, inputs, and switch": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693281399
+      }
+    ],
+    "6.3 Implement lobby structural components": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693282299
+      }
+    ],
+    "6.4 Implement overlay and result components": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693283074
+      }
     ]
   }
 }
