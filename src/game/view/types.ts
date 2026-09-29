@@ -102,11 +102,129 @@ export type LobbyStateId =
   | "02e" // 2v2 dragging — a row lifted over a swap target
   | "02f"; // guest view — read-only mode, "Waiting for [host]" + Leave
 
-/** Game-table projection (task 8.4 will flesh this out). */
+// ---------------------------------------------------------------------------
+// Game-table projection (task 8.4) — screens `03-game-2v2` / `04-game-normal`.
+//
+// These shapes are what the table renders from; they are DERIVED from the
+// authoritative public state (`state/current`) plus the caller's own hand and,
+// in 2v2, the partner's hand (the only two hands Security Rules let a client
+// read, task 2). The realtime layer (task 5) will map `onSnapshot` into these
+// same shapes, so the table (8.4) and the overlays that render over it
+// (8.5 menu/sheets, 8.7 paused) do not change when the backend lands.
+// ---------------------------------------------------------------------------
+
+import type { CardValue, Suit } from "@/design/suits";
+
+/** Turn direction around the table (Req 6.6/6.7). `+1` clockwise, `-1` flipped. */
+export type Direction = 1 | -1;
+
+/**
+ * One card in a hand or on the discard pile. `suit` is omitted for wild /
+ * wild4 (mirrors the engine `Card` and the `PlayingCard` props). `id` is the
+ * stable card id used as the animation `layoutId` (task 7) — for face-up hands
+ * and the discard top.
+ */
+export interface CardView {
+  /** Stable card id (shared `layoutId` for play/throw flight). */
+  id: string;
+  /** Suit — omitted for wild / wild4. */
+  suit?: Suit;
+  /** Value or symbol. */
+  value: CardValue;
+}
+
+/**
+ * A card in the caller's own fanned hand — a {@link CardView} plus the
+ * per-card render flags the table needs (§7.7). `playable` drives the
+ * Highlight-setting dimming (Req 7.5/7.6); `selected` raises the card.
+ */
+export interface HandCardView extends CardView {
+  /** Whether this card can be legally played right now (Req 7.1). */
+  playable: boolean;
+  /** Whether the card is currently raised/selected (§7.7). */
+  selected?: boolean;
+}
+
+/**
+ * An opponent (non-self, non-partner) seat at the table — rendered as face-down
+ * backs with the 3D recipe (§6) and a real-count badge (Req 13.3/13.4/13.5).
+ * The seat position is chosen by the table from the mode + index, so this only
+ * carries identity + count + presence + team.
+ */
+export interface OpponentSeatView {
+  id: string;
+  name: string;
+  /** Real remaining-card count — the badge shows this even when ≤7 backs (Req 13.5). */
+  cardCount: number;
+  /** Live presence (Req 15); drives the offline treatment in 8.5/8.7. */
+  connection: ConnectionState;
+  /** 2v2 team; undefined in Normal_Mode. */
+  team?: TeamId;
+}
+
+/** The partner seat (2v2 only) — face-up hand shown with the partner recipe (Req 13.1/13.2). */
+export interface PartnerSeatView {
+  id: string;
+  name: string;
+  team: TeamId;
+  connection: ConnectionState;
+  /** The partner's actual cards, shown FACE-UP (Req 13.1). */
+  hand: CardView[];
+}
+
+/**
+ * The full game-table projection consumed by `GameTable` / `GameRoute`.
+ * `mode` selects the 2v2 (§7.5) vs. normal (§7.6) frame.
+ */
 export interface GameView {
   room: RoomView;
+  /** The viewer's own player id. */
   selfId: string;
+  /** The viewer's display name (shown as "You" at their row). */
+  selfName: string;
+  /** The viewer's team (2v2 only) — drives their row ring + "Team A · N cards". */
+  selfTeam?: TeamId;
+  /**
+   * Optional override for the meta line under "You" in the your-row (§7.5/§7.6).
+   * When omitted the table composes "Team A · N cards" (2v2) or "N cards"
+   * (Normal); a fixture may pass fuller flavor like "6 cards · up after Nora".
+   */
+  selfMeta?: string;
+  /** The caller's own fanned hand (§7.7). */
+  hand: HandCardView[];
+  /** The partner seat (2v2 only) — face-up hand (Req 13.1/13.2). */
+  partner?: PartnerSeatView;
+  /** Every other player, in clockwise seating order from the viewer's left (§7.6). */
+  opponents: OpponentSeatView[];
+  /** The current discard top (the card in play) and the card beneath it. */
+  discardTop: CardView;
+  /** The previously-played card shown at −12° under the top (§7.5). */
+  discardPrev?: CardView;
+  /** The active color to match (Req 6.7) — drives the ring + turn-pill dot. */
+  activeColor: Suit;
+  /** Turn direction (Req 6.6). */
+  direction: Direction;
+  /** The id of the player whose turn it is (Req 6.4/6.5). */
+  activeSeatId: string;
+  /** The turn-pill message (§5.5), already composed for the active state. */
+  turnText: string;
+  /** Pending draw penalty count, if a +2/+4 chain is open (Req 9). */
+  penaltyCount?: number;
+  /**
+   * Whether the viewer may call "LAST CARD!" right now: their turn AND exactly
+   * two cards in hand (Req 11.1). The button is enabled only when true.
+   */
+  canCallLastCard: boolean;
 }
+
+/**
+ * The two game-table screen ids (`03`/`04`), used as the `?state=` query-param
+ * value so Playwright can reach each fixture and the route can pick the frame
+ * without a backend.
+ */
+export type GameStateId =
+  | "03" // 2v2 table — your turn, partner face-up, two opponent seats
+  | "04"; // normal table — 5 players, another player's turn
 
 /** Why a join attempt failed — drives the Home error states (Req 2/3). */
 export type JoinFailureReason =
