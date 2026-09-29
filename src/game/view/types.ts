@@ -67,12 +67,40 @@ export interface RoomView {
   players: PlayerView[];
 }
 
-/** Lobby-facing projection (task 8.3 will consume this). */
+/**
+ * A transient team-drag in progress (design.md §5.13 / screen `02e`). The real
+ * pointer/keyboard DnD wiring is task 9.2; this only carries the *visual* seam
+ * so `02e-lobby-dragging` is reachable from a fixture: which row is lifted and
+ * which occupied row it is hovering as a swap target.
+ */
+export interface LobbyDrag {
+  /** Player id of the lifted (dragged) row. */
+  draggingId: string;
+  /** Player id of the occupied row currently under the finger (swap target). */
+  overId?: string;
+}
+
+/** Lobby-facing projection (task 8.3 consumes this). */
 export interface LobbyView {
   room: RoomView;
   /** The viewer's own player id, to distinguish host vs. guest views. */
   selfId: string;
+  /** Active team-drag, when the host is dragging a row (screen `02e`). */
+  drag?: LobbyDrag;
 }
+
+/**
+ * The six lobby screen states (`02a`–`02f`). Used as the `?state=` query-param
+ * value so Playwright can reach each distinct fixture and so the route can pick
+ * the matching `LobbyView` without a backend.
+ */
+export type LobbyStateId =
+  | "02a" // just created — host alone, Normal
+  | "02b" // Normal with 5 players (2v2 disabled + note)
+  | "02c" // 2v2 waiting — 3 players, one empty slot
+  | "02d" // 2v2 ready — exactly 4 players
+  | "02e" // 2v2 dragging — a row lifted over a swap target
+  | "02f"; // guest view — read-only mode, "Waiting for [host]" + Leave
 
 /** Game-table projection (task 8.4 will flesh this out). */
 export interface GameView {
