@@ -22,8 +22,9 @@
 import { instant, sheetSlide } from "@/design/motion";
 import { cn } from "@/lib/cn";
 import { AnimatePresence, motion } from "motion/react";
-import { useId, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import { MotionBackdrop } from "./MotionBackdrop";
+import { useModalA11y } from "@/lib/useModalA11y";
 
 export interface BottomSheetProps {
   /** Sheet title (`text-sheet`, wired to `aria-labelledby`). */
@@ -62,6 +63,16 @@ export function BottomSheet({
   className,
 }: BottomSheetProps) {
   const titleId = useId();
+  const panelRef = useRef<HTMLElement>(null);
+
+  // Focus-in / return-focus / trap. Escape only closes when a close affordance
+  // exists — the Wild picker omits `onClose` and must NOT dismiss on Escape
+  // (§5.16, Req 18.10).
+  useModalA11y(panelRef, {
+    open,
+    onClose: () => onClose?.(),
+    escapeCloses: onClose != null,
+  });
 
   return (
     <AnimatePresence>
@@ -73,6 +84,7 @@ export function BottomSheet({
             reduced={reduced}
           />
           <motion.section
+            ref={panelRef}
             role="dialog"
             aria-labelledby={titleId}
             variants={sheetSlide}

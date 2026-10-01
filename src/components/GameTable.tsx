@@ -25,11 +25,15 @@ import { Button } from "@/components/Button";
 import { CardBack, type CardBackVariant } from "@/components/CardBack";
 import { Chip } from "@/components/Chip";
 import { IconButton } from "@/components/IconButton";
+import {
+  LiveAnnouncer,
+  useGameAnnouncements,
+} from "@/components/LiveAnnouncer";
 import { MotionCard } from "@/components/MotionCard";
 import { OfflineAvatar } from "@/components/OfflineAvatar";
 import { PlayingCard } from "@/components/PlayingCard";
 import { TurnPill, type TurnPillTone } from "@/components/TurnPill";
-import type { Suit } from "@/design/suits";
+import { cardAriaLabel, type Suit } from "@/design/suits";
 import type {
   CardView,
   Direction,
@@ -491,6 +495,16 @@ export function GameTable({
   const tone = SUIT_TONE[view.activeColor];
   const isYourTurn = view.activeSeatId === view.selfId;
 
+  // Screen-reader announcements (Req 18.4/18.7): mirror the visible turn pill
+  // and the current card in play into a polite live region. The discard top is
+  // the "card just played" surface, phrased via the shared card label
+  // ("Red 7", "Wild draw four"). Composed so a card play landing with a turn
+  // change keeps the newest of each.
+  const announcement = useGameAnnouncements({
+    turnText: view.turnText,
+    lastPlay: `Top card ${cardAriaLabel(view.discardTop.value, view.discardTop.suit)}`,
+  });
+
   // Mode chip text (Req 12.6): "2v2 · Round N" or "Normal · N players".
   const modeChip = isTeam
     ? `2v2 · Round ${view.room.roundNumber}`
@@ -510,6 +524,9 @@ export function GameTable({
       className="relative h-dvh w-full select-none overflow-hidden bg-paper"
       style={{ touchAction: "manipulation" }}
     >
+      {/* Polite live region — turn changes + the card in play (Req 18.4/18.7). */}
+      <LiveAnnouncer message={announcement} />
+
       {/* Felt table oval. */}
       <div className="absolute left-5 top-[150px] h-[470px] w-[350px] rounded-[50%] border-2 border-felt-edge bg-felt inset-shadow-felt" />
 
