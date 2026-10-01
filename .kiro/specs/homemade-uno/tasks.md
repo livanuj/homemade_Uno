@@ -342,41 +342,41 @@ graph TD
     - Capture each screen state built here (`08a-paused`, `08b-paused-waiting`, `08c-paused-team-offline`) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 25.3, 25.4, 25.5, 25.7, 25.8, 25.9, 25.10, 25.11, 25.13, 25.15, 19.1_
 
-- [ ] 9. Wire the end-to-end feature flows
-  - [ ] 9.1 Wire create / join / rejoin flows
+- [x] 9. Wire the end-to-end feature flows
+  - [x] 9.1 Wire create / join / rejoin flows
     - Home → `createRoom` → Lobby; invite-link open with/without stored name; join by code; copy-link confirmation and clipboard-failure fallback; native share with clipboard fallback; rejoin restores seat/hand; return an in-progress member to their game on launch
     - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 2.8, 2.9, 3.2, 3.3_
 
-  - [ ] 9.2 Wire lobby mode selection and real-time team drag-and-drop
+  - [x] 9.2 Wire lobby mode selection and real-time team drag-and-drop
     - Host mode switch with join-order team fill (alternating A/B); 2v2 disable/enable and auto-switch-to-Normal toast at 5+ players; drag to swap/move with return-on-invalid-drop; tap/keyboard alternative that moves/swaps a player; reject team changes from non-hosts; propagate mode/team/host/list changes in real time
     - _Requirements: 4.6, 4.9, 4.10, 4.11, 4.13, 21.2, 21.3, 21.4, 21.5, 21.6, 21.7_
 
-  - [ ] 9.3 Wire start + deal into the table
+  - [x] 9.3 Wire start + deal into the table
     - Host Start (enabled only when constraints met) triggers `startGame`; render the staggered deal into the table and transition guests into `03`/`04`
     - _Requirements: 5.2, 5.3, 5.4_
 
-  - [ ] 9.4 Wire play / draw / wild / stacking / last-card into the table
+  - [x] 9.4 Wire play / draw / wild / stacking / last-card into the table
     - Card tap → `playCard` with illegal-tap shake on reject; wild → picker → `chooseColor`; draw pile → `drawOne` → play/keep sheet; stacking prompts and toasts; "LAST CARD!" enable/record and forgot-to-call penalty toast; turn/penalty/skip/reverse toasts
     - _Requirements: 6.10, 7.3, 8.3, 8.4, 9.x, 10.1, 10.2, 10.6, 11.1, 11.2, 11.3_
 
-  - [ ] 9.5 Wire win, play-again, and host transfer
+  - [x] 9.5 Wire win, play-again, and host transfer
     - On win, show `07` to all with counts; host "Play again" returns everyone to the lobby with the same mode/teams and bumps the round; guests wait; "Back to home"; host transfer if host gone at end
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7_
 
-  - [ ] 9.6 Wire disconnect / grace / skip and pause / resume / auto-pause / continue-without / end-game / leaving
+  - [x] 9.6 Wire disconnect / grace / skip and pause / resume / auto-pause / continue-without / end-game / leaving
     - Offline badge + toast; grace countdown in avatar and pill; "Pause and wait"; manual pause/resume; auto-pause + auto-resume; continue-without; end-game from auto-pause; leave-confirm → return home, immediate skip, rejoin via link
     - _Requirements: 15.1, 15.3, 15.5, 15.8, 22.1, 22.2, 22.3, 25.1, 25.2, 25.7, 25.8, 25.9, 25.11, 25.12, 25.13, 25.14, 25.15_
 
-- [ ] 10. Wire accessibility across the app
-  - [ ] 10.1 Native semantics, labels, and live announcements
+- [x] 10. Wire accessibility across the app
+  - [x] 10.1 Native semantics, labels, and live announcements
     - Use native `<button>`/`<input>`/`<a>`; `aria-label` on every icon-only button; card `aria-label` in the "<Suit> <Value>" / wild-name pattern; announce turn changes and card plays in an `aria-live="polite"` region without dropping the latest turn/card announcement
     - _Requirements: 18.1, 18.2, 18.4, 18.7_
 
-  - [ ] 10.2 Focus management, keyboard operability, and drag alternatives
+  - [x] 10.2 Focus management, keyboard operability, and drag alternatives
     - Move focus into dialogs/sheets on open and return it on close; close with Escape except the wild picker and the paused overlay; keyboard operability with visible focus for all controls including the drag-handle tap/keyboard alternative
     - _Requirements: 18.6, 18.8, 18.9, 18.10, 21.6_
 
-  - [ ]\* 10.3 Automated accessibility checks
+  - [x]\* 10.3 Automated accessibility checks
     - Add automated checks for roles, icon-button `aria-label`s, live-region wiring, focus management, and contrast tokens; add a note that full WCAG conformance requires manual testing with assistive technologies and expert review
     - _Requirements: 18.1, 18.4, 18.5, 18.6, 18.9_
 

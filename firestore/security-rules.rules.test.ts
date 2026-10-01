@@ -17,23 +17,23 @@
  *    fields and NOT another player's doc.
  */
 import {
-    assertFails,
-    assertSucceeds,
-    initializeTestEnvironment,
-    type RulesTestEnvironment,
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+  type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
-    doc,
-    getDoc,
-    serverTimestamp,
-    setDoc,
-    updateDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 
-const PROJECT_ID = "demo-homemade-uno";
+const PROJECT_ID = "homemadeuno";
 const rulesPath = fileURLToPath(new URL("../firestore.rules", import.meta.url));
 
 // --- room / player identifiers used across the tests ------------------------

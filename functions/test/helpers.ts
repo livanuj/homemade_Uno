@@ -9,28 +9,28 @@
  */
 import { deleteApp, initializeApp, type FirebaseApp } from "firebase/app";
 import {
-    connectAuthEmulator,
-    getAuth,
-    signInAnonymously,
-    type Auth,
+  connectAuthEmulator,
+  getAuth,
+  signInAnonymously,
+  type Auth,
 } from "firebase/auth";
 import {
-    collection,
-    connectFirestoreEmulator,
-    doc,
-    getDoc,
-    getDocs,
-    getFirestore,
-    type Firestore,
+  collection,
+  connectFirestoreEmulator,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  type Firestore,
 } from "firebase/firestore";
 import {
-    connectFunctionsEmulator,
-    getFunctions,
-    httpsCallable,
-    type Functions,
+  connectFunctionsEmulator,
+  getFunctions,
+  httpsCallable,
+  type Functions,
 } from "firebase/functions";
 
-const PROJECT_ID = "demo-homemade-uno";
+const PROJECT_ID = "homemadeuno";
 const FIRESTORE_HOST = "127.0.0.1";
 const FIRESTORE_PORT = 8080;
 const AUTH_URL = "http://127.0.0.1:9099";

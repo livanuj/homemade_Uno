@@ -8,11 +8,11 @@
  * auto-pause decision from the recorded `lastSeen` (never client-reported
  * presence).
  */
-import { doc, onSnapshot, type Firestore } from "firebase/firestore";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { doc, onSnapshot, type Firestore } from "firebase/firestore";
 
-const PROJECT_ID = "demo-homemade-uno";
+const PROJECT_ID = "homemadeuno";
 
 function admin() {
   if (getApps().length === 0) initializeApp({ projectId: PROJECT_ID });
