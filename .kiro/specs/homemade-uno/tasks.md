@@ -380,7 +380,7 @@ graph TD
     - Add automated checks for roles, icon-button `aria-label`s, live-region wiring, focus management, and contrast tokens; add a note that full WCAG conformance requires manual testing with assistive technologies and expert review
     - _Requirements: 18.1, 18.4, 18.5, 18.6, 18.9_
 
-- [ ] 11. Checkpoint — full test suite green
+- [x] 11. Checkpoint — full test suite green
   - Ensure all property, unit, integration, realtime, and accessibility tests pass. Ensure all tests pass, ask the user if questions arise.
   - _Requirements: 14.x, 23.x, 18.x_
 
