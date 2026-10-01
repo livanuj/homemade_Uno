@@ -83,7 +83,20 @@ const TEAM_RING: Record<"A" | "B", AvatarRing> = {
 
 const CARD_W = 70; // hand card width (§5.1)
 const FAN_MARGIN = 34; // side margin used in the step clamp (§7.7)
-const MAX_STEP = 42; // max horizontal spacing between cards
+const MAX_STEP = 42; // max horizontal spacing between cards (small hands)
+/**
+ * Minimum horizontal step for a LARGE hand (§7.7 tuned for ~7 cards; big hands
+ * need a floor so cards don't collapse into an unreadable clump). Keeps at
+ * least this much of each card's left edge visible. 18px leaves the suit index
+ * / numeral column peeking out.
+ */
+const MIN_STEP = 18;
+/** Half of the total angular spread of the fan, in degrees (constant arc). */
+const FAN_HALF_ANGLE = 16;
+/** Resting top offset of the center card (px) within the hand band. */
+const FAN_BASE_TOP = 10;
+/** How far the OUTERMOST cards rise above center (px) — a fixed, bounded arc. */
+const FAN_ARC_RISE = 30;
 
 /**
  * Spread-safe `{ suit, value }` for a card: with `exactOptionalPropertyTypes`,
@@ -111,12 +124,31 @@ interface FanSlot {
  * call site. Returned in px / degrees.
  */
 export function fanSlot(i: number, n: number, w: number): FanSlot {
+  // Horizontal step. Target the design spacing (fill the available width up to
+  // MAX_STEP), with a readable floor (MIN_STEP) so medium hands don't collapse.
+  // But the floor is SOFT: if MIN_STEP would push the run past the full width
+  // (very large hands), fall back to whatever step fits edge-to-edge so no card
+  // is clipped off-screen. Result: small hands fan wide, medium hands overlap
+  // to a legible band, and huge hands pack tightly but stay fully visible.
+  const available = w - FAN_MARGIN * 2 - CARD_W; // room for inter-card steps
+  const fitStep = n <= 1 ? 0 : available / (n - 1); // exact fit within margins
   const step =
-    n <= 1 ? 0 : Math.min(MAX_STEP, (w - FAN_MARGIN * 2 - CARD_W) / (n - 1));
+    n <= 1
+      ? 0
+      : fitStep >= MIN_STEP
+        ? Math.min(MAX_STEP, fitStep) // comfortable: clamp to the design max
+        : Math.max(fitStep, (w - CARD_W) / (n - 1)); // tight: fit full width
+  // Center the whole run within the container.
   const left = (w - (CARD_W + step * (n - 1))) / 2 + i * step;
-  const t = i - (n - 1) / 2;
-  const rotate = t * (30 / Math.max(n - 1, 1));
-  const top = 22 + 2.4 * t * t;
+
+  // Normalize the card's offset from center to u ∈ [-1, 1] so the fan's SHAPE
+  // (angle + arc) is independent of card count — the extremes always sit at the
+  // same angle and height whether the hand has 3 cards or 25 (fixes the
+  // exploding parabola / vertical spill on big hands).
+  const tMax = Math.max((n - 1) / 2, 1);
+  const u = (i - (n - 1) / 2) / tMax;
+  const rotate = u * FAN_HALF_ANGLE;
+  const top = FAN_BASE_TOP + FAN_ARC_RISE * u * u;
   return { left, rotate, top };
 }
 
