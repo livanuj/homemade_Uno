@@ -155,6 +155,7 @@ function LiveGame() {
     <GameTable
       view={view}
       highlight={settings.highlight}
+      reduced={reduced}
       onPlayCard={play}
       shakeCardId={shakeCardId}
       onDraw={() => void actions.drawOne()}

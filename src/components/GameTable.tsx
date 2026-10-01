@@ -34,6 +34,12 @@ import { OfflineAvatar } from "@/components/OfflineAvatar";
 import { PlayingCard } from "@/components/PlayingCard";
 import { TurnPill, type TurnPillTone } from "@/components/TurnPill";
 import { cardAriaLabel, type Suit } from "@/design/suits";
+import {
+  dealDelay,
+  drawSlideTransition,
+  motionTransition,
+  playSpring,
+} from "@/design/motion";
 import type {
   CardView,
   Direction,
@@ -42,7 +48,8 @@ import type {
   PartnerSeatView,
 } from "@/game/view/types";
 import { cn } from "@/lib/cn";
-import type { CSSProperties, ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
 // Static token maps (styling.md — the compiler must see whole class names).
@@ -345,10 +352,13 @@ function Piles({
   discardTop,
   discardPrev,
   onDraw,
+  reduced = false,
 }: {
   discardTop: CardView;
   discardPrev?: CardView;
   onDraw?: () => void;
+  /** Honor reduced motion (Req 17.6) — drops the throw flight when true. */
+  reduced?: boolean;
 }) {
   return (
     <div className="absolute left-[105px] top-[340px] flex h-[116px] w-[180px] items-center justify-center gap-[22px]">
@@ -362,15 +372,29 @@ function Piles({
             <PlayingCard variant="pile" {...faceProps(discardPrev)} />
           </div>
         )}
-        <div
-          className="absolute inset-0"
-          style={{
-            transform: "rotate(8deg)",
-            filter: "drop-shadow(0 0 16px var(--pile-glow))",
-          }}
-        >
-          <PlayingCard variant="pile" {...faceProps(discardTop)} />
-        </div>
+        {/*
+         * The discard TOP is the landing target for a played card's shared-
+         * layout flight (Req 17.1): it carries `layoutId={card.id}`, matching
+         * the hand `MotionCard` that was just played, so Motion springs the
+         * card from the hand to here. `AnimatePresence` keys on the card id so
+         * each newly-played card animates in. Reduced motion drops the shared
+         * layoutId (the card simply appears). This is a presentational
+         * `motion.div` wrapper — the pile card itself stays non-interactive.
+         */}
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.div
+            key={discardTop.id}
+            {...(reduced ? {} : { layoutId: discardTop.id, layout: true })}
+            className="absolute inset-0"
+            style={{
+              transform: "rotate(8deg)",
+              filter: "drop-shadow(0 0 16px var(--pile-glow))",
+            }}
+            transition={motionTransition(reduced, playSpring)}
+          >
+            <PlayingCard variant="pile" {...faceProps(discardTop)} tabIndex={-1} />
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -381,10 +405,46 @@ function Piles({
 // ---------------------------------------------------------------------------
 
 /**
- * The caller's fanned hand (§7.7). Each card is a `MotionCard` (so task 9 can
- * animate a play) positioned absolutely by the fan math. Unplayable cards are
- * dimmed only when `highlight` is on (Req 7.5/7.6); the selected card is raised
- * to `top: 0, rotate: 0` with the team-colored lift ring.
+ * Track which hand-card ids are NEW since the previous render, and how many
+ * arrived together, so freshly drawn cards can animate in from the draw pile
+ * (Req 10.6) and a multi-card penalty draw (+2/+4/forgot-UNO) fans in with a
+ * stagger (reusing the deal timing). Returns, per current card id, the 0-based
+ * index among the cards that arrived in the latest batch (or `null` if the card
+ * is not new). Cards that were already present do not re-animate.
+ */
+export function useDrawInOrder(handIds: string[]): Map<string, number> {
+  // Diff the current ids against the ids committed on the previous render. Any
+  // id not present before is "new" and gets its 0-based position among the
+  // additions (the stagger order). A render with no additions (a play, or an
+  // incidental re-render) yields an empty map, so cards animate in exactly once
+  // and never re-animate. The commit happens in an effect AFTER the render that
+  // exposed the batch, so the newly-drawn cards' motion wrappers mount with
+  // their `initial` and the batch is consumed by that same render.
+  // Lazily seed the committed ids with the OPENING hand so the first render
+  // (and the dealt hand) is not mistaken for a draw — only later additions are.
+  const committedRef = useRef<string[] | null>(null);
+  if (committedRef.current === null) committedRef.current = handIds;
+  const prev = new Set(committedRef.current);
+  const added = handIds.filter((id) => !prev.has(id));
+  const order = new Map(added.map((id, i) => [id, i] as const));
+
+  useEffect(() => {
+    committedRef.current = handIds;
+    // The id list is a fresh array each render; join to a stable string so the
+    // effect only re-commits when the actual id SEQUENCE changes.
+  }, [handIds.join("\u0001")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return order;
+}
+
+/**
+ * The caller's fanned hand (§7.7). Each card is a `MotionCard` positioned
+ * absolutely by the fan math. A played card flies to the discard via its shared
+ * `layoutId` (Req 17.1); a freshly drawn card slides/flips in from the draw
+ * pile (Req 10.6), and a multi-card penalty draw fans in with a 60ms stagger.
+ * Unplayable cards are dimmed only when `highlight` is on (Req 7.5/7.6); the
+ * selected card is raised to `top: 0, rotate: 0` with the team-colored lift
+ * ring. Reduced motion (Req 17.6) makes every move instant.
  */
 function HandFan({
   view,
@@ -392,6 +452,7 @@ function HandFan({
   width,
   onPlayCard,
   shakeCardId,
+  reduced = false,
 }: {
   view: GameView;
   highlight: boolean;
@@ -400,10 +461,14 @@ function HandFan({
   onPlayCard?: (cardId: string) => void;
   /** The card id currently shaking after an illegal-tap rejection (Req 7.3). */
   shakeCardId?: string | null;
+  /** Honor reduced motion (Req 17.6). */
+  reduced?: boolean;
 }) {
   const n = view.hand.length;
   const liftRing =
     view.selfTeam === "B" ? "var(--color-team-b)" : "var(--color-team-a)";
+  const drawInOrder = useDrawInOrder(view.hand.map((c) => c.id));
+
   return (
     <div className="absolute left-0 top-[664px] h-[180px] w-full">
       {view.hand.map((card, i) => {
@@ -422,18 +487,42 @@ function HandFan({
               }
             : {}),
         };
+
+        // Draw-in flight (Req 10.6): a newly arrived card slides up/in from the
+        // draw-pile direction and flips face-up. For a multi-card penalty draw,
+        // each card is delayed by its batch index (deal stagger). The draw pile
+        // sits ~324px above and ~offset left of the hand, so we start the card
+        // from an upward+left offset and let it settle into its fan slot.
+        const batchIndex = drawInOrder.get(card.id);
+        const isDrawnIn = batchIndex !== undefined && !reduced;
+        const drawInProps = isDrawnIn
+          ? {
+              initial: { opacity: 0.6, y: -320, x: 40, rotateY: 180 },
+              animate: { opacity: 1, y: 0, x: 0, rotateY: 0 },
+              transition: {
+                ...drawSlideTransition,
+                delay: dealDelay(batchIndex),
+              },
+            }
+          : {};
+
+        // The outer div owns the fan POSITION/rotation (plain CSS transform);
+        // the inner motion wrapper owns only the draw-in flight (opacity / y /
+        // x / rotateY) so the two transforms never fight.
         return (
           <div key={card.id} style={style}>
-            <MotionCard
-              cardId={card.id}
-              {...faceProps(card)}
-              variant="hand"
-              selected={selected}
-              dim={highlight && !card.playable}
-              shake={shakeCardId === card.id}
-              reduced
-              {...(onPlayCard ? { onClick: () => onPlayCard(card.id) } : {})}
-            />
+            <motion.div {...drawInProps}>
+              <MotionCard
+                cardId={card.id}
+                {...faceProps(card)}
+                variant="hand"
+                selected={selected}
+                dim={highlight && !card.playable}
+                shake={shakeCardId === card.id}
+                reduced={reduced}
+                {...(onPlayCard ? { onClick: () => onPlayCard(card.id) } : {})}
+              />
+            </motion.div>
           </div>
         );
       })}
@@ -477,6 +566,13 @@ export interface GameTableProps {
    * Left as a clean seam here; 8.4 does not implement any overlay.
    */
   overlay?: ReactNode;
+  /**
+   * Honor reduced motion (Req 17.6) — pass from `usePrefersReducedMotion()`.
+   * When true, the throw flight and draw-in become instant moves. Defaults to
+   * `true` so static renders (Playwright captures, fixtures) stay at rest and
+   * match the design reference PNGs; `GameRoute` passes the live preference.
+   */
+  reduced?: boolean;
 }
 
 export function GameTable({
@@ -490,6 +586,7 @@ export function GameTable({
   shakeCardId,
   seatCountdown,
   overlay,
+  reduced = true,
 }: GameTableProps) {
   const isTeam = view.room.mode === "team";
   const tone = SUIT_TONE[view.activeColor];
@@ -570,6 +667,7 @@ export function GameTable({
           discardTop={view.discardTop}
           {...(view.discardPrev ? { discardPrev: view.discardPrev } : {})}
           {...(onDraw ? { onDraw } : {})}
+          reduced={reduced}
         />
       </div>
 
@@ -618,6 +716,7 @@ export function GameTable({
         view={view}
         highlight={highlight}
         width={width}
+        reduced={reduced}
         {...(onPlayCard ? { onPlayCard } : {})}
         {...(shakeCardId !== undefined ? { shakeCardId } : {})}
       />
