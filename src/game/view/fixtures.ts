@@ -10,6 +10,7 @@
  *
  * Nothing here imports firebase or performs I/O.
  */
+import { inviteLinkForCode } from "@/lib/share";
 import type {
     LobbyStateId,
     LobbyView,
@@ -17,10 +18,12 @@ import type {
     RoomView,
 } from "./types";
 
-/** A deterministic invite link for a given code (mirrors the future server). */
-export function inviteLinkForCode(code: string): string {
-  return `https://homemade-uno.app/room/${code}`;
-}
+/**
+ * The invite link for a room code — re-exported from the shared helper so the
+ * existing `store.tsx` import keeps working and fixtures and the real mapper
+ * build the same origin-relative link (no hardcoded domain; see `@/lib/share`).
+ */
+export { inviteLinkForCode };
 
 /** A single fixture host player. */
 export function makeHostPlayer(name: string, id = "self"): PlayerView {

@@ -54,10 +54,20 @@ function uniqueName(name: string, existing: readonly string[]): string {
   }
 }
 
-/** Build the shareable invite link for a room code (Req 1.10). */
+/**
+ * Build the shareable invite link for a room code (Req 1.10).
+ *
+ * The link lands on the Home route with the code prefilled via `?code=…` (which
+ * the client reads to pre-populate the join field). We do NOT guess a domain:
+ * by default the link is root-relative (`/?code=…`), and the client resolves it
+ * against its own origin — the only thing that knows the real served URL. A
+ * fully-qualified link is produced only when an operator explicitly sets
+ * `APP_BASE_URL` (e.g. a known custom domain for links shared out-of-band).
+ */
 function inviteLink(roomCode: string): string {
-  const base = process.env.APP_BASE_URL ?? "https://homemade-uno.web.app";
-  return `${base}/?room=${roomCode}`;
+  const path = `/?code=${encodeURIComponent(roomCode)}`;
+  const base = process.env.APP_BASE_URL;
+  return base ? `${base.replace(/\/$/, "")}${path}` : path;
 }
 
 /**
