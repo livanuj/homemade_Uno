@@ -11,10 +11,10 @@
     "e2e": "playwright test",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:rules": "firebase emulators:exec --only firestore,auth --project demo-homemade-uno \"vitest run --config firestore/vitest.rules.config.ts\"",
+    "test:rules": "firebase emulators:exec --only firestore,auth --project homemadeuno \"vitest run --config firestore/vitest.rules.config.ts\"",
     "test:functions": "npm --prefix functions run build && npm --prefix functions run test:integration",
     "test:integration": "npm run test:rules",
-    "emulators": "firebase emulators:start --only firestore,auth --project demo-homemade-uno"
+    "emulators": "firebase emulators:start --only firestore,auth,functions --project homemadeuno"
   },
   "dependencies": {
     "@tailwindcss/vite": "4.3.3",
