@@ -22,6 +22,8 @@
 import { drawerSlide, instant } from "@/design/motion";
 import { cn } from "@/lib/cn";
 import { AnimatePresence, motion } from "motion/react";
+import { useRef } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
 import { Button } from "./Button";
 import { IconButton } from "./IconButton";
 import { MotionBackdrop } from "./MotionBackdrop";
@@ -120,6 +122,10 @@ export function MenuDrawer({
 }: MenuDrawerProps) {
   const teamA = cardCounts.filter((c) => c.team === "A");
   const teamB = cardCounts.filter((c) => c.team === "B");
+  const panelRef = useRef<HTMLElement>(null);
+
+  // Focus-in / return-focus / trap, close on Escape (Req 18.6, 18.9).
+  useModalA11y(panelRef, { open, onClose, escapeCloses: true });
 
   return (
     <AnimatePresence>
@@ -131,6 +137,7 @@ export function MenuDrawer({
             reduced={reduced}
           />
           <motion.aside
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="menu-drawer-title"
