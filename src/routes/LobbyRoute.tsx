@@ -32,16 +32,26 @@ import { callAction } from "@/firebase/callAction";
 import { useSession } from "@/firebase/useSession";
 import { makeLobbyView } from "@/game/view/fixtures";
 import { startEnablement, toLobbyView } from "@/game/view/mappers";
+import { dropAssignment, swapAssignment } from "@/game/view/teams";
 import type {
   GameMode,
+  LobbyDrag,
   LobbyView,
   PlayerView,
   TeamId,
 } from "@/game/view/types";
 import { cn } from "@/lib/cn";
 import { copyToClipboard, shareInvite } from "@/lib/share";
+import { dropTargetAttrs, useTeamDrag } from "@/lib/useTeamDrag";
 import { useRoomChannel } from "@/realtime/useRoomChannel";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 /** 2v2 needs exactly 4 players (design.md §5.14 / Req 4.8). */
@@ -69,6 +79,8 @@ interface LobbyHandlers {
   onModeChange(mode: GameMode): void;
   /** Move a player to the other team (tap/keyboard swap, Req 21.6). */
   onMovePlayer(playerId: string): void;
+  /** Persist a drag-and-drop team change (Req 21.3/21.4). */
+  onSetTeams(assignments: Record<string, TeamId>): void;
   onStart(): void;
   onLeave(): void;
   onBack(): void;
@@ -149,8 +161,11 @@ function LiveLobby() {
       void callAction("setMode", { roomId, mode });
     },
     onMovePlayer: (pid) => {
-      const assignments = swapAssignment(view, pid);
+      const assignments = swapAssignment(view.room.players, pid);
       if (assignments) void callAction("setTeams", { roomId, assignments });
+    },
+    onSetTeams: (assignments) => {
+      void callAction("setTeams", { roomId, assignments });
     },
     onStart: async () => {
       setBusy(true);
@@ -168,28 +183,6 @@ function LiveLobby() {
   };
 
   return <LobbyScreen view={view} handlers={handlers} />;
-}
-
-/**
- * Compute the new `{ playerId: team }` assignment for moving `pid` to the other
- * team, swapping with a member of the target team when it is already full
- * (Req 21.3/21.4). Returns null if the move is not possible.
- */
-function swapAssignment(
-  view: LobbyView,
-  pid: string,
-): Record<string, TeamId> | null {
-  const player = view.room.players.find((p) => p.id === pid);
-  if (!player?.team) return null;
-  const from = player.team;
-  const to: TeamId = from === "A" ? "B" : "A";
-  const targetTeam = view.room.players.filter((p) => p.team === to);
-  const assignment: Record<string, TeamId> = { [pid]: to };
-  if (targetTeam.length >= 2) {
-    // Swap: bump one target-team member back to the vacated team.
-    assignment[targetTeam[0].id] = from;
-  }
-  return assignment;
 }
 
 /** A minimal loading shell shown until the room snapshot hydrates. */
@@ -236,6 +229,9 @@ function FixtureLobby({ state }: { state: string }) {
     onMovePlayer: () => {
       /* fixture preview — team changes are exercised live (Req 21.2) */
     },
+    onSetTeams: () => {
+      /* fixture preview — team changes are exercised live (Req 21.2) */
+    },
     onStart: () => navigate(`/room/${code}/game`),
     onLeave: () => navigate("/"),
     onBack: () => navigate("/"),
@@ -267,6 +263,34 @@ function LobbyScreen({
   const [copied, setCopied] = useState(false);
 
   const teamDisabled = players.length > TEAM_MAX_PLAYERS;
+
+  // Live pointer drag (Req 21.2–21.5). Its state replaces the fixture's
+  // `view.drag` so the `02e` visuals render from wherever the finger is.
+  const teamAreaRef = useRef<HTMLDivElement>(null);
+  const teamDrag = useTeamDrag({
+    containerRef: teamAreaRef,
+    onDrop: (draggingId, target) => {
+      const assignments = dropAssignment(players, draggingId, target);
+      if (assignments) handlers.onSetTeams(assignments);
+    },
+  });
+  const liveDrag = teamDrag.drag;
+  const validOver =
+    liveDrag && dropAssignment(players, liveDrag.draggingId, liveDrag.over)
+      ? liveDrag.over
+      : null;
+  const drag: LobbyDrag | undefined = liveDrag
+    ? {
+        draggingId: liveDrag.draggingId,
+        liftY: liveDrag.liftY,
+        ...(validOver?.kind === "player" ? { overId: validOver.id } : {}),
+        ...(validOver?.kind === "slot" ? { overTeam: validOver.team } : {}),
+      }
+    : view.drag;
+  const dragView: LobbyView = drag ? { ...view, drag } : view;
+  const moveByTap = (pid: string) => {
+    if (!teamDrag.consumeClick()) handlers.onMovePlayer(pid);
+  };
   const { caption, disabled: startDisabled } = startEnablement(view.room);
 
   function handleCopyLink() {
@@ -324,24 +348,32 @@ function LobbyScreen({
         <span className="text-body font-extrabold text-ink">
           Players · {players.length}
         </span>
-        {isHost && <PlayersHint mode={mode} drag={!!view.drag} />}
+        {isHost && <PlayersHint mode={mode} drag={!!drag} />}
       </div>
 
       {/* Player area — single list (Normal) or Team A / Team B cards (2v2). */}
       {mode === "team" ? (
-        <div className="relative flex flex-col gap-3">
+        <div
+          ref={teamAreaRef}
+          className={cn("relative flex flex-col gap-3", drag && "select-none")}
+        >
           <TeamArea
-            view={view}
+            view={dragView}
             isHost={isHost}
-            onMovePlayer={handlers.onMovePlayer}
+            onMovePlayer={moveByTap}
+            onHandlePointerDown={teamDrag.startDrag}
           />
-          {view.drag &&
+          {drag &&
             (() => {
-              const dragged = players.find(
-                (p) => p.id === view.drag?.draggingId,
-              );
+              const dragged = players.find((p) => p.id === drag.draggingId);
               if (!dragged) return null;
-              return <LiftedRow name={displayName(dragged, view.selfId)} />;
+              return (
+                <LiftedRow
+                  name={displayName(dragged, view.selfId)}
+                  ring={ringFor(dragged, mode)}
+                  liftY={drag.liftY}
+                />
+              );
             })()}
         </div>
       ) : (
@@ -415,10 +447,12 @@ function TeamArea({
   view,
   isHost,
   onMovePlayer,
+  onHandlePointerDown,
 }: {
   view: LobbyView;
   isHost: boolean;
   onMovePlayer: (playerId: string) => void;
+  onHandlePointerDown: HandlePointerDown;
 }) {
   return (
     <>
@@ -428,6 +462,7 @@ function TeamArea({
           team="A"
           isHost={isHost}
           onMovePlayer={onMovePlayer}
+          onHandlePointerDown={onHandlePointerDown}
         />
       </TeamCard>
       <TeamCard team="b" name="TEAM B">
@@ -436,28 +471,38 @@ function TeamArea({
           team="B"
           isHost={isHost}
           onMovePlayer={onMovePlayer}
+          onHandlePointerDown={onHandlePointerDown}
         />
       </TeamCard>
     </>
   );
 }
 
+/** Starts a pointer drag of a player's row from its handle (Req 21.2). */
+type HandlePointerDown = (
+  playerId: string,
+  event: ReactPointerEvent<HTMLElement>,
+) => void;
+
 /**
  * The two seats of one team: filled rows for that team's players (host gets a
- * drag handle whose tap/keyboard action moves the player to the other team,
- * Req 21.6), the dragging visuals for screen `02e`, then a dashed
- * "Waiting for a player" slot for each unfilled seat.
+ * drag handle that starts a pointer drag, and whose tap/keyboard action moves
+ * the player to the other team, Req 21.6), the dragging visuals for screen
+ * `02e`, then a dashed "Waiting for a player" slot for each unfilled seat.
+ * Rows and empty seats carry drop-target attributes for hit-testing.
  */
 function TeamSlots({
   view,
   team,
   isHost,
   onMovePlayer,
+  onHandlePointerDown,
 }: {
   view: LobbyView;
   team: TeamId;
   isHost: boolean;
   onMovePlayer: (playerId: string) => void;
+  onHandlePointerDown: HandlePointerDown;
 }) {
   const { players, mode } = view.room;
   const seated = players.filter((p) => p.team === team);
@@ -470,37 +515,54 @@ function TeamSlots({
         const isDragging = drag?.draggingId === p.id;
         const isSwapTarget = drag?.overId === p.id;
 
+        let row;
         if (isDragging) {
-          return <DragPlaceholder key={p.id} name={p.name} />;
-        }
-        if (isSwapTarget) {
-          return (
-            <SwapTargetRow key={p.id} name={displayName(p, view.selfId)} />
+          row = <DragPlaceholder name={p.name} />;
+        } else if (isSwapTarget) {
+          row = (
+            <SwapTargetRow
+              name={displayName(p, view.selfId)}
+              ring={ringFor(p, mode)}
+            />
+          );
+        } else {
+          row = (
+            <PlayerRow
+              name={displayName(p, view.selfId)}
+              ring={ringFor(p, mode)}
+              host={p.isHost}
+              ready
+              {...(isHost
+                ? {
+                    rightSlot: (
+                      <DragHandle
+                        playerName={displayName(p, view.selfId)}
+                        onMove={() => onMovePlayer(p.id)}
+                        onPointerDown={(e) => onHandlePointerDown(p.id, e)}
+                      />
+                    ),
+                  }
+                : {})}
+            />
           );
         }
         return (
-          <PlayerRow
-            key={p.id}
-            name={displayName(p, view.selfId)}
-            ring={ringFor(p, mode)}
-            host={p.isHost}
-            ready
-            {...(isHost
-              ? {
-                  rightSlot: (
-                    <DragHandle
-                      playerName={displayName(p, view.selfId)}
-                      onMove={() => onMovePlayer(p.id)}
-                    />
-                  ),
-                }
-              : {})}
-          />
+          <div key={p.id} {...dropTargetAttrs({ kind: "player", id: p.id })}>
+            {row}
+          </div>
         );
       })}
 
       {Array.from({ length: empties }).map((_, i) => (
-        <EmptySlot key={`empty-${team}-${i}`} message="Waiting for a player" />
+        <div
+          key={`empty-${team}-${i}`}
+          {...dropTargetAttrs({ kind: "slot", team })}
+        >
+          <EmptySlot
+            message="Waiting for a player"
+            className={cn(drag?.overTeam === team && DRAG_STATE.dropTarget)}
+          />
+        </div>
       ))}
     </>
   );
@@ -512,7 +574,7 @@ function DragPlaceholder({ name }: { name: string }) {
 }
 
 /** The occupied row under the finger — a dashed swap target (screen 02e). */
-function SwapTargetRow({ name }: { name: string }) {
+function SwapTargetRow({ name, ring }: { name: string; ring: AvatarRing }) {
   return (
     <div
       className={cn(
@@ -522,7 +584,10 @@ function SwapTargetRow({ name }: { name: string }) {
     >
       <span
         aria-hidden="true"
-        className="size-9 shrink-0 rounded-full bg-avatar opacity-45 ring-3 ring-team-a"
+        className={cn(
+          "size-9 shrink-0 rounded-full bg-avatar opacity-45 ring-3",
+          AVATAR_RING_CLASS[ring],
+        )}
       />
       <span className="flex-1 text-body font-bold text-ink-muted">{name}</span>
       <span className="flex items-center gap-1.5 text-label font-extrabold text-ink">
@@ -533,10 +598,36 @@ function SwapTargetRow({ name }: { name: string }) {
   );
 }
 
-/** The lifted/tilted row following the finger (design.md §5.13 / screen 02e). */
-function LiftedRow({ name }: { name: string }) {
+/** Ring color class for the placeholder avatars in the drag rows. */
+const AVATAR_RING_CLASS: Record<AvatarRing, string> = {
+  "team-a": "ring-team-a",
+  "team-b": "ring-team-b",
+  ink: "ring-ink",
+  "ink-muted": "ring-ink-muted",
+  turn: "ring-turn",
+};
+
+/**
+ * The lifted/tilted row following the finger (design.md §5.13 / screen 02e).
+ * `liftY` positions it at the pointer during a live drag; without it the row
+ * sits where the `02e` reference shows it.
+ */
+function LiftedRow({
+  name,
+  ring,
+  liftY,
+}: {
+  name: string;
+  ring: AvatarRing;
+  liftY?: number | undefined;
+}) {
   return (
-    <div className="pointer-events-none absolute left-2 right-24 top-[104px] z-10">
+    <div
+      style={
+        liftY === undefined ? undefined : { ["--lift-y" as string]: `${liftY}px` }
+      }
+      className="pointer-events-none absolute left-2 right-24 top-[var(--lift-y,104px)] z-10"
+    >
       <MotionDragRow lifted>
         <div className="flex min-h-[46px] items-center gap-2.5 rounded-row bg-surface px-2.5 py-1.5">
           <span className="-ml-1.5 grid w-7 place-items-center">
@@ -544,7 +635,10 @@ function LiftedRow({ name }: { name: string }) {
           </span>
           <span
             aria-hidden="true"
-            className="size-9 shrink-0 rounded-full bg-avatar ring-3 ring-team-b"
+            className={cn(
+              "size-9 shrink-0 rounded-full bg-avatar ring-3",
+              AVATAR_RING_CLASS[ring],
+            )}
           />
           <span className="flex-1 text-body text-ink">{name}</span>
           <ReadyCheck />
