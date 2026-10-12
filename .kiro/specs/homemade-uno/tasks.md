@@ -90,36 +90,36 @@ graph TD
 
 ## Tasks
 
-- [ ] 1. Scaffold the app, wire design tokens, PWA, and the design steering file
-  - [ ] 1.1 Initialize the Vite + React + TypeScript project and base folder structure
+- [x] 1. Scaffold the app, wire design tokens, PWA, and the design steering file
+  - [x] 1.1 Initialize the Vite + React + TypeScript project and base folder structure
     - Create the Vite React-TS app; add the `src/` layout from the design's Components and Interfaces section: `main.tsx`, `App.tsx`, `routes/`, `components/`, `game/`, `realtime/`, `supabase/`, `design/`
     - Configure TypeScript strict mode and path aliases; add the React Router provider skeleton in `App.tsx` with routes for home, lobby, game, game-over, settings, how-to-play
     - _Requirements: 20.3_
 
-  - [ ] 1.2 Install and wire Tailwind CSS v4 with `theme.css`
+  - [x] 1.2 Install and wire Tailwind CSS v4 with `theme.css`
     - Add Tailwind v4 and import `design/uno-design/theme.css` once so `@theme`/`@import` exposes token classes (`bg-ink`, `text-suit-red-ink`, `rounded-panel`, `shadow-cta`, `animate-turn-pulse`, `pt-safe`/`pb-safe`)
     - Verify token classes resolve in a throwaway sample and that Tailwind's default spacing scale is available
     - _Requirements: 20.1, 20.2_
 
-  - [ ] 1.3 Add the PWA manifest, service worker, and mobile viewport/root shell
+  - [x] 1.3 Add the PWA manifest, service worker, and mobile viewport/root shell
     - Create the web manifest with `display: "standalone"`, `orientation: "portrait"`, `background_color: "#F2EBDD"`, `theme_color: "#F2EBDD"`
     - Set viewport meta `width=device-width, initial-scale=1, viewport-fit=cover` and `theme-color` meta `#F2EBDD`; register a service worker in `main.tsx`
     - Size the root with `h-dvh` and apply `pt-safe`/`pb-safe`; add `touch-action: manipulation` on the game table and disable text selection on cards
     - _Requirements: 16.1, 16.2, 16.3, 16.6_
 
-  - [ ] 1.4 Add the unsupported-viewport guard
+  - [x] 1.4 Add the unsupported-viewport guard
     - Detect viewport width <360px or >430px, or landscape orientation; render the "use a supported portrait phone width" message and suppress game/lobby rendering while the condition holds
     - _Requirements: 16.4, 16.8_
 
-  - [ ] 1.5 Create the always-included Design_Steering_File
+  - [x] 1.5 Create the always-included Design_Steering_File
     - Add a `.kiro/steering/` file with `inclusion: always` that references the Design_Spec (`design/uno-design/` — `theme.css`, `tokens.json`, `screen-map.json`, `screens/`), directs all UI generation to those tokens/theme/screen references, and prohibits inventing tokens
     - _Requirements: 20.1, 20.3 (Development Process)_
 
-  - [ ]\* 1.6 Set up the test runner and fast-check
+  - [x] 1.6 Set up the test runner and fast-check
     - Add Vitest + React Testing Library and the `fast-check` PBT library; add a sample passing test to confirm the harness runs
     - _Requirements: 20.3_
 
-  - [ ]\* 1.7 Set up Playwright for visual UI verification
+  - [x] 1.7 Set up Playwright for visual UI verification
     - Install `@playwright/test`; run `npx playwright install chromium webkit`
     - Add `playwright.config.ts` pinned to the design viewport (390×844, deviceScaleFactor 2, isMobile, hasTouch) with a WebKit project (targets iPhone Safari) and a Chromium project; configure a `webServer` that runs `npm run dev`
     - Add a reusable capture/compare helper in `e2e/` that navigates to a route/screen state, waits for fonts to load and disables animations (force prefers-reduced-motion), captures a PNG into `e2e/__shots__/<screen-id>.png`, and supports Playwright visual-regression baselines (`toHaveScreenshot`) so a screen can be diffed against a stored baseline; the agent compares each capture against the matching `design/uno-design/screens/<screen-id>.png` reference
