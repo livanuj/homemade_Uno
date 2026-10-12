@@ -7,15 +7,14 @@
  * versioned Firestore transactions; the draw order lives only in
  * `private/deck` (Req 23.2).
  */
-export { createRoom, join } from "./rooms";
-export { startGame } from "./start";
-export { playCard, chooseColor, drawOne, keep, callLast } from "./actions";
+export { callLast, chooseColor, drawOne, keep, playCard } from "./actions";
+export { enforceGrace } from "./grace";
 export {
-  pause,
-  resume,
-  continueWithout,
-  endGame,
-  leave,
-  playAgain,
+    continueWithout,
+    endGame,
+    leave, pause, playAgain, resume
 } from "./lifecycle";
 export { setConnection } from "./presence";
+export { createRoom, join } from "./rooms";
+export { startGame } from "./start";
+

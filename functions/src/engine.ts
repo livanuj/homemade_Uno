@@ -9,35 +9,29 @@
  * changes, the functions pick it up on the next `tsc` build.
  */
 export {
-  buildDeck,
-  deal,
-  assignSeats,
-  reducer,
-  shuffle,
-  shouldAutoPause,
-  HAND_SIZE,
-  isNumberCard,
-  isWildCard,
-  SUITS,
+    advanceActive, assignSeats, buildDeck,
+    deal, HAND_SIZE,
+    isNumberCard,
+    isWildCard, reducer, resolveReverse,
+    resolveSkip,
+    seatAfter, shouldAutoPause, shuffle, SUITS
 } from "../../src/game/engine/index";
 
 export type {
-  Action,
-  Card,
-  ConnectionSnapshot,
-  ConnectionState as EngineConnectionState,
-  Direction,
-  EngineContext,
-  GameMode,
-  GameState,
-  PenaltyKind,
-  Phase,
-  Rejection,
-  RejectionReason,
-  Result,
-  Rng,
-  Seat,
-  Suit,
-  Team,
-  Winner,
+    Action,
+    Card,
+    ConnectionSnapshot, Direction, ConnectionState as EngineConnectionState, EngineContext,
+    GameMode,
+    GameState,
+    PenaltyKind,
+    Phase,
+    Rejection,
+    RejectionReason,
+    Result,
+    Rng,
+    Seat,
+    Suit,
+    Team,
+    Winner
 } from "../../src/game/engine/types";
+
