@@ -4,11 +4,11 @@
 
 Homemade Uno is a mobile-only, portrait, link-shareable multiplayer UNO-style card game delivered as an installable PWA. Players create a private room, share an invite link (or a 4-character room code), and play a standard 108-card match with 2–8 friends. There are no accounts and no bots. The host picks the mode in the lobby: Normal (free-for-all, 2–8 players) or 2v2 Team mode (exactly 4 players, partners see each other's hands, a team wins when either partner empties their hand).
 
-The system is **server-authoritative**. A Supabase backend deals, shuffles, and validates every action; clients only render state and send action requests. This is the load-bearing decision for the whole design because three requirements depend on it:
+The system is **server-authoritative**. A Firebase backend deals, shuffles, and validates every action; clients only render state and send action requests. Game logic runs inside Cloud Functions (which use the Admin SDK to bypass Security Rules), and clients read state through Cloud Firestore realtime listeners constrained by Firestore Security Rules. This is the load-bearing decision for the whole design because three requirements depend on it:
 
 - **Requirement 23 (Hidden Hands and Server Authority)** — the server, not the client, holds the deck order and every hand. Clients never receive another player's hand (except a partner's in Team mode) or the draw-pile order.
 - **Requirement 14 (Realtime Synchronization)** — the server persists authoritative state before confirming a change, validates every play/draw, versions each state transition, and rejects out-of-turn or stale actions.
-- **Requirement 25 / 15 (Pausing, Disconnect)** — pause/resume and the disconnect grace period are enforced server-side against a recorded `last_seen`, so no client can fake presence or skip the countdown.
+- **Requirement 25 / 15 (Pausing, Disconnect)** — pause/resume and the disconnect grace period are enforced server-side against a recorded `lastSeen`, so no client can fake presence or skip the countdown.
 
 The rest of the design is organized around that spine:
 
@@ -29,9 +29,11 @@ Every visual decision in this document is grounded in the `Design_Spec` (`design
 ### Confirmed technology stack
 
 - **Frontend:** React + Vite, Tailwind CSS v4, Motion for React (`motion/react`) for animation. Mobile-only, portrait, installable PWA (manifest + service worker).
-- **Backend / realtime / data:** Supabase — Postgres for state, Supabase Realtime for live sync, Supabase anonymous auth for `Player_ID`, Row Level Security (RLS) to enforce hidden hands, and Edge Functions / Postgres RPC for server-authoritative game logic.
-- **Identity:** a Supabase anonymous sign-in session is the `Player_ID`. Rejoin uses the invite link plus the persisted session.
+- **Backend / realtime / data:** Firebase — Cloud Firestore for state and live sync (realtime via `onSnapshot`), Cloud Functions (callable, Admin SDK) for server-authoritative game logic, Firebase Anonymous Auth for `Player_ID`, and Firestore Security Rules to enforce hidden hands. Local development runs against the Firebase Emulator Suite.
+- **Identity:** a Firebase Anonymous Auth session is the `Player_ID`. Rejoin uses the invite link plus the persisted session.
 - No bots. No per-turn timer for connected players. A 60-second `Grace_Period` applies to a disconnected active player, then their turn is auto-skipped. Pause / Auto_Pause per Requirement 25.
+
+_Note: the pure rules engine (`src/game/engine`) is backend-agnostic and unchanged; only its server wrapper (now a Cloud Function) and the persistence/realtime layer are Firebase-specific._
 
 ---
 
@@ -43,184 +45,200 @@ Every visual decision in this document is grounded in the `Design_Spec` (`design
 graph TB
   subgraph Client["React PWA (mobile, portrait)"]
     UI["Screens & components<br/>(22 screen refs)"]
-    RS["Realtime store<br/>(public state + own hand)"]
-    AC["Action client<br/>(sends versioned requests)"]
+    RS["onSnapshot store<br/>(public state + own hand)"]
+    AC["Action client<br/>(callAction → httpsCallable)"]
     SW["Service worker + manifest"]
   end
 
-  subgraph Supabase["Supabase"]
+  subgraph Firebase["Firebase"]
     AUTH["Anonymous Auth<br/>(Player_ID)"]
-    PG[("Postgres<br/>rooms, players, game_state,<br/>hands, actions")]
-    RLS["Row Level Security<br/>(hidden hands)"]
-    RT["Realtime<br/>(Postgres changes + presence)"]
-    FN["Edge Functions / RPC<br/>(authoritative rules engine)"]
+    FS[("Cloud Firestore<br/>rooms, players, state,<br/>hands, actions, private deck")]
+    RULES["Firestore Security Rules<br/>(hidden hands, read scope)"]
+    FN["Cloud Functions (callable, Admin SDK)<br/>(authoritative rules engine)"]
   end
 
   UI --> RS
   UI --> AC
-  AC -->|"play/draw/pause… + state version"| FN
-  FN -->|deal, shuffle, validate, mutate| PG
-  PG --- RLS
-  PG -->|row changes| RT
-  RT -->|public state, own/partner hand| RS
+  AC -->|"play/draw/pause… + basedOnVersion"| FN
+  FN -->|deal, shuffle, validate, mutate<br/>(transaction, Admin SDK)| FS
+  FS --- RULES
+  FS -->|"onSnapshot doc/collection updates"| RS
   AUTH -->|session = Player_ID| Client
-  RLS -.->|filters reads| RT
+  RULES -.->|filters client reads| RS
 ```
 
 ### Why game logic lives server-side
 
 A browser client cannot be trusted with the deck order or other players' hands: anything sent to the client can be inspected in network traffic (Requirement 23). Therefore:
 
-1. **The rules engine runs only in Edge Functions / Postgres RPC.** Dealing, shuffling, match validation, penalty resolution, and win detection all execute server-side. The client sends an _intent_ ("play card X, based on state version V") and receives an accept/reject result plus a broadcast of the new public state.
-2. **RLS enforces read scope.** A player can `SELECT` only their own hand row, the public game state, and — in Team mode — their partner's hand row. No policy grants any client read access to the draw-pile order.
-3. **Persist-before-confirm.** The Edge Function writes the mutated authoritative state to Postgres inside a single transaction before the change is confirmed, so the state survives any individual disconnect (Requirement 14.4).
+1. **The rules engine runs only in Cloud Functions.** Dealing, shuffling, match validation, penalty resolution, and win detection all execute server-side inside callable Cloud Functions (using the Admin SDK). The client sends an _intent_ ("play card X, based on state version V") and receives an accept/reject result; the new public state is delivered to all clients via Firestore `onSnapshot` listeners.
+2. **Firestore Security Rules enforce read scope.** A client can read only its own hand document, the public game state, the public room/players documents, and — in Team mode — its partner's hand document. No rule grants any client read access to the private deck (draw-pile order).
+3. **Persist-before-confirm.** The Cloud Function commits the mutated authoritative state to Firestore inside a single transaction before returning its accept result, so the state survives any individual disconnect (Requirement 14.4).
 
 ### Request / response + realtime flow for "play a card"
 
 ```mermaid
 sequenceDiagram
   participant P as Player (Active)
-  participant EF as Edge Function<br/>play_card(room, card, version)
-  participant DB as Postgres (+RLS)
-  participant RT as Realtime
+  participant FN as Cloud Function<br/>playCard(room, card, basedOnVersion)
+  participant FS as Cloud Firestore (Admin SDK)
+  participant RULES as Security Rules
   participant All as All players in room
 
-  P->>EF: play_card(card_id, based_on_version=V)
-  EF->>DB: read authoritative game_state (row lock)
+  P->>FN: httpsCallable playCard(cardId, basedOnVersion=V)
+  FN->>FS: transaction: read state doc (rooms/{id}/state/current)
   alt version mismatch, paused, not active player, or illegal card
-    EF-->>P: reject (reason code)
+    FN-->>P: reject (reason code)
     Note over P: client shows illegal-tap shake / toast,<br/>hand & state unchanged (Req 7.3, 14.5)
   else valid
-    EF->>DB: apply rules (move card, set color,<br/>penalty, advance turn), version = V+1
-    DB-->>EF: committed
-    EF-->>P: accept (new public state, your hand)
-    DB->>RT: row change (game_state, hands, actions)
-    RT-->>All: public state broadcast (< 2s, Req 14.1)
-    RT-->>All: each client reads only permitted hands (RLS)
+    FN->>FS: apply engine (move card, set color,<br/>penalty, advance turn); write state + hand docs;<br/>version = V+1; commit transaction
+    FS-->>FN: committed
+    FN-->>P: accept (result)
+    FS-->>All: onSnapshot updates (state, players, own/partner hand)
+    Note over All,RULES: Security Rules filter reads;<br/>public state < 2s (Req 14.1)
   end
 ```
 
-The client is optimistic only for local feedback (raising a card, drawing animation); the authoritative outcome always comes from the server broadcast. If the server rejects, the client reverts to the last confirmed state.
+The client is optimistic only for local feedback (raising a card, drawing animation); the authoritative outcome always comes from the Firestore `onSnapshot` update. If the Cloud Function rejects, the client reverts to the last confirmed state.
 
-### How server-authority + RLS satisfy Requirements 23 and 14
+### How server-authority + Security Rules satisfy Requirements 23 and 14
 
-- **Req 23.1 / 23.2 (never send other hands or draw order):** The `hands` table holds one row per player per game; RLS restricts `SELECT` to `player_id = auth.uid()` plus the partner in Team mode. The draw pile is stored as a server-only ordered column on `game_state` with **no** `SELECT` policy for clients — only Edge Functions (service role) read it.
-- **Req 23.3 (server deals, shuffles, applies rules):** All mutations flow through Edge Functions / RPC; there is no client write path to `game_state` or `hands`.
-- **Req 14.5 (validate every action, reject non-active and stale):** Each action carries `based_on_version`; the function rejects if the caller is not the active player or if `based_on_version != game_state.version`.
-- **Req 14.6 (read scope):** Enforced by the same RLS policies described above.
-- **Req 14.4 / 14.7 (durability and reconnect):** State is persisted per action; on reconnect the client re-subscribes and reads the current public state and its own hand (delivered within 5 s).
+- **Req 23.1 / 23.2 (never send other hands or draw order):** The `hands` subcollection holds one document per player per game; Security Rules restrict reads to `playerId == request.auth.uid` plus the partner in Team mode. The draw-pile order lives in a server-only location (`rooms/{roomId}/private/deck`) with a **deny-all** read rule — only Cloud Functions (Admin SDK) read it.
+- **Req 23.3 (server deals, shuffles, applies rules):** All mutations flow through Cloud Functions (Admin SDK); there is no client write path to the state, hands, or private deck documents.
+- **Req 14.5 (validate every action, reject non-active and stale):** Each action carries `basedOnVersion`; the Cloud Function's Firestore transaction rejects if the caller is not the active player or if `basedOnVersion != state.version`.
+- **Req 14.6 (read scope):** Enforced by the same Firestore Security Rules described above.
+- **Req 14.4 / 14.7 (durability and reconnect):** State is committed per action; on reconnect the client re-attaches its `onSnapshot` listeners and receives the current public state and its own hand (delivered within 5 s).
 
 ---
 
 ## Data Models
 
-Postgres schema. All game-mutating writes happen through Edge Functions using the service role; clients read through RLS-protected views/tables and never write game tables directly.
+Cloud Firestore document model. All game-mutating writes happen through Cloud Functions using the Admin SDK (which bypasses Security Rules); clients read documents through Security-Rules-protected listeners and never write game documents directly. The data is organized as a room-rooted collection/subcollection tree.
 
-### Tables
+### Firestore tree
 
-**`rooms`**
+```mermaid
+graph TD
+  R["rooms/{roomId}<br/>roomCode, hostPlayerId, gameMode,<br/>phase, roundNumber, timestamps"]
+  P["players/{playerId}<br/>displayName, seatIndex, team, isHost,<br/>joinOrder, connectionState, lastSeen, hasLeft"]
+  S["state/current<br/>version, discardPile, activeColor, activeSeat,<br/>direction, penaltyCount, pendingPenaltyKind, phase,<br/>drewThisTurn, lastCardCalledSeat, pausedBy, pausedAt,<br/>pendingChoice, winner"]
+  H["hands/{playerId}<br/>cards, cardCount"]
+  A["actions/{autoId}<br/>playerId, type, basedOnVersion, result, createdAt"]
+  D["private/deck<br/>drawPile (ordered) — deny-all client read"]
+  R --> P
+  R --> S
+  R --> H
+  R --> A
+  R --> D
+```
 
-| Column                            | Type        | Notes                                                    |
-| --------------------------------- | ----------- | -------------------------------------------------------- |
-| `id`                              | uuid PK     |                                                          |
-| `room_code`                       | text unique | 4 chars, A–Z/0–9 minus look-alikes `0 O 1 I L` (Req 1.9) |
-| `host_player_id`                  | uuid        | current host (Req 3.6, 12.7, 15.8)                       |
-| `game_mode`                       | text        | `normal` \| `team` (Req 4)                               |
-| `phase`                           | text        | `lobby` \| `playing` \| `ended`                          |
-| `round_number`                    | int         | games played in the room; shown as "Round N" (Req 12.6)  |
-| `created_at` / `last_activity_at` | timestamptz | 24 h inactivity cleanup (Req 24.2)                       |
+### Documents
 
-**`players`** (a seat/membership in a room)
+**`rooms/{roomId}`**
 
-| Column             | Type        | Notes                                                                                   |
-| ------------------ | ----------- | --------------------------------------------------------------------------------------- |
-| `id`               | uuid PK     |                                                                                         |
-| `room_id`          | uuid FK     |                                                                                         |
-| `player_id`        | uuid        | Supabase anonymous `auth.uid()` (Req 3.1)                                               |
-| `display_name`     | text        | 1–16 chars trimmed; duplicate suffixing applied (Req 1.12, 1.13)                        |
-| `seat_index`       | int null    | assigned at game start, kept for the game (Req 5.7)                                     |
-| `team`             | text null   | `A` \| `B` in Team mode (Req 5.7)                                                       |
-| `is_host`          | bool        | derived from `rooms.host_player_id`; retained per seat while host is offline (Req 15.8) |
-| `join_order`       | int         | for host succession "longest-present" (Req 3.6, 12.7)                                   |
-| `connection_state` | text        | `connected` \| `disconnected` \| `left` (Req 15, 22)                                    |
-| `last_seen`        | timestamptz | server-recorded; drives Grace_Period (Req 15.6)                                         |
-| `has_left`         | bool        | explicit leave (Req 22)                                                                 |
+| Field                          | Type      | Notes                                                                                |
+| ------------------------------ | --------- | ------------------------------------------------------------------------------------ |
+| `roomCode`                     | string    | 4 chars, A–Z/0–9 minus look-alikes `0 O 1 I L` (Req 1.9), unique across active rooms |
+| `hostPlayerId`                 | string    | current host (Req 3.6, 12.7, 15.8)                                                   |
+| `gameMode`                     | string    | `normal` \| `team` (Req 4)                                                           |
+| `phase`                        | string    | `lobby` \| `playing` \| `ended`                                                      |
+| `roundNumber`                  | number    | games played in the room; shown as "Round N" (Req 12.6)                              |
+| `createdAt` / `lastActivityAt` | timestamp | 24 h inactivity cleanup (Req 24.2)                                                   |
 
-Unique: `(room_id, player_id)`.
+**`rooms/{roomId}/players/{playerId}`** (a seat/membership in a room; the document id is the `Player_ID`, so `(roomId, playerId)` uniqueness is inherent)
 
-**`game_state`** (one row per room while playing)
+| Field             | Type           | Notes                                                                                 |
+| ----------------- | -------------- | ------------------------------------------------------------------------------------- |
+| `displayName`     | string         | 1–16 chars trimmed; duplicate suffixing applied (Req 1.12, 1.13)                      |
+| `seatIndex`       | number \| null | assigned at game start, kept for the game (Req 5.7)                                   |
+| `team`            | string \| null | `A` \| `B` in Team mode (Req 5.7)                                                     |
+| `isHost`          | boolean        | derived from `rooms.hostPlayerId`; retained per seat while host is offline (Req 15.8) |
+| `joinOrder`       | number         | for host succession "longest-present" (Req 3.6, 12.7)                                 |
+| `connectionState` | string         | `connected` \| `disconnected` \| `left` (Req 15, 22)                                  |
+| `lastSeen`        | timestamp      | server-recorded; drives Grace_Period (Req 15.6)                                       |
+| `hasLeft`         | boolean        | explicit leave (Req 22)                                                               |
 
-| Column                  | Type             | Notes                                                                                              |
-| ----------------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
-| `room_id`               | uuid PK/FK       |                                                                                                    |
-| `version`               | bigint           | optimistic-concurrency token; incremented every mutation (Req 14.5)                                |
-| `draw_pile`             | jsonb (ordered)  | **server-only**, no client SELECT policy (Req 23.2)                                                |
-| `discard_pile`          | jsonb (ordered)  | public; top card is the match constraint                                                           |
-| `active_color`          | text             | red/yellow/green/blue (Req 7, 8)                                                                   |
-| `active_seat`           | int              | exactly one active player (Req 6)                                                                  |
-| `direction`             | int              | `+1` clockwise / `-1` counter-clockwise (Req 6)                                                    |
-| `penalty_count`         | int              | pending +2/+4 total (Req 9)                                                                        |
-| `pending_penalty_kind`  | text null        | `two` \| `four` — governs stacking eligibility (Req 9.5)                                           |
-| `phase`                 | text             | `dealing` \| `active` \| `wild_pending` \| `drew_decision` \| `paused` \| `auto_paused` \| `ended` |
-| `drew_this_turn`        | bool             | one draw per turn (Req 10.3)                                                                       |
-| `last_card_called_seat` | int null         | current turn's Last_Card_Call (Req 11)                                                             |
-| `paused_by`             | uuid null        | who paused (Req 25.4)                                                                              |
-| `paused_at`             | timestamptz null | drives "Paused for m:ss" (Req 25)                                                                  |
-| `pending_choice`        | jsonb null       | wild-color or play/keep choice to re-show after resume (Req 25.14)                                 |
-| `winner`                | jsonb null       | winning player or team (Req 12)                                                                    |
+The document id equals the player's Firebase Anonymous Auth `uid` (Req 3.1).
 
-**`hands`** (one row per player per game)
+**`rooms/{roomId}/state/current`** (one public state document per room while playing)
 
-| Column       | Type            | Notes                                       |
-| ------------ | --------------- | ------------------------------------------- |
-| `room_id`    | uuid FK         |                                             |
-| `player_id`  | uuid            |                                             |
-| `seat_index` | int             |                                             |
-| `team`       | text null       |                                             |
-| `cards`      | jsonb (ordered) | the player's cards                          |
-| `card_count` | int             | denormalized for opponent badges (Req 13.5) |
+| Field                | Type              | Notes                                                                                              |
+| -------------------- | ----------------- | -------------------------------------------------------------------------------------------------- |
+| `version`            | number            | optimistic-concurrency token; incremented every mutation (Req 14.5)                                |
+| `discardPile`        | array (ordered)   | public; top card is the match constraint                                                           |
+| `activeColor`        | string            | red/yellow/green/blue (Req 7, 8)                                                                   |
+| `activeSeat`         | number            | exactly one active player (Req 6)                                                                  |
+| `direction`          | number            | `+1` clockwise / `-1` counter-clockwise (Req 6)                                                    |
+| `penaltyCount`       | number            | pending +2/+4 total (Req 9)                                                                        |
+| `pendingPenaltyKind` | string \| null    | `two` \| `four` — governs stacking eligibility (Req 9.5)                                           |
+| `phase`              | string            | `dealing` \| `active` \| `wild_pending` \| `drew_decision` \| `paused` \| `auto_paused` \| `ended` |
+| `drewThisTurn`       | boolean           | one draw per turn (Req 10.3)                                                                       |
+| `lastCardCalledSeat` | number \| null    | current turn's Last_Card_Call (Req 11)                                                             |
+| `pausedBy`           | string \| null    | who paused (Req 25.4)                                                                              |
+| `pausedAt`           | timestamp \| null | drives "Paused for m:ss" (Req 25)                                                                  |
+| `pendingChoice`      | map \| null       | wild-color or play/keep choice to re-show after resume (Req 25.14)                                 |
+| `winner`             | map \| null       | winning player or team (Req 12)                                                                    |
 
-Primary key `(room_id, player_id)`.
+**The draw-pile order is NOT stored in this client-readable document.** It lives in `rooms/{roomId}/private/deck` (see below) so no client can read draw order (Req 23.2).
 
-**`actions`** (append-only event log; concurrency + audit + reconnect replay)
+**`rooms/{roomId}/private/deck`** (server-only; deny-all client read)
 
-| Column             | Type         | Notes                                                                                                                                       |
-| ------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`               | bigserial PK |                                                                                                                                             |
-| `room_id`          | uuid FK      |                                                                                                                                             |
-| `player_id`        | uuid         | actor                                                                                                                                       |
-| `type`             | text         | `play` \| `draw` \| `keep` \| `choose_color` \| `call_last` \| `pause` \| `resume` \| `continue_without` \| `end_game` \| `join` \| `leave` |
-| `based_on_version` | bigint       | version the client acted on (Req 14.5)                                                                                                      |
-| `result`           | text         | `accepted` \| `rejected` + reason                                                                                                           |
-| `created_at`       | timestamptz  |                                                                                                                                             |
+| Field      | Type            | Notes                                                                  |
+| ---------- | --------------- | ---------------------------------------------------------------------- |
+| `drawPile` | array (ordered) | face-down draw-pile order; readable only by Cloud Functions (Req 23.2) |
 
-The append-only log lets a reconnecting client confirm it is on the latest version and supports server-side conflict rejection: an action whose `based_on_version` is not the current `game_state.version` is rejected as stale.
+**`rooms/{roomId}/hands/{playerId}`** (one document per player per game; document id is the `Player_ID`)
+
+| Field       | Type            | Notes                                       |
+| ----------- | --------------- | ------------------------------------------- |
+| `cards`     | array (ordered) | the player's cards                          |
+| `cardCount` | number          | denormalized for opponent badges (Req 13.5) |
+
+**`rooms/{roomId}/actions/{autoId}`** (append-only event log; concurrency + audit + reconnect replay; `autoId` is a Firestore auto-generated id)
+
+| Field            | Type      | Notes                                                                                                                                       |
+| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `playerId`       | string    | actor                                                                                                                                       |
+| `type`           | string    | `play` \| `draw` \| `keep` \| `choose_color` \| `call_last` \| `pause` \| `resume` \| `continue_without` \| `end_game` \| `join` \| `leave` |
+| `basedOnVersion` | number    | version the client acted on (Req 14.5)                                                                                                      |
+| `result`         | string    | `accepted` \| `rejected` + reason                                                                                                           |
+| `createdAt`      | timestamp |                                                                                                                                             |
+
+The append-only log lets a reconnecting client confirm it is on the latest version and supports server-side conflict rejection: an action whose `basedOnVersion` is not the current `state/current.version` is rejected as stale by the Cloud Function transaction.
 
 ### Card representation
 
 A card is `{ id, suit?, value }` where `suit ∈ {red,yellow,green,blue}` (absent for wilds) and `value ∈ {0..9, +2, skip, reverse, wild, wild4}`. `id` is a stable identifier used for the shared-layout play animation (`layoutId`, Req 17.1).
 
-### RLS policies (read scope)
+### Firestore Security Rules (read/write scope)
 
-- **`game_state` public projection:** a view exposing everything _except_ `draw_pile`. Members of the room may `SELECT` it. `draw_pile` is never selectable by clients (Req 23.2).
-- **`hands`:** `SELECT` allowed when `player_id = auth.uid()`; additionally, in Team mode, when the requesting player and the row's player share the same `team` in the same room (partner readability, Req 13.8, 14.6). No cross-team, non-self reads (Req 23.1).
-- **`players`, `rooms`:** public within the room (names, connection state, mode, code) — no hand data.
-- **All game-table writes:** service role only (Edge Functions). No client `INSERT/UPDATE/DELETE` policy on `game_state`, `hands`, or `draw_pile`.
+- **`state/current`:** readable by any authenticated member of the room (public game state). The draw-pile order is not in this document, so nothing secret is exposed (Req 23.2).
+- **`hands/{playerId}`:** read allowed when `playerId == request.auth.uid`; additionally, in Team mode, when the requesting player and the target player share the same `team` in the same room (partner readability, Req 13.8, 14.6). No cross-team, non-self reads (Req 23.1).
+- **`private/deck`:** **deny all client reads** — only Cloud Functions (Admin SDK) read it (Req 23.2).
+- **`players`, `rooms`:** publicly readable within the room (names, connection state, mode, code) — no hand data.
+- **Player presence write:** a player may write **only** their own `lastSeen`/presence field on their own `players/{playerId}` document (narrow allow rule); all other player fields are server-written.
+- **All game writes:** performed only by Cloud Functions via the Admin SDK, which bypasses Security Rules. There is **no** client write rule for `state/current`, `hands`, `private/deck`, or the `actions` log; those writes are denied to clients.
 
 ```mermaid
-erDiagram
-  rooms ||--o{ players : has
-  rooms ||--|| game_state : has
-  rooms ||--o{ hands : has
-  rooms ||--o{ actions : logs
-  players ||--o| hands : holds
+graph TD
+  rooms["rooms/{roomId}"]
+  players["players/{playerId}"]
+  state["state/current"]
+  hands["hands/{playerId}"]
+  actions["actions/{autoId}"]
+  deck["private/deck (server-only)"]
+  rooms -->|subcollection| players
+  rooms -->|subcollection| state
+  rooms -->|subcollection| hands
+  rooms -->|subcollection| actions
+  rooms -->|subcollection| deck
 ```
 
 ---
 
 ## Game Engine / Rules
 
-The rules engine is a pure module that takes an authoritative state plus an action and returns either a new state or a rejection. It lives server-side (Edge Function / RPC) and is the core correctness surface. Keeping it pure (no I/O, deterministic given an injected RNG seed) is what makes the property-based tests in the Testing Strategy possible.
+The rules engine is a pure module (`src/game/engine`) that takes an authoritative state plus an action and returns either a new state or a rejection. It is backend-agnostic and unchanged by the move to Firebase: it is invoked server-side by a Cloud Function wrapper and is the core correctness surface. Keeping it pure (no I/O, deterministic given an injected RNG seed) is what makes the property-based tests in the Testing Strategy possible.
 
 ### Deck composition and shuffle (Req 5.1, 5.2)
 
@@ -294,27 +312,27 @@ These must hold across all valid engine executions and are the basis for the Cor
 
 ## Realtime & Presence
 
-### Channels
+### Listeners
 
-Each room uses a Supabase Realtime channel keyed by `room_id` carrying two signal types:
+Each client attaches Cloud Firestore `onSnapshot` listeners scoped to its room:
 
-1. **Postgres change subscriptions** on `game_state` (public projection), `players`, and the caller's own/partner `hands` rows. These deliver authoritative state within 2 s of a committed mutation (Req 14.1–14.3). RLS ensures each subscriber receives only rows it is allowed to read.
-2. **Presence** to track live connection. A client joining the channel tracks its `player_id`; presence join/leave events flip `connection_state` and, importantly, a server-side path records `last_seen`.
+1. **Document / collection listeners** on the room document (`rooms/{roomId}`), the `players` collection, the public state document (`rooms/{roomId}/state/current`), and the caller's own `hands/{playerId}` document (plus the partner's in Team mode). These deliver authoritative state within 2 s of a committed mutation (Req 14.1–14.3). Firestore Security Rules ensure each listener receives only documents it is allowed to read; the private deck is never listenable by a client.
+2. **Presence** to track live connection (see below); connection changes flip `connectionState` and, importantly, a server-recorded `lastSeen`.
 
 ### Connection state and last-seen
 
-Presence alone is client-reported and not trustworthy for enforcing the grace period. So:
+Client-reported presence is not trustworthy for enforcing the grace period. So:
 
-- Clients heartbeat by updating their own `players.last_seen` (allowed by a narrow RLS policy limited to that single column of the caller's own row).
-- The **server** compares `now() - last_seen` against the 60 s `Grace_Period` before performing any skip (Req 15.6). A scheduled Edge Function (or an on-action check) performs the skip only after confirming the period elapsed and the game is not paused (Req 15.3).
+- Presence is tracked via Realtime Database `onDisconnect` (or, alternatively, a periodic heartbeat document): a client marks itself online and registers an `onDisconnect` handler so a drop is detected reliably. Clients update their own `lastSeen` (permitted by the narrow Security Rule limited to that field on the caller's own `players` document).
+- The **server** compares `now - lastSeen` against the 60 s `Grace_Period` before performing any skip (Req 15.6). A scheduled Cloud Function (or an on-action check inside the callable function) performs the skip only after confirming the period elapsed and the game is not paused (Req 15.3).
 
 ### Disconnect / reconnect (Req 15)
 
 ```mermaid
 stateDiagram-v2
   [*] --> Connected
-  Connected --> Disconnected: presence leave / heartbeat stops
-  Disconnected --> Connected: presence rejoin (sync within 5s, Req 14.7)
+  Connected --> Disconnected: onDisconnect fires / heartbeat stops
+  Disconnected --> Connected: reconnect (onSnapshot resync within 5s, Req 14.7)
   Disconnected --> GraceCountdown: becomes active player's turn
   GraceCountdown --> Connected: reconnects in time
   GraceCountdown --> Skipped: 60s elapsed & not paused (Req 15.3)
@@ -328,10 +346,10 @@ stateDiagram-v2
 
 ### Pause / resume propagation (Req 25, 14.1)
 
-- Pause/resume are actions that set `game_state.phase` to `paused` / `auto_paused` / back to `active`, plus `paused_by` / `paused_at`. The state change broadcasts to all players within 2 s (Req 25.3, 14.1).
+- Pause/resume are Cloud Function actions that set `state/current.phase` to `paused` / `auto_paused` / back to `active`, plus `pausedBy` / `pausedAt`. The Firestore write propagates to all players through their `onSnapshot` listeners within 2 s (Req 25.3, 14.1).
 - While paused the server rejects every play, draw, last-card call, color choice, and skip, and the grace countdown is stopped (Req 25.6).
 - **Auto-pause** triggers server-side when fewer than 2 players are connected, or in Team mode when both players of one team are disconnected (Req 15.7, 25.10). Auto-pause resumes automatically when the triggering condition clears (Req 25.12).
-- A `pending_choice` captured at pause time (wild color, or play/keep) is re-shown to the same player on resume (Req 25.14).
+- A `pendingChoice` captured at pause time (wild color, or play/keep) is re-shown to the same player on resume (Req 25.14).
 
 ---
 
@@ -354,10 +372,12 @@ src/
     GameOverRoute.tsx     # 07-game-over (+ variants)
   components/             # shared components (see below)
   game/                   # client-side view models (NOT the rules engine)
-  realtime/               # channel subscription, presence, reconnect
-  supabase/               # client, auth (anon), typed queries
+  realtime/               # onSnapshot subscriptions, presence, reconnect
+  firebase/               # app init, anonymous auth/session hook, callAction wrapper, typed converters
   design/                 # tokens wiring, motion presets
 ```
+
+The `firebase/` module holds: the Firebase app/Firestore initialization (pointed at the Emulator Suite in local dev), an anonymous auth/session hook that provides the `Player_ID`, a `callAction` wrapper over `httpsCallable` for dispatching actions to Cloud Functions, and typed Firestore data converters for each document shape.
 
 ### Routing
 
@@ -365,10 +385,10 @@ React Router with routes for **home**, **lobby**, **game**, **game over**, **set
 
 ### State management
 
-- **Server state** (authoritative) arrives via Realtime and is held in a lightweight store (Zustand or React context + reducer). It is treated as read-only truth; the UI derives everything from it.
+- **Server state** (authoritative) arrives via Firestore `onSnapshot` and is held in a lightweight store (Zustand or React context + reducer) fed by the listeners. It is treated as read-only truth; the UI derives everything from it.
 - **Local UI state** (selected card, open sheet, drag in progress, input text) is component-local.
-- **Action dispatch** goes through the action client, which stamps each request with the current `game_state.version`; on rejection it reverts optimistic UI and, if needed, resyncs.
-- **Device-persisted:** name and settings (sound, vibration, highlight playable) in `localStorage`; `Player_ID` is the Supabase anon session (Req 1.12, 3.1).
+- **Action dispatch** goes through `callAction`, which invokes the relevant callable Cloud Function via `httpsCallable`, stamping each request with the current `state/current.version` (`basedOnVersion`); on rejection it reverts optimistic UI and, if needed, resyncs from the latest snapshot.
+- **Device-persisted:** name and settings (sound, vibration, highlight playable) in `localStorage`; `Player_ID` is the Firebase Anonymous Auth session (Req 1.12, 3.1).
 
 ### Screen → component mapping (all 22 references)
 
@@ -446,22 +466,22 @@ All motion is implemented with `motion/react` following §9 of the Design_Spec. 
 ```mermaid
 sequenceDiagram
   participant U as Player
-  participant C as Client
-  participant EF as Edge Function
-  participant DB as Postgres
+  participant C as Client (Anonymous Auth)
+  participant FN as Cloud Function
+  participant FS as Cloud Firestore
   U->>C: enter name + Create
-  C->>EF: create_room(name)
-  EF->>DB: generate unique code (retry ≤10, Req 1.10/1.11), insert room+host player
-  EF-->>C: room + invite link
+  C->>FN: createRoom(name)
+  FN->>FS: generate unique code (retry ≤10, Req 1.10/1.11), write room + host player docs
+  FN-->>C: room + invite link
   C-->>U: Lobby (02a)
-  Note over U,C: Join path: open invite link → if stored name, join & Lobby (02f);<br/>else Home with code pre-filled (Req 2.1/2.2)
+  Note over U,C: Join path: open invite link → if stored name, joinRoom & Lobby (02f);<br/>else Home with code pre-filled (Req 2.1/2.2)
 ```
 
 - Empty/whitespace name → reject, retain input, show name-required error (Req 1.2, 2.7). Unknown code → `01b` (Req 2.6). Room full (8) → room-full message (Req 2.10). Game already started and not a member → `01c` (Req 3.4, 3.5).
 
 ### Start game + deal (Req 5)
 
-Host taps Start (enabled only when mode constraints are met) → Edge Function assigns seats (team-alternating in 2v2), shuffles, deals 7 each round-robin, flips a number card as the initial discard, sets host as first active, direction clockwise. Deal animation plays for connected clients (Req 5.4).
+Host taps Start (enabled only when mode constraints are met) → a Cloud Function assigns seats (team-alternating in 2v2), shuffles, deals 7 each round-robin, flips a number card as the initial discard, sets host as first active, direction clockwise, and commits the state, hand, and private deck documents in a transaction. Deal animation plays for connected clients (Req 5.4).
 
 ### Play a card (validation → persist → broadcast)
 
@@ -469,11 +489,11 @@ Covered by the sequence in **Architecture**. Wild play routes into the color-pic
 
 ### Draw one (Req 10)
 
-Client taps the draw pile → `draw_one` function checks no penalty pending and `drew_this_turn = false` → moves one card (reshuffling if needed) → if playable, returns a `drew_decision` state showing "Play it/Keep it"; otherwise keeps and advances.
+Client taps the draw pile → the `drawOne` Cloud Function checks no penalty pending and `drewThisTurn = false` → moves one card (reshuffling if needed) → if playable, writes a `drew_decision` state showing "Play it/Keep it"; otherwise keeps and advances.
 
 ### Wild color pick (Req 8, 9.6)
 
-After a wild is accepted, state enters `wild_pending`; the picker (`06a`) has no cancel. Choosing a suit sets `active_color`, cross-fades the ring/glow, updates the turn pill, then resolves any win (Req 8.6) or continues.
+After a wild is accepted, state enters `wild_pending`; the picker (`06a`) has no cancel. Choosing a suit calls the color-choice Cloud Function, which sets `activeColor`; the client cross-fades the ring/glow, updates the turn pill, then the server resolves any win (Req 8.6) or continues.
 
 ### +2 / +4 stacking chain (Req 9)
 
@@ -481,7 +501,7 @@ After a wild is accepted, state enters `wild_pending`; the picker (`06a`) has no
 sequenceDiagram
   participant A as Player A
   participant B as Player B
-  participant S as Server
+  participant S as Cloud Function
   A->>S: play +2 (penalty=2, kind=two)
   S-->>B: your turn, penalty 2 pending
   alt B stacks +2
@@ -498,11 +518,11 @@ sequenceDiagram
 
 ### Last-card penalty (Req 11)
 
-On turn resolution the server checks: if the acting player now holds 1 card and no `last_card_called_seat` was set this turn, it adds a 2-card penalty and emits a toast.
+On turn resolution the Cloud Function checks: if the acting player now holds 1 card and no `lastCardCalledSeat` was set this turn, it adds a 2-card penalty and writes a toast for all clients.
 
 ### Disconnect → grace → skip (Req 15)
 
-See the presence state diagram. Server enforces the 60 s window against `last_seen`; skip only when elapsed and not paused; later turns skipped immediately.
+See the presence state diagram. A Cloud Function enforces the 60 s window against `lastSeen`; skip only when elapsed and not paused; later turns skipped immediately.
 
 ### Pause / resume / auto-pause / continue-without / end-game (Req 25)
 
@@ -517,11 +537,11 @@ stateDiagram-v2
   auto_paused --> ended: End game (25.13)
 ```
 
-Manual pause shows the Break (`08a`) or Waiting (`08b`) variant; auto-pause shows the Auto variant (`08c`) with "End game". `pending_choice` is re-shown on resume (Req 25.14). The menu (including Leave and How to play) stays available while paused (Req 25.15).
+Manual pause shows the Break (`08a`) or Waiting (`08b`) variant; auto-pause shows the Auto variant (`08c`) with "End game". `pendingChoice` is re-shown on resume (Req 25.14). The menu (including Leave and How to play) stays available while paused (Req 25.15).
 
 ### Game over + play again + host transfer (Req 12)
 
-On win, `phase = ended`, `winner` set, `07-game-over` shown to all with remaining counts. Host sees "Play again" (returns everyone to the lobby with the same mode/teams, increments the visible round); guests see "Waiting for the host"; all see "Back to home". If the host is gone at end, the role passes to the longest-present connected player (Req 12.7).
+On win, the Cloud Function sets `phase = ended` and `winner`, and `07-game-over` is shown to all via the state listener with remaining counts. Host sees "Play again" (returns everyone to the lobby with the same mode/teams, increments the visible round); guests see "Waiting for the host"; all see "Back to home". If the host is gone at end, the role passes to the longest-present connected player (Req 12.7).
 
 ---
 
@@ -529,7 +549,7 @@ On win, `phase = ended`, `winner` set, `07-game-over` shown to all with remainin
 
 _A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
-These properties target the pure, server-side rules engine (deterministic given an injected RNG seed), which is the appropriate PBT surface. Realtime delivery, RLS-enforced hidden hands, presence-driven grace/skip, PWA/animation, and accessibility are verified with the integration, component, and manual tests described in the Testing Strategy rather than as properties.
+These properties target the pure, backend-agnostic rules engine (deterministic given an injected RNG seed), which is the appropriate PBT surface. Realtime delivery, Security-Rules-enforced hidden hands, presence-driven grace/skip, PWA/animation, and accessibility are verified with the integration, component, and manual tests described in the Testing Strategy rather than as properties.
 
 ### Property 1: Deck composition
 
@@ -625,33 +645,33 @@ _For any_ configuration of player connection states, an Auto_Pause is active if 
 
 ## Error Handling
 
-| Condition                                            | Handling                                                                                          | Requirement    |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------- |
-| Out-of-turn / non-active action                      | Server rejects; hand and state unchanged; turn stays put                                          | 6.9, 14.5      |
-| Stale action (version mismatch)                      | Server rejects with a version-conflict reason; client resyncs to latest and reverts optimistic UI | 14.5           |
-| Illegal card play                                    | Reject; card stays; illegal-tap shake                                                             | 7.3, 17        |
-| Second draw in a turn                                | Reject; turn stays                                                                                | 10.3           |
-| Action while paused                                  | Reject all play/draw/call/color/skip                                                              | 25.6           |
-| Room not found                                       | `01b-home-room-not-found` (red border + message)                                                  | 2.6            |
-| Room full (8)                                        | Home room-full message (reuses `01b` pattern)                                                     | 2.10, 24.1     |
-| Game already started, not a member                   | `01c-game-already-started`                                                                        | 3.4, 3.5       |
-| Empty/whitespace name                                | Reject, retain input, name-required error                                                         | 1.2, 2.7       |
-| Code < 4 chars on Join                               | Reject, retain input, 4-char message                                                              | 2.5            |
-| Clipboard copy fails                                 | Show copy-failed error; leave link visible for manual copy                                        | 1.5            |
-| Native share unavailable                             | Fall back to clipboard copy + "sharing unavailable" note                                          | 1.7            |
-| Code generation can't find a unique code in 10 tries | Abort creation + error                                                                            | 1.11           |
-| Draw pile empty, discard ≥2                          | Reshuffle discards (except top) into draw, then draw                                              | 10.7           |
-| Draw pile empty, discard = top only                  | Complete turn without drawing; advance                                                            | 10.8           |
-| Network loss                                         | Presence flips offline; state persisted server-side; on reconnect resync within 5 s               | 14.4, 14.7, 15 |
-| Interrupted card animation                           | Commit card to final discard position                                                             | 17.7           |
-| Partner hand temporarily unavailable (2v2)           | Keep last known count badge; do not reveal any card face-up until fresh data                      | 13.7           |
-| Unsupported viewport (<360 / >430px) or landscape    | Show "use a supported portrait width" message; suppress game/lobby rendering                      | 16.8           |
+| Condition                                            | Handling                                                                                                                                                             | Requirement    |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Out-of-turn / non-active action                      | Cloud Function transaction rejects; hand and state unchanged; turn stays put                                                                                         | 6.9, 14.5      |
+| Stale action (version mismatch)                      | Cloud Function transaction rejects with a version-conflict reason (`basedOnVersion != state.version`); client resyncs from latest snapshot and reverts optimistic UI | 14.5           |
+| Illegal card play                                    | Reject; card stays; illegal-tap shake                                                                                                                                | 7.3, 17        |
+| Second draw in a turn                                | Reject; turn stays                                                                                                                                                   | 10.3           |
+| Action while paused                                  | Cloud Function rejects all play/draw/call/color/skip                                                                                                                 | 25.6           |
+| Room not found                                       | `01b-home-room-not-found` (red border + message)                                                                                                                     | 2.6            |
+| Room full (8)                                        | Home room-full message (reuses `01b` pattern)                                                                                                                        | 2.10, 24.1     |
+| Game already started, not a member                   | `01c-game-already-started`                                                                                                                                           | 3.4, 3.5       |
+| Empty/whitespace name                                | Reject, retain input, name-required error                                                                                                                            | 1.2, 2.7       |
+| Code < 4 chars on Join                               | Reject, retain input, 4-char message                                                                                                                                 | 2.5            |
+| Clipboard copy fails                                 | Show copy-failed error; leave link visible for manual copy                                                                                                           | 1.5            |
+| Native share unavailable                             | Fall back to clipboard copy + "sharing unavailable" note                                                                                                             | 1.7            |
+| Code generation can't find a unique code in 10 tries | Abort creation + error                                                                                                                                               | 1.11           |
+| Draw pile empty, discard ≥2                          | Reshuffle discards (except top) into draw, then draw                                                                                                                 | 10.7           |
+| Draw pile empty, discard = top only                  | Complete turn without drawing; advance                                                                                                                               | 10.8           |
+| Network loss                                         | `onDisconnect` flips offline; state persisted in Firestore; on reconnect `onSnapshot` listeners resync within 5 s                                                    | 14.4, 14.7, 15 |
+| Interrupted card animation                           | Commit card to final discard position                                                                                                                                | 17.7           |
+| Partner hand temporarily unavailable (2v2)           | Keep last known count badge; do not reveal any card face-up until fresh data                                                                                         | 13.7           |
+| Unsupported viewport (<360 / >430px) or landscape    | Show "use a supported portrait width" message; suppress game/lobby rendering                                                                                         | 16.8           |
 
 ---
 
 ## Testing Strategy
 
-A dual approach: unit + integration tests for concrete behavior and infrastructure, and **property-based tests** for the universal invariants of the rules engine. Because the rules engine is a pure, deterministic module (given an injected RNG seed), it is an ideal PBT target; realtime, RLS, and UI are tested with integration/example tests.
+A dual approach: unit + integration tests for concrete behavior and infrastructure, and **property-based tests** for the universal invariants of the rules engine. Because the rules engine is a pure, deterministic module (given an injected RNG seed), it is an ideal PBT target; realtime, Security Rules, and UI are tested with integration/example tests. Integration tests run against the **Firebase Emulator Suite** (Firestore + Cloud Functions + Auth).
 
 ### Unit tests (rules engine — examples and edge cases)
 
@@ -666,17 +686,19 @@ A dual approach: unit + integration tests for concrete behavior and infrastructu
 
 Use a PBT library for the engine's language (e.g. **fast-check** for a TypeScript engine). Each of Properties 1–15 in the **Correctness Properties** section is implemented as a single property-based test that runs ≥100 generated iterations and is tagged `Feature: homemade-uno, Property N: <property text>`. Generators produce random legal action sequences over random valid initial states (player counts 2–8, both modes). Highlights: Property 2 (card conservation — total always 108, no duplicate ids), Property 4 (exactly one active player), Property 7 (forbidden-context actions are no-ops), Property 8 (match legality), Property 10/11 (stacking eligibility and penalty-clears-only-by-draw), and Properties 5/6 (reverse/skip turn order including the 2-player case).
 
-### Integration tests (Supabase RPC / Edge Functions + RLS)
+### Integration tests (Cloud Functions + Firestore Security Rules)
 
-- **RLS hidden hands (Req 23.1, 14.6):** authenticate as player A and assert a `SELECT` on player B's hand returns no rows in Normal mode; in Team mode assert a partner's hand **is** readable and an opponent's is not.
-- **Draw pile secrecy (Req 23.2):** assert no client role can read `draw_pile`.
-- **Server authority (Req 14.5):** call `play_card` as a non-active player and as a stale version; assert both reject and state is unchanged.
-- **Persistence (Req 14.4):** confirm state is committed before the accept response.
+Run against the Firebase Emulator Suite; Security Rules are exercised with **`@firebase/rules-unit-testing`**.
+
+- **Security Rules hidden hands (Req 23.1, 14.6):** using `@firebase/rules-unit-testing`, authenticate as player A and assert a read of player B's `hands/{B}` document is denied in Normal mode; in Team mode assert a partner's hand **is** readable and an opponent's is not.
+- **Draw pile / private deck secrecy (Req 23.2):** assert no client can read `rooms/{roomId}/private/deck` (deny-all read rule).
+- **Server authority (Req 14.5):** call the `playCard` callable Cloud Function as a non-active player and with a stale `basedOnVersion`; assert both are rejected by the function transaction and the state document is unchanged.
+- **Persistence (Req 14.4):** confirm the Firestore transaction is committed before the callable function returns its accept result.
 
 ### Realtime sync tests
 
-- Two subscribed clients: after an accepted action, both receive the new public state within 2 s (Req 14.1); lobby membership/mode/host changes propagate within 2 s (Req 14.2, 14.3); a reconnecting client receives current public state and its own hand within 5 s (Req 14.7).
-- Presence-driven disconnect flips offline state and drives the server-enforced grace/skip and auto-pause (Req 15, 25.10).
+- Two clients with `onSnapshot` listeners: after an accepted action, both receive the new public state within 2 s (Req 14.1); lobby membership/mode/host changes propagate within 2 s (Req 14.2, 14.3); a reconnecting client receives current public state and its own hand within 5 s (Req 14.7).
+- `onDisconnect`/heartbeat-driven disconnect flips offline state and drives the Cloud-Function-enforced grace/skip and auto-pause (Req 15, 25.10).
 
 ### Accessibility testing
 

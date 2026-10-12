@@ -53,14 +53,14 @@ Rules-engine property tests use **fast-check**, run **≥100 iterations**, and a
 npx vitest run src/game/engine   # includes *.property.test.ts
 ```
 
-## Supabase / RLS and realtime tests
+## Firebase / Security Rules and realtime tests
 
 Part of the full gate (Phase 2); they need the local stack running:
 
 ```bash
-supabase start                   # local Postgres + Auth + Realtime
-npm run test:integration         # Edge Function + RLS tests
-supabase stop
+firebase emulators:start         # local Auth + Firestore + Functions
+npm run test:integration         # Cloud Function + Security Rules tests
+# stop emulators with Ctrl-C when done
 ```
 
 ## Playwright visual/e2e — run in ONLY two cases

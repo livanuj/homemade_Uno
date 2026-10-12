@@ -4,7 +4,7 @@
 
 Homemade Uno is a mobile-first, link-shareable, multiplayer color-matching card game built as a portrait-only Progressive Web App. Players create a private room, share a link (or a 4-character room code), and play a standard UNO-style match with friends. There are no accounts and no bots: access is anonymous and gated only by the room code, and every player is a human. The host chooses the game mode in the lobby. Normal mode is a free-for-all for 2 to 8 players. 2v2 team mode requires exactly 4 players; partners see each other's cards face-up, and a team wins when either partner empties their hand.
 
-The application must be built strictly to the provided design assets in the `design/uno-design/` folder (`design/uno-design/design.md`, `design/uno-design/screen-map.json`, `design/uno-design/theme.css`, `design/uno-design/tokens.json`, and the screen references under `design/uno-design/screens/`). All colors, typography, radii, shadows, spacing, components, screen layouts, motion, and accessibility rules are defined there and must be followed exactly. No tokens or visual values may be invented. Realtime play, room data, and player hands are backed by Supabase, and player identity is preserved across disconnects via a Supabase anonymous sign-in session.
+The application must be built strictly to the provided design assets in the `design/uno-design/` folder (`design/uno-design/design.md`, `design/uno-design/screen-map.json`, `design/uno-design/theme.css`, `design/uno-design/tokens.json`, and the screen references under `design/uno-design/screens/`). All colors, typography, radii, shadows, spacing, components, screen layouts, motion, and accessibility rules are defined there and must be followed exactly. No tokens or visual values may be invented. Realtime play, room data, and player hands are backed by Cloud Firestore with Cloud Functions running the authoritative game logic, and player identity is preserved across disconnects via a Firebase Anonymous Auth session.
 
 ## Glossary
 
@@ -15,7 +15,7 @@ The application must be built strictly to the provided design assets in the `des
 - **Room**: A private game session identified by a unique 4-character Room_Code and reachable by an Invite_Link.
 - **Room_Code**: A 4-character uppercase alphanumeric identifier for a Room (for example "K7QX").
 - **Invite_Link**: A shareable URL that opens the App directly into the Room identified by its embedded Room_Code.
-- **Player_ID**: The user ID from the Player's Supabase anonymous sign-in session, persisted by the Supabase client and used to restore the Player's Seat and Hand on reconnect.
+- **Player_ID**: The user ID from the Player's Firebase Anonymous Auth session, used to restore the Player's Seat and Hand on reconnect.
 - **Seat**: A fixed position at the game table, assigned when the game starts and kept for that game.
 - **Hand**: The set of cards held by a Player.
 - **Partner**: In 2v2 mode, the Player seated opposite whose Hand is visible face-up.
@@ -36,7 +36,7 @@ The application must be built strictly to the provided design assets in the `des
 - **Last_Card_Call**: The action a Player takes by pressing "LAST CARD!" on their turn while holding 2 Cards, before playing one.
 - **Grace_Period**: The 60 seconds a disconnected Active_Player has to reconnect before their turn is skipped.
 - **Toast**: A short, temporary message shown to all Players, per the Design_Spec.
-- **Realtime_Service**: The Supabase-backed service that synchronizes Room and game state across all Players.
+- **Realtime_Service**: The Cloud Firestore realtime listeners (onSnapshot) that synchronize Room and game state across all Players.
 - **Design_Spec**: The design source of truth comprising `design/uno-design/design.md`, `design/uno-design/screen-map.json`, `design/uno-design/theme.css`, `design/uno-design/tokens.json`, and the screen references under `design/uno-design/screens/`.
 - **Reduced_Motion**: The user preference expressed by the `prefers-reduced-motion` media query.
 
@@ -86,7 +86,7 @@ The application must be built strictly to the provided design assets in the `des
 
 #### Acceptance Criteria
 
-1. WHEN a Player joins a Room for the first time with no Player_ID matching a Seat in that Room, THE App SHALL persist a Player_ID via the Player's Supabase anonymous sign-in session.
+1. WHEN a Player joins a Room for the first time with no Player_ID matching a Seat in that Room, THE App SHALL persist a Player_ID via the Player's Firebase Anonymous Auth session.
 2. WHEN a Player reopens the Invite_Link with a Player_ID that matches an occupied Seat in the Room, THE App SHALL restore the Player to that same Seat with the identical set of Cards held in that Seat's Hand at the time of restoration.
 3. WHILE a Player is disconnected from a Room in which the game has started and has not ended, THE App SHALL retain that Player's Seat and Hand for reconnection with no expiry time limit.
 4. IF a Player opens the Invite_Link with a Player_ID that matches no Seat in the Room and the game has already started, THEN THE App SHALL deny entry, leave all existing Seats and Hands unchanged, and display a message indicating that the game is in progress.
@@ -244,13 +244,13 @@ The application must be built strictly to the provided design assets in the `des
 
 #### Acceptance Criteria
 
-1. WHEN any Player plays or draws a Card, or a pause or resume event occurs, THE Realtime_Service SHALL propagate the resulting public game state, including pause and resume events, to all connected Players in the Room within 2 seconds.
+1. WHEN any Player plays or draws a Card, or a pause or resume event occurs, THE Realtime_Service (Cloud Firestore listeners) SHALL propagate the resulting public game state, including pause and resume events, to all connected Players in the Room within 2 seconds.
 2. WHEN a Player joins or leaves the Lobby, THE Realtime_Service SHALL update the Player list for all connected Players in the Room within 2 seconds.
 3. THE Realtime_Service SHALL propagate Game_Mode, team, and Host changes in the Lobby to all connected Players in the Room within 2 seconds.
-4. THE App SHALL persist Room state, Seat assignments, and Hands in Supabase before confirming each state change, so that the authoritative state survives individual Player disconnects.
-5. THE server SHALL validate every play and draw, and each action SHALL carry the game-state version it was based on, and THE server SHALL reject actions from non-Active Players and actions based on an outdated version.
-6. THE App SHALL restrict each Player's read access in Supabase so that a Player can read only their own Hand and the public game state, and cannot read any other Player's Hand, except a Partner's Hand in Team_Mode.
-7. WHEN a Player reconnects to a Room after a disconnect, THE Realtime_Service SHALL send that Player the current authoritative public game state and their own Hand within 5 seconds of reconnection.
+4. THE App SHALL persist Room state, Seat assignments, and Hands in Cloud Firestore before confirming each state change, so that the authoritative state survives individual Player disconnects.
+5. THE server (a Cloud Function) SHALL validate every play and draw, and each action SHALL carry the game-state version it was based on, and THE server SHALL reject actions from non-Active Players and actions based on an outdated version.
+6. THE App SHALL restrict each Player's read access via Firestore Security Rules so that a Player can read only their own Hand and the public game state, and cannot read any other Player's Hand, except a Partner's Hand in Team_Mode.
+7. WHEN a Player reconnects to a Room after a disconnect, THE Realtime_Service (Cloud Firestore listeners) SHALL send that Player the current authoritative public game state and their own Hand within 5 seconds of reconnection.
 
 ### Requirement 15: Disconnect and Reconnect
 
@@ -406,8 +406,8 @@ These states are required but have no board yet. Each can reuse existing compone
 #### Acceptance Criteria
 
 1. THE App SHALL never send a Player the contents of another Player's Hand, except their Partner's in Team_Mode.
-2. THE App SHALL never send any Player the order of the Draw_Pile.
-3. THE server SHALL deal, shuffle, and apply every game rule, and THE App SHALL only display state and send requested actions.
+2. THE App SHALL never expose the order of the Draw_Pile to any client, and THE App SHALL store the Draw_Pile order where only Cloud Functions can read it.
+3. THE server (Cloud Functions) SHALL deal, shuffle, and apply every game rule, and THE App SHALL only display state and send requested actions.
 
 ### Requirement 24: Room Lifecycle and Limits
 
