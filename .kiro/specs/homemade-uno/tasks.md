@@ -8,6 +8,8 @@ The system is **server-authoritative**: the rules engine and all game mutations 
 
 All UI is grounded in the `Design_Spec` (`design/uno-design/design.md`, `screen-map.json`, `theme.css`, `tokens.json`, `screens/`). No invented tokens (Req 20).
 
+> **Backend note:** Tasks 2, 4 and 5 were originally built on Firebase (Firestore, Cloud Functions, Firestore Security Rules) and are recorded below as written. Task 12 moved the backend to Supabase because Cloud Functions require Firebase's paid plan. Where a completed task says Firestore / Cloud Functions / Security Rules, read Postgres `room_docs` / the `game` Edge Function / Row Level Security — see `design.md` and `conventions/supabase-data.md` for the current architecture.
+
 ## Task Dependency Graph
 
 ```mermaid
@@ -384,12 +386,26 @@ graph TD
   - Ensure all property, unit, integration, realtime, and accessibility tests pass. Ensure all tests pass, ask the user if questions arise.
   - _Requirements: 14.x, 23.x, 18.x_
 
+- [x] 12. Move the backend from Firebase to Supabase (free plan)
+  - [x] 12.1 Schema, read rules, presence, atomic commit
+    - Migration `supabase/migrations/*_room_docs.sql`: `room_docs (room_id, path, doc jsonb, updated_at)` with the same document paths as before; `room_docs_read` RLS policy (members read public docs; own + partner hand; never `private/*` or `actions/*`); `heartbeat` for own presence; `commit_room` (service role only) for atomic, revision-checked commits; Realtime publication
+    - RLS tests in `supabase/tests/rls.test.ts` against the local stack
+    - _Requirements: 14.4, 14.6, 15.6, 23.1, 23.2_
+  - [x] 12.2 `game` Edge Function
+    - One Edge Function routes all actions to the existing handlers (ported from `functions/src`) through a Firestore-shaped transaction layer (`store.ts`) that loads a room, buffers writes and commits with `commit_room`, retrying on contention; imports the shared engine from `src/game/engine` (engine imports carry `.ts` extensions for Deno)
+    - Integration, flow and realtime tests ported to `supabase/tests/`
+    - _Requirements: 14.1, 14.5, 14.7, 23.3_
+  - [x] 12.3 Client switch-over
+    - `src/firebase` → `src/backend` (Supabase client, anonymous session, `callAction` over `functions.invoke`, document types/paths); one Realtime channel per room in `src/realtime/subscription.ts`; heartbeat via the `heartbeat` function; timestamps as epoch milliseconds
+    - Remove the Firebase backend, config and dependencies; update specs, steering and docs
+    - _Requirements: 3.1, 14.1, 14.2, 14.3, 14.7_
+
 ## Notes
 
 - Tasks marked with `*` are optional (all test sub-tasks) and can be skipped for a faster MVP; core implementation tasks are never optional.
 - Each task references specific requirement criteria for traceability; property-test tasks additionally cite the property number they implement via `_Properties: N_`.
 - Property-based tests target the pure rules engine (Properties 1–15), each running ≥100 fast-check iterations and tagged `Feature: homemade-uno, Property N`.
-- Realtime delivery, Security-Rules-enforced hidden hands, presence-driven grace/skip, PWA/animation, and accessibility are verified with integration, realtime, component, and manual tests rather than as properties.
+- Realtime delivery, RLS-enforced hidden hands, presence-driven grace/skip, PWA/animation, and accessibility are verified with integration, realtime, component, and manual tests rather than as properties.
 - Full WCAG conformance requires manual testing with assistive technologies and expert accessibility review; automated checks cover only the mechanics.
 - Playwright visual checks (task 1.7 + the per-screen sub-bullets under task 8) render each screen at the 390×844 design viewport and compare against the `design/uno-design/screens/*.png` references; they catch visual/layout drift only — semantic and accessibility correctness stays with tasks 10.x and manual testing.
 - All UI is grounded in the Design_Spec tokens/screens; no invented tokens (Req 20), enforced by the always-included Design_Steering_File.

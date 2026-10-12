@@ -1,5 +1,5 @@
-import { isWildCard } from "./deck";
-import type { Card, GameState, PenaltyKind } from "./types";
+import { isWildCard } from "./deck.ts";
+import type { Card, GameState, PenaltyKind } from "./types.ts";
 
 /** The current top card of the discard pile. */
 export function discardTop(state: GameState): Card {

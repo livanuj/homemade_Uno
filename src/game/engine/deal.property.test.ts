@@ -1,11 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildDeck, isNumberCard } from "./deck";
-import { deal } from "./deal";
-import { createSeededRng } from "./rng";
-import { discardTop } from "./rules";
-import { cardIdMultiset, playerList } from "./testkit";
-import type { GameMode } from "./types";
+import { buildDeck, isNumberCard } from "./deck.ts";
+import { deal } from "./deal.ts";
+import { createSeededRng } from "./rng.ts";
+import { discardTop } from "./rules.ts";
+import { cardIdMultiset, playerList } from "./testkit.ts";
+import type { GameMode } from "./types.ts";
 
 const RUNS = 100;
 

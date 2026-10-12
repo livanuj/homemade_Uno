@@ -4,8 +4,8 @@
  * Everything here persists to `localStorage` on the device — the display name
  * a player picks and the three game toggles (Sound effects, Vibration,
  * Highlight playable cards). This is the "on device" storage the design calls
- * for (design.md §5.23), separate from any room/backend state: the Firebase
- * backend is deferred, and these preferences never belong on the server anyway.
+ * for (design.md §5.23), separate from any room/backend state: these
+ * preferences never belong on the server.
  *
  * The Home screen, Settings screen, and in-game menu all read/write the same
  * store through the small `useSettings` hook so the name and toggles stay in

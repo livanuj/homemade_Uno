@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { deal } from "./deal";
-import { buildDeck, isNumberCard } from "./deck";
-import { reducer } from "./reducer";
-import { createSeededRng } from "./rng";
-import { discardTop } from "./rules";
-import { makeState } from "./testkit";
-import type { EngineContext, Seat } from "./types";
+import { deal } from "./deal.ts";
+import { buildDeck, isNumberCard } from "./deck.ts";
+import { reducer } from "./reducer.ts";
+import { createSeededRng } from "./rng.ts";
+import { discardTop } from "./rules.ts";
+import { makeState } from "./testkit.ts";
+import type { EngineContext, Seat } from "./types.ts";
 
 const ctx = (): EngineContext => ({ rng: createSeededRng(42) });
 

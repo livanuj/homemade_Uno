@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: "{src/game/engine/**,functions/**}/*.{ts,tsx}"
+fileMatchPattern: "{src/game/engine/**,supabase/functions/**}/*.{ts,tsx}"
 ---
 
 # Game Engine Conventions
@@ -20,7 +20,14 @@ The rules engine in `src/game/engine/` is the correctness surface. It is a **pur
   export function shuffle<T>(cards: T[], rng: Rng): T[] { /* Fisher–Yates using rng */ }
   export function reducer(state: GameState, action: Action, ctx: { rng: Rng; now: number }): Result;
   ```
-Cloud Functions supply a seeded `rng` and `now`; tests supply a fixed seed for reproducibility.
+The `game` Edge Function supplies a CSPRNG `rng` and `now`; tests supply a fixed seed for reproducibility.
+
+## Deno-compatible imports
+
+The `game` Edge Function (Deno) imports this engine directly, so relative imports carry the `.ts` extension.
+
+- FORBIDDEN: `import { shuffle } from "./deck";`
+- REQUIRED: `import { shuffle } from "./deck.ts";`
 
 ## Pure transitions — return new state, never mutate
 
@@ -29,7 +36,7 @@ Cloud Functions supply a seeded `rng` and `now`; tests supply a fixed seed for r
 
 ## Rejections are values, not throws
 
-- REQUIRED: return `{ ok: false, reason: "not_active" | "illegal_card" | "stale_version" | ... }`. The Cloud Function maps reasons to responses; the engine does not throw for expected rule violations.
+- REQUIRED: return `{ ok: false, reason: "not_active" | "illegal_card" | "stale_version" | ... }`. The Edge Function maps reasons to responses; the engine does not throw for expected rule violations.
 
 ## Invariants must always hold (property-tested)
 

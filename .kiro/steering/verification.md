@@ -53,15 +53,17 @@ Rules-engine property tests use **fast-check**, run **≥100 iterations**, and a
 npx vitest run src/game/engine   # includes *.property.test.ts
 ```
 
-## Firebase / Security Rules and realtime tests
+## Supabase: RLS, Edge Function, and realtime tests
 
 Part of the full gate (Phase 2); they need the local stack running:
 
 ```bash
-firebase emulators:start         # local Auth + Firestore + Functions
-npm run test:integration         # Cloud Function + Security Rules tests
-# stop emulators with Ctrl-C when done
+supabase start                   # local Postgres + Auth + Realtime + Edge Functions (Docker)
+npm run functions:check          # Deno typecheck of the `game` Edge Function
+npm run test:supabase            # RLS + Edge Function + realtime tests
 ```
+
+After adding a new file under `src/game/engine/`, restart the stack (`supabase stop && supabase start`) so the Edge Function picks it up.
 
 ## Playwright visual/e2e — run in ONLY two cases
 

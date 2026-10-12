@@ -1,4 +1,4 @@
-import type { ConnectionSnapshot, GameMode } from "./types";
+import type { ConnectionSnapshot, GameMode } from "./types.ts";
 
 /**
  * The auto-pause predicate (Req 15.7, 25.10). Pure function of connection

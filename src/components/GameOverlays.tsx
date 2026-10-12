@@ -25,7 +25,7 @@
  *
  * Interactions/wiring are task 9 — the callbacks here are local UI state only
  * (open/close the leave dialog) and no-op seams (Copy link, Pause, Play/Keep,
- * color choice). Firebase is DEFERRED: settings come from the device store, the
+ * color choice). The backend is not involved: settings come from the device store, the
  * rest from the view-model. Tokens only; reuse before create.
  */
 import { BottomSheet } from "@/components/BottomSheet";

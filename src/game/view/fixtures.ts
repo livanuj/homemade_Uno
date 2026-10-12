@@ -1,14 +1,14 @@
 /**
  * In-memory view-model fixtures.
  *
- * The realtime layer (task 5) and Cloud Functions (task 4) are DEFERRED (no
- * emulator in this environment), so the screens are driven from these fixtures
+ * The realtime layer (task 5) and server actions (task 4) are DEFERRED (no
+ * backend in this environment), so the screens are driven from these fixtures
  * through the `RoomStore` provider (`store.tsx`) for now. When the backend
- * lands, `store.tsx` swaps its data source from these fixtures to Firestore
- * `onSnapshot` + callable functions — the fixtures below stay only for tests
+ * lands, `store.tsx` swaps its data source from these fixtures to Realtime
+ * data + server actions — the fixtures below stay only for tests
  * and Storybook-style previews.
  *
- * Nothing here imports firebase or performs I/O.
+ * Nothing here imports the backend or performs I/O.
  */
 import { inviteLinkForCode } from "@/lib/share";
 import type {
@@ -84,7 +84,7 @@ export function makeJoinedRoom(
 /**
  * The set of room codes that behave a particular way in the fixture backend,
  * so screens and tests can exercise the Home error states deterministically
- * without a server. Real membership checks happen in the Cloud Functions later.
+ * without a server. Real membership checks happen on the server.
  */
 export const FIXTURE_ROOMS = {
   /** Any other 4-char code resolves to a joinable lobby. */
@@ -97,8 +97,8 @@ export const FIXTURE_ROOMS = {
 //
 // These drive the Lobby route deterministically without a backend, so
 // Playwright (via `?state=02c`) and tests reach each distinct screen. When the
-// realtime layer + Cloud Functions land, the same `LobbyView` shape is produced
-// from Firestore `onSnapshot` and these fixtures survive only for tests.
+// realtime layer + server actions land, the same `LobbyView` shape is produced
+// from the Realtime subscription and these fixtures survive only for tests.
 // ---------------------------------------------------------------------------
 
 /** The canned room code shared by every lobby fixture (matches `createRoom`). */
@@ -273,9 +273,9 @@ export function makeLobbyView(state: string | null): LobbyView {
 //
 // These drive the Game route deterministically without a backend, so
 // Playwright (via `?state=03` / `?state=04`) and tests reach each screen. When
-// the realtime layer + Cloud Functions land, the same `GameView` shape is
-// produced from Firestore `onSnapshot` (public state + own/partner hands) and
-// these fixtures survive only for tests. Nothing here imports firebase.
+// the realtime layer + server actions land, the same `GameView` shape is
+// produced from the Realtime subscription (public state + own/partner hands) and
+// these fixtures survive only for tests. Nothing here imports the backend.
 //
 // Card ids are stable strings ("h1", "p3", …) so task 7's shared `layoutId`
 // flights have something to key on; the values/suits mirror the reference PNGs.
@@ -436,12 +436,12 @@ export function makeGameView(state: string | null): GameView {
 //
 // These drive the paused states deterministically without a backend, so
 // Playwright (via `?overlay=paused-break|paused-waiting|paused-auto`) and tests
-// reach each distinct screen. When the realtime layer + Cloud Functions land,
+// reach each distinct screen. When the realtime layer + server actions land,
 // the same `PausedView` shape is derived from `state/current` (`phase`,
 // `pausedBy`, `pausedAt`) + player `connection`, and these survive only for
 // tests. The "Paused for m:ss" is a static value here; the live clock and the
 // resume / continue / end-game wiring are task 9.6. Nothing here imports
-// firebase.
+// the backend.
 // ---------------------------------------------------------------------------
 
 import type {
@@ -533,10 +533,10 @@ export function makePausedView(overlay: string | null): PausedView | null {
 //
 // These drive the Game over route deterministically without a backend, so
 // Playwright (via `?state=team-win|normal-win|guest|ended`) and tests reach
-// each variant. When the realtime layer + Cloud Functions land, the same
-// `GameResultView` shape is produced from `onSnapshot` on `state/current`
+// each variant. When the realtime layer + server actions land, the same
+// `GameResultView` shape is produced from the Realtime subscription on `state/current`
 // (`winner`, `phase`) + the `players` collection, and these fixtures survive
-// only for tests. Nothing here imports firebase.
+// only for tests. Nothing here imports the backend.
 //
 // The `team-win` fixture mirrors the `07-game-over.png` reference exactly: a
 // 2v2 win by Team A (You + Maya), Maya played her last card, counts You 3 /

@@ -33,9 +33,5 @@ dist-ssr
 /blob-report/
 /playwright/.cache/
 
-# Firebase
+# Local env (Supabase URL + anon key)
 .env.local
-firebase-debug.log
-firestore-debug.log
-ui-debug.log
-.firebase/

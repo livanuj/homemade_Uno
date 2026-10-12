@@ -2,15 +2,15 @@
  * RoomStore — the injectable seam between the Home screen and the room backend.
  *
  * The Home screen reads no game state through this store; it only *creates* and
- * *joins* rooms. Those two actions are now backed by the REAL Cloud Functions
+ * *joins* rooms. Those two actions are now backed by the `game` Edge Function
  * (`createRoom` / `join`) through the single {@link callAction} transport
  * (Task 9.1), replacing the Task-8 fixture store. Everything else the screens
  * render — the lobby, table, overlays, game-over — comes from the live realtime
  * channel (`useRoomChannel`) mapped through `mappers.ts`, NOT from here.
  *
  * A room action requires a ready anonymous session (the `Player_ID` is the
- * session uid, Req 3.1). The Firebase-backed store calls {@link ensureSession}
- * before the callable so a `create`/`join` always has an authenticated caller;
+ * session uid, Req 3.1). The live store calls {@link ensureSession}
+ * before the call so a `create`/`join` always has an authenticated caller;
  * screens additionally gate their buttons on `useSession().status === "ready"`.
  *
  * The provider/`useRoomStore` shape is unchanged from Task 8 so every screen and
@@ -18,8 +18,8 @@
  * store (`createFixtureRoomStore`) is retained for provider-less previews and
  * unit tests that don't want a backend.
  */
-import { ensureSession } from "@/firebase/auth";
-import { callAction } from "@/firebase/callAction";
+import { ensureSession } from "@/backend/auth";
+import { callAction } from "@/backend/callAction";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import {
   FIXTURE_ROOMS,
@@ -31,16 +31,16 @@ import type { JoinFailureReason, RoomActionResult, RoomView } from "./types";
 
 /**
  * The contract every backing implementation honours. Actions are async so the
- * fixture and the Firebase/callable implementation share one signature.
+ * fixture and the live implementation share one signature.
  */
 export interface RoomStore {
   /**
-   * Create a new room owned by `hostName` via the `createRoom` Cloud Function
+   * Create a new room owned by `hostName` via the `createRoom` server action
    * and return the created room (its code drives navigation to the lobby).
    */
   createRoom(hostName: string): Promise<RoomActionResult>;
   /**
-   * Attempt to join `code` as `name` via the `join` Cloud Function, mapping its
+   * Attempt to join `code` as `name` via the `join` server action, mapping its
    * reason codes to the Home error states.
    */
   join(code: string, name: string): Promise<RoomActionResult>;
@@ -71,12 +71,12 @@ function joinFailureFor(reason: string | undefined): JoinFailureReason {
 }
 
 /**
- * The Firebase-backed `RoomStore` (Task 9.1). `createRoom`/`join` ensure an
- * anonymous session, then dispatch the matching callable through
+ * The live `RoomStore` (Task 9.1). `createRoom`/`join` ensure an
+ * anonymous session, then dispatch the matching server action through
  * {@link callAction}. The result carries the room code so the Home route can
  * navigate to `/room/:code`; the lobby then hydrates from the realtime channel.
  */
-export function createFirebaseRoomStore(): RoomStore {
+export function createLiveRoomStore(): RoomStore {
   return {
     async createRoom(hostName) {
       await ensureSession();
@@ -142,16 +142,16 @@ export function createFixtureRoomStore(): RoomStore {
 
 interface RoomStoreProviderProps {
   children: ReactNode;
-  /** Inject a store (tests / previews); defaults to the Firebase-backed store. */
+  /** Inject a store (tests / previews); defaults to the live store. */
   store?: RoomStore;
 }
 
 /**
- * Provides a `RoomStore` to the tree. Defaults to the Firebase-backed store
+ * Provides a `RoomStore` to the tree. Defaults to the live store
  * (real `createRoom`/`join` callables); tests pass their own stub via `store`.
  */
 export function RoomStoreProvider({ children, store }: RoomStoreProviderProps) {
-  const value = useMemo(() => store ?? createFirebaseRoomStore(), [store]);
+  const value = useMemo(() => store ?? createLiveRoomStore(), [store]);
   return (
     <RoomStoreContext.Provider value={value}>
       {children}

@@ -2,10 +2,10 @@
  * Client view-model types — the read-only shapes the screens (task 8) render.
  *
  * These are derived from authoritative server state, NOT the pure rules engine
- * (`game/engine/`). The realtime layer (task 5) and Cloud Functions (task 4)
+ * (`game/engine/`). The realtime layer (task 5) and server actions (task 4)
  * are DEFERRED, so today these models are produced by in-memory fixtures
  * (`fixtures.ts`) and fed through the `RoomStore` provider (`store.tsx`). When
- * the realtime layer lands, `onSnapshot` on `state/current` + `players` will
+ * the realtime layer lands, the Realtime subscription on `state/current` + `players` will
  * map into these same shapes and the screens will not change.
  *
  * Keep these minimal but derived from what the design screens actually need,
@@ -31,7 +31,7 @@ export type RoomPhase = "lobby" | "playing" | "paused" | "ended";
  * hands view so Security Rules (task 2) stay honoured.
  */
 export interface PlayerView {
-  /** Firebase Anonymous Auth uid — stable across reconnects (Player_ID). */
+  /** Supabase anonymous user id — stable across reconnects (Player_ID). */
   id: string;
   /** Display name, already duplicate-suffixed by the server (Req 1.13). */
   name: string;
@@ -112,7 +112,7 @@ export type LobbyStateId =
 // These shapes are what the table renders from; they are DERIVED from the
 // authoritative public state (`state/current`) plus the caller's own hand and,
 // in 2v2, the partner's hand (the only two hands Security Rules let a client
-// read, task 2). The realtime layer (task 5) will map `onSnapshot` into these
+// read, task 2). The realtime layer (task 5) will map Realtime data into these
 // same shapes, so the table (8.4) and the overlays that render over it
 // (8.5 menu/sheets, 8.7 paused) do not change when the backend lands.
 // ---------------------------------------------------------------------------
@@ -264,7 +264,7 @@ export type RoomActionResult =
 // derive this same shape from `state/current` (`phase` `paused`/`auto_paused`,
 // `pausedBy`, `pausedAt`, plus player `connection`); the interactions
 // (resume / continue-without / end-game wiring) are task 9.6. Nothing here
-// imports firebase.
+// imports the backend.
 // ---------------------------------------------------------------------------
 
 import type { PausedVariant } from "@/components/PausedOverlay";
@@ -320,7 +320,7 @@ export type PausedOverlayId =
 // player's remaining-card count and who played the last card. No hands are
 // needed here — only counts — so this stays inside what Security Rules expose.
 //
-// The realtime layer (task 5) maps `onSnapshot` on `state/current` + `players`
+// The realtime layer (task 5) maps the Realtime subscription on `state/current` + `players`
 // into this shape; today the result fixtures (`fixtures.ts`) produce it, keyed
 // by `?state=` so Playwright and links reach each variant. The screen + these
 // types are ADD-only over the existing lobby/table view-models.

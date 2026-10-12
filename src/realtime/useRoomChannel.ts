@@ -3,7 +3,7 @@
  *
  * Given a `roomId` and the caller's `Player_ID`, this hook:
  *   - holds the read-only authoritative {@link ./store} in a `useReducer`;
- *   - attaches the Firestore `onSnapshot` listeners via {@link ./subscription}
+ *   - attaches the Realtime subscription via {@link ./subscription}
  *     and tears them down on unmount / room change (Task 5.1);
  *   - runs the presence heartbeat on the caller's own `players/{uid}` doc
  *     (Task 5.2);
@@ -17,7 +17,6 @@
  * state is read-only truth (steering `component-architecture.md`).
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { db } from "@/firebase/client";
 import { useGameActions, type ActionClient } from "./actions";
 import { startHeartbeat, type Heartbeat } from "./presence";
 import { initialStore, storeReducer, type RealtimeStore } from "./store";
@@ -64,7 +63,6 @@ export function useRoomChannel(
     dispatch({ type: "connection", connection: "connecting" });
 
     const subscription = subscribeRoom({
-      db,
       roomId,
       playerId,
       dispatch,
@@ -75,7 +73,7 @@ export function useRoomChannel(
     // First snapshot flips us to online; until then we're "connecting".
     dispatch({ type: "connection", connection: "online" });
 
-    const heartbeat = startHeartbeat({ db, roomId, playerId });
+    const heartbeat = startHeartbeat({ roomId, playerId });
     beatRef.current = heartbeat;
 
     return () => {

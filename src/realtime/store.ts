@@ -2,7 +2,7 @@
  * The read-only authoritative realtime store (Task 5.1).
  *
  * This is a plain (framework-agnostic) store that holds the LATEST server
- * snapshots delivered by the Firestore `onSnapshot` listeners in
+ * snapshots delivered by the Realtime subscription in
  * {@link ./subscription}. Screens render from this store; they never mutate it.
  * The single source of truth is the server — this store only mirrors it.
  *
@@ -12,8 +12,8 @@
  * illegal-tap / stale-version signal and revert its optimistic view). These are
  * NEVER treated as game state — the rendered game is always the server snapshot.
  *
- * Design refs: design.md "Architecture" (onSnapshot store), steering
- * `conventions/firestore-data.md` ("Hold snapshot state in a read-only store;
+ * Design refs: design.md "Architecture" (read-only realtime store), steering
+ * `conventions/supabase-data.md` ("Hold snapshot state in a read-only store;
  * do not fork or locally edit it") and `component-architecture.md` ("Server
  * state is read-only truth").
  */
@@ -24,7 +24,7 @@ import type {
   PlayerDoc,
   RoomDoc,
   StateDoc,
-} from "@/firebase/types";
+} from "@/backend/types";
 
 /** A player row keyed by its `Player_ID` (the doc id). */
 export interface StorePlayer {

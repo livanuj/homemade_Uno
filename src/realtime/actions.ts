@@ -7,23 +7,23 @@
  *      14.5);
  *   2. records an optimistic `pendingAction` in the store so the UI can show
  *      immediate feedback;
- *   3. delegates to {@link @/firebase/callAction} (the single transport);
+ *   3. delegates to {@link @/backend/callAction} (the single transport);
  *   4. on a REJECTION (`stale_version`, `not_active`, `illegal_card`, …) records
  *      the rejection in the store, which drops the optimistic pending action so
  *      the UI reverts to the last confirmed snapshot. The snapshot listeners
  *      then re-deliver the authoritative state (the resync).
  *
  * On accept, the store is NOT mutated here — the authoritative outcome always
- * arrives via the `state`/`hands` `onSnapshot` listeners (design.md: "the
- * authoritative outcome always comes from the Firestore `onSnapshot` update").
+ * arrives via the room's Realtime subscription (design.md: "the
+ * authoritative outcome always comes from the Realtime update").
  *
- * Components never call `httpsCallable` or `callAction` directly (steering
- * `firestore-data.md`): they use the object this hook returns.
+ * Components never invoke the Edge Function or `callAction` directly (steering
+ * `supabase-data.md`): they use the object this hook returns.
  */
 import { useMemo } from "react";
-import { callAction, type ActionName, type CallResult } from "@/firebase/callAction";
-import type { Suit } from "@/firebase/types";
-import type { ActionType } from "@/firebase/types";
+import { callAction, type ActionName, type CallResult } from "@/backend/callAction";
+import type { Suit } from "@/backend/types";
+import type { ActionType } from "@/backend/types";
 import type { PendingAction, RealtimeStore, StoreAction } from "./store";
 
 /** A dispatch into the read-only store (records pending/rejection markers). */
@@ -128,7 +128,7 @@ export function makeActionClient(store: RealtimeStore, dispatch: Dispatch): Acti
       });
     }
     // On accept we intentionally do NOT touch the store: the authoritative
-    // state arrives via the onSnapshot listeners.
+    // state arrives via the Realtime subscription.
     return result;
   }
 

@@ -27,14 +27,14 @@ export type {
     Suit,
     Team,
     Winner
-} from "./types";
+} from "./types.ts";
 
-export { shouldAutoPause } from "./autopause";
-export { assignSeats, deal, HAND_SIZE } from "./deal";
-export type { DealInput } from "./deal";
-export { buildDeck, isNumberCard, isWildCard, shuffle, SUITS } from "./deck";
-export { reducer } from "./reducer";
-export { createSeededRng } from "./rng";
+export { shouldAutoPause } from "./autopause.ts";
+export { assignSeats, deal, HAND_SIZE } from "./deal.ts";
+export type { DealInput } from "./deal.ts";
+export { buildDeck, isNumberCard, isWildCard, shuffle, SUITS } from "./deck.ts";
+export { reducer } from "./reducer.ts";
+export { createSeededRng } from "./rng.ts";
 export {
     discardTop,
     isLegalPlay,
@@ -42,6 +42,6 @@ export {
     matchesNonWild,
     penaltyKindOf,
     penaltyValue
-} from "./rules";
-export { advanceActive, resolveReverse, resolveSkip, seatAfter } from "./turn";
+} from "./rules.ts";
+export { advanceActive, resolveReverse, resolveSkip, seatAfter } from "./turn.ts";
 

@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildDeck } from "./deck";
-import type { CardValue } from "./types";
+import { buildDeck } from "./deck.ts";
+import type { CardValue } from "./types.ts";
 
 const RUNS = 100;
 

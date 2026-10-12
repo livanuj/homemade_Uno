@@ -1,10 +1,10 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildDeck } from "./deck";
-import { deal } from "./deal";
-import { createSeededRng } from "./rng";
-import { cardIdMultiset, playerList, runLegalSequence } from "./testkit";
-import type { GameMode } from "./types";
+import { buildDeck } from "./deck.ts";
+import { deal } from "./deal.ts";
+import { createSeededRng } from "./rng.ts";
+import { cardIdMultiset, playerList, runLegalSequence } from "./testkit.ts";
+import type { GameMode } from "./types.ts";
 
 const RUNS = 100;
 const MAX_STEPS = 80;
