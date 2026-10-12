@@ -126,23 +126,23 @@ graph TD
     - Note the limitation: screenshot diffing catches layout/visual drift only, not semantic correctness or full WCAG (that stays with task 10.3 automated checks + manual AT testing)
     - _Requirements: 19.1, 20.3_
 
-- [ ] 2. Set up Firebase: config, anonymous auth, Firestore schema, and Security Rules
-  - [ ] 2.1 Configure the Firebase client and anonymous auth
+- [x] 2. Set up Firebase: config, anonymous auth, Firestore schema, and Security Rules
+  - [x] 2.1 Configure the Firebase client and anonymous auth
     - Add the typed Firebase client in `src/firebase/` (app, Firestore, Auth, Functions; wire the Emulator Suite in dev); implement anonymous sign-in so the session `uid` becomes the persisted `Player_ID`; expose a hook that guarantees a session before any room action
     - _Requirements: 2.11, 3.1, 14.6_
 
-  - [ ] 2.2 Define the Firestore document model and converters
+  - [x] 2.2 Define the Firestore document model and converters
     - Create the room-rooted document layout exactly per the design.md Data Models: `rooms/{roomId}`, `players/{playerId}`, `state/current`, `hands/{playerId}`, `actions/{autoId}`, and a server-only `private/deck` (holding `drawPile`, never client-readable); add typed Firestore data converters for each
     - Ensure `state/current` carries `version`, `phase`, `penaltyCount`, `pendingPenaltyKind`, `pausedBy`, `pausedAt`, `pendingChoice`, `winner`
     - _Requirements: 14.4, 23.2, 23.3_
 
-  - [ ] 2.3 Write the Firestore Security Rules
+  - [x] 2.3 Write the Firestore Security Rules
     - `hands/{playerId}` readable only when `playerId == request.auth.uid`, plus partner readability in Team mode (same team, same room); no cross-team/non-self reads
     - Make `rooms`/`players`/`state` readable within the room (no hand data); DENY client reads of `private/deck`
     - DENY client writes to `state`, `hands`, `private/deck`, and `actions`; allow a player to write only their own `players/{uid}` `lastSeen`/presence; all game writes go through Cloud Functions (Admin SDK)
     - _Requirements: 13.8, 14.6, 23.1, 23.2, 23.3_
 
-  - [ ]\* 2.4 Write Security Rules tests (emulator)
+  - [x]\* 2.4 Write Security Rules tests (emulator)
     - Using `@firebase/rules-unit-testing`: as player A, assert reading player B's hand is denied (Normal); in Team mode assert a partner's hand is readable and an opponent's is not; assert no client can read `private/deck`
     - _Requirements: 14.6, 23.1, 23.2_
 
@@ -223,58 +223,58 @@ graph TD
     - Reverse and skip in the exact-2-player case; initial-discard reshuffle when the flipped card is an action card; `+2` onto pending `+4` rejected and `wild4` onto `+2` accepted; reshuffle-on-empty vs. no-draw (only top); last-card penalty on ending a turn at 1 card without calling; winning wild requires color before the win resolves
     - _Requirements: 5.5, 6.3, 6.5, 8.6, 9.5, 10.7, 10.8, 11.3_
 
-- [ ] 4. Wrap the engine in Cloud Functions (server-authoritative, versioned)
-  - [ ] 4.1 Add the shared action harness (callable Cloud Function + Firestore transaction)
+- [x] 4. Wrap the engine in Cloud Functions (server-authoritative, versioned)
+  - [x] 4.1 Add the shared action harness (callable Cloud Function + Firestore transaction)
     - Implement a callable Cloud Function helper that runs a Firestore transaction: read `state/current`, reject when `basedOnVersion != version` or the caller is not the active player, apply the engine transition, increment `version`, write `state`/`hands` in the transaction before returning accept, and append to `actions` (Admin SDK)
     - _Requirements: 14.4, 14.5_
 
-  - [ ] 4.2 Implement `createRoom` and `join` callable functions
+  - [x] 4.2 Implement `createRoom` and `join` callable functions
     - `createRoom`: generate a unique 4-char code (A–Z/0–9 minus `0 O 1 I L`, retry ≤10, abort on failure), write room doc (Normal, `lobby`) + host player doc with `joinOrder`, return room + invite link
     - `join`: validate room exists (else not-found), enforce max 8 players (else room-full), duplicate-name suffixing; deny non-members when the game has started; restore an existing member to their seat/hand on rejoin
     - _Requirements: 1.1, 1.9, 1.10, 1.11, 1.13, 2.3, 2.6, 2.10, 3.2, 3.4, 24.1_
 
-  - [ ] 4.3 Implement `startGame`
+  - [x] 4.3 Implement `startGame`
     - Validate mode constraints (Normal ≥2, Team exactly 4); assign seats (team-alternating in 2v2); deal via the engine writing `hands` + `private/deck`; set phase `playing`, host first active, direction clockwise; commit
     - _Requirements: 4.7, 4.8, 5.2, 5.6, 5.7_
 
-  - [ ] 4.4 Implement `playCard`, `chooseColor`, `drawOne`, and `keep`
+  - [x] 4.4 Implement `playCard`, `chooseColor`, `drawOne`, and `keep`
     - Route each through the harness into the engine (play/validate, wild color set, single draw with reshuffle, keep ends turn); return accept (committed) with new public state and the caller's hand, or reject with a reason code
     - _Requirements: 7.1, 7.2, 7.3, 8.1, 8.2, 9.x, 10.1, 10.2, 10.3, 10.4, 10.5, 14.5_
 
-  - [ ] 4.5 Implement `callLast`, `endGame`, and `leave`
+  - [x] 4.5 Implement `callLast`, `endGame`, and `leave`
     - Callable functions writing Firestore: `callLast` records the call when eligible; `endGame` ends with no winner (Auto_Pause "End game"); `leave` marks the player left/disconnected, skips their turns immediately with no grace, applies continue-without behavior, and triggers auto-pause if the predicate holds
     - _Requirements: 11.1, 11.2, 22.2, 22.3, 25.13_
 
-  - [ ] 4.6 Implement `pause`, `resume`, and `continueWithout`
+  - [x] 4.6 Implement `pause`, `resume`, and `continueWithout`
     - `pause`: Firestore writes to `state/current` setting phase `paused`, `pausedBy`, `pausedAt`; reject all play/draw/call/color/skip while paused and stop the grace countdown; `resume`: return to active and re-show any `pendingChoice` to the same player; `continueWithout`: resume and skip the disconnected player (drawing pending penalty if their turn), skipping later turns immediately
     - _Requirements: 25.1, 25.6, 25.7, 25.9, 25.14_
 
-  - [ ] 4.7 Implement host succession and round increment on game end / play-again
+  - [x] 4.7 Implement host succession and round increment on game end / play-again
     - On host leave/disconnect at lobby or game end, pass host to the longest-present connected player; on "Play again" return everyone to the lobby with the same mode/teams and increment `round_number`
     - _Requirements: 3.6, 12.5, 12.6, 12.7, 15.8_
 
-  - [ ]\* 4.8 Integration tests — server authority (emulator)
+  - [x]\* 4.8 Integration tests — server authority (emulator)
     - Call `playCard` as a non-active player and with a stale version; assert both reject and state is unchanged; assert state is committed before the accept response; run on the Functions + Firestore emulator
     - _Requirements: 14.4, 14.5_
 
-- [ ] 5. Build the realtime client layer, presence, and grace/auto-pause mechanics
-  - [ ] 5.1 Implement Firestore `onSnapshot` subscriptions and the authoritative store
+- [x] 5. Build the realtime client layer, presence, and grace/auto-pause mechanics
+  - [x] 5.1 Implement Firestore `onSnapshot` subscriptions and the authoritative store
     - In `src/realtime/`, attach `onSnapshot` listeners to the room doc, the `players` collection, `state/current`, and own/partner `hands` docs; hold server state read-only in a store (Zustand or context+reducer); the action client stamps each request with the current `version` and reverts optimistic UI on rejection
     - _Requirements: 14.1, 14.2, 14.3, 14.5, 14.6_
 
-  - [ ] 5.2 Implement presence, connection state, and the server-enforced heartbeat
+  - [x] 5.2 Implement presence, connection state, and the server-enforced heartbeat
     - Track presence via RTDB `onDisconnect` or a heartbeat doc; flip `connection_state` on join/leave; periodically update only the caller's own `players/{uid}` `lastSeen`; the server (Cloud Function) compares `now − lastSeen` against the 60s Grace_Period before any skip
     - _Requirements: 15.1, 15.6_
 
-  - [ ] 5.3 Implement reconnect resync
+  - [x] 5.3 Implement reconnect resync
     - On reconnect, re-attach the `onSnapshot` listeners and load the current authoritative public state and the caller's own hand within 5s; restore seat/hand per Requirement 3
     - _Requirements: 3.2, 14.7, 15.2, 15.4_
 
-  - [ ] 5.4 Implement grace-period auto-skip and auto-pause/auto-resume
+  - [x] 5.4 Implement grace-period auto-skip and auto-pause/auto-resume
     - A scheduled/callable Cloud Function enforces the countdown against `lastSeen`: when it becomes a disconnected active player's turn, run the 60s countdown; skip and draw pending penalty when elapsed and not paused; skip later turns immediately; start Auto_Pause when the predicate holds and auto-resume when the condition clears
     - _Requirements: 15.3, 15.5, 15.7, 25.8, 25.10, 25.12_
 
-  - [ ]\* 5.5 Realtime sync tests (emulator)
+  - [x]\* 5.5 Realtime sync tests (emulator)
     - Two subscribed clients receive new public state within 2s of an accepted action; lobby membership/mode/host changes propagate within 2s; a reconnecting client receives public state + own hand within 5s; presence disconnect drives server-enforced grace/skip and auto-pause
     - _Requirements: 14.1, 14.2, 14.3, 14.7, 15.3, 25.10_
 
@@ -295,7 +295,7 @@ graph TD
     - `MenuDrawer` (§5.10), `BottomSheet` (§5.15), `WildColorButtons` (§5.16), `SpotlightCard` (§5.17), `Dialog` (§5.18), `Toast` (§5.19), `OfflineAvatar` + `CountdownRing` (§5.20), `Confetti` (§5.25), `PausedOverlay` (§11/§12)
     - _Requirements: 20.1, 20.3_
 
-- [ ] 7. Build the animation system with Motion for React
+- [x] 7. Build the animation system with Motion for React
   - [x] 7.1 Implement card-flight and turn animations
     - Shared `layoutId={card.id}` play/throw (spring 380/30, random −10°…+10°); opponent card flight + `rotateY 180→0` flip; draw slide-and-flip; deal stagger (60ms round-robin); select raise; illegal-tap shake; turn-pill cross-fade + turn pulse; wild color-change ring/glow cross-fade
     - Handle interrupted shared transitions by committing the card to the final discard position
@@ -306,81 +306,81 @@ graph TD
     - Add a `prefers-reduced-motion` hook that swaps flights for instant moves, removes the turn pulse, and renders confetti statically
     - _Requirements: 17.5, 17.6, 17.8, 17.9, 17.10_
 
-- [ ] 8. Wire screens to state (all 22 screen references)
-  - [ ] 8.1 Build the Home route and its states (`01-home`, `01b`, `01c`)
+- [x] 8. Wire screens to state (all 22 screen references)
+  - [x] 8.1 Build the Home route and its states (`01-home`, `01b`, `01c`)
     - Hero card-fan, name input, "Create a room", join code input with uppercase-only 4-char entry and "Join", "How to play" link, settings button; pre-fill code from invite link; render room-not-found (`01b`), room-full, and game-already-started (`01c`) states
     - Capture each screen state built here (`01-home`, `01b-home-room-not-found`, `01c-game-already-started`) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 1.1, 1.2, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.10, 3.5, 16.5, 19.1_
 
-  - [ ] 8.2 Build Settings (`01d`) and How to play (`01e`)
+  - [x] 8.2 Build Settings (`01d`) and How to play (`01e`)
     - Editable name (1–16 chars, stored on device), Sound/Vibration/Highlight switches with Vibration hidden when unsupported, "How to play" link, app version; scrolling rules page with all sections
     - Capture each screen state built here (`01d-settings`, `01e-how-to-play`) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 1.7, 1.12, 16.5, 16.7, 19.1_
 
-  - [ ] 8.3 Build the Lobby route and all six states (`02a`–`02f`)
+  - [x] 8.3 Build the Lobby route and all six states (`02a`–`02f`)
     - Room-code panel (Copy link / Share invite), ModeControl (host-editable, guest read-only "chosen by the host"), player list / team cards with empty slots, StartControl with the exact disabled messages; host vs. guest views; render `02a` just-created, `02b` normal (2v2 disabled + note), `02c` waiting, `02d` ready, `02e` dragging, `02f` guest
     - Capture each screen state built here (`02a-lobby-just-created`, `02b-lobby-normal`, `02c-lobby-2v2-waiting`, `02d-lobby-2v2-ready`, `02e-lobby-dragging`, `02f-lobby-guest`) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.7, 4.8, 4.9, 4.12, 21.1, 21.7, 19.1_
 
-  - [ ] 8.4 Build the Game table (`03-game-2v2`, `04-game-normal`)
+  - [x] 8.4 Build the Game table (`03-game-2v2`, `04-game-normal`)
     - `GameTable` with draw/discard piles, direction ring, turn pill, own avatar + "LAST CARD!" button, fanned hand with unplayable-card dimming (when Highlight enabled) and selected-card raise; partner hand face-up (2v2, partner 3D recipe), opponent seats as face-down backs (≤7 shown) with real count badges; turn ring color per mode; "Round N" mode chip
     - Capture each screen state built here (`03-game-2v2`, `04-game-normal`) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 5.6, 6.4, 6.5, 6.6, 6.7, 7.5, 7.6, 11.1, 12.6, 13.1, 13.2, 13.3, 13.4, 13.5, 19.1_
 
-  - [ ] 8.5 Build the in-game overlays (`05`, `06a`–`06d`)
+  - [x] 8.5 Build the in-game overlays (`05`, `06a`–`06d`)
     - Menu drawer (room code + Copy link, cards-left per player grouped by team, three switches, Pause game, How to play, Leave game); wild color picker bottom sheet (no cancel); drew-a-card sheet (Play it / Keep it); player-disconnected table state (offline avatar + countdown ring + toast + "Pause and wait"); leave-confirm dialog
     - Capture each screen state built here (`05-menu`, `06a-wild-color-picker`, `06b-drew-playable-card`, `06c-player-disconnected`, `06d-leave-confirm`) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 1.3, 8.1, 8.2, 9.6, 10.2, 15.1, 15.3, 15.5, 22.1, 25.1, 25.2, 19.1_
 
-  - [ ] 8.6 Build Game over (`07`) and its variants
+  - [x] 8.6 Build Game over (`07`) and its variants
     - Result screen with confetti, winner avatars, result title, last-card-player, remaining counts per player; host "Play again" vs. guest "Waiting for the host"; "Back to home"; variants for Normal winner, guest view, and "Game ended" (no winner, no confetti)
     - Capture each screen state built here (`07-game-over` and its variants) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 25.13, 19.1_
 
-  - [ ] 8.7 Build the paused overlays (`08a`–`08c`)
+  - [x] 8.7 Build the paused overlays (`08a`–`08c`)
     - Break variant (`08a`: "Game paused", who paused, "Paused for m:ss", "Resume game"); Waiting variant (`08b`: "Waiting for [name]", offline avatar, "Continue without [name]"); Auto variant (`08c`: team/players offline, "End game"); menu stays available while paused
     - Capture each screen state built here (`08a-paused`, `08b-paused-waiting`, `08c-paused-team-offline`) at 390×844 with the Playwright helper and compare against the corresponding `design/uno-design/screens/<screen-id>.png` references
     - _Requirements: 25.3, 25.4, 25.5, 25.7, 25.8, 25.9, 25.10, 25.11, 25.13, 25.15, 19.1_
 
-- [ ] 9. Wire the end-to-end feature flows
-  - [ ] 9.1 Wire create / join / rejoin flows
+- [x] 9. Wire the end-to-end feature flows
+  - [x] 9.1 Wire create / join / rejoin flows
     - Home → `createRoom` → Lobby; invite-link open with/without stored name; join by code; copy-link confirmation and clipboard-failure fallback; native share with clipboard fallback; rejoin restores seat/hand; return an in-progress member to their game on launch
     - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 2.8, 2.9, 3.2, 3.3_
 
-  - [ ] 9.2 Wire lobby mode selection and real-time team drag-and-drop
+  - [x] 9.2 Wire lobby mode selection and real-time team drag-and-drop
     - Host mode switch with join-order team fill (alternating A/B); 2v2 disable/enable and auto-switch-to-Normal toast at 5+ players; drag to swap/move with return-on-invalid-drop; tap/keyboard alternative that moves/swaps a player; reject team changes from non-hosts; propagate mode/team/host/list changes in real time
     - _Requirements: 4.6, 4.9, 4.10, 4.11, 4.13, 21.2, 21.3, 21.4, 21.5, 21.6, 21.7_
 
-  - [ ] 9.3 Wire start + deal into the table
+  - [x] 9.3 Wire start + deal into the table
     - Host Start (enabled only when constraints met) triggers `startGame`; render the staggered deal into the table and transition guests into `03`/`04`
     - _Requirements: 5.2, 5.3, 5.4_
 
-  - [ ] 9.4 Wire play / draw / wild / stacking / last-card into the table
+  - [x] 9.4 Wire play / draw / wild / stacking / last-card into the table
     - Card tap → `playCard` with illegal-tap shake on reject; wild → picker → `chooseColor`; draw pile → `drawOne` → play/keep sheet; stacking prompts and toasts; "LAST CARD!" enable/record and forgot-to-call penalty toast; turn/penalty/skip/reverse toasts
     - _Requirements: 6.10, 7.3, 8.3, 8.4, 9.x, 10.1, 10.2, 10.6, 11.1, 11.2, 11.3_
 
-  - [ ] 9.5 Wire win, play-again, and host transfer
+  - [x] 9.5 Wire win, play-again, and host transfer
     - On win, show `07` to all with counts; host "Play again" returns everyone to the lobby with the same mode/teams and bumps the round; guests wait; "Back to home"; host transfer if host gone at end
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7_
 
-  - [ ] 9.6 Wire disconnect / grace / skip and pause / resume / auto-pause / continue-without / end-game / leaving
+  - [x] 9.6 Wire disconnect / grace / skip and pause / resume / auto-pause / continue-without / end-game / leaving
     - Offline badge + toast; grace countdown in avatar and pill; "Pause and wait"; manual pause/resume; auto-pause + auto-resume; continue-without; end-game from auto-pause; leave-confirm → return home, immediate skip, rejoin via link
     - _Requirements: 15.1, 15.3, 15.5, 15.8, 22.1, 22.2, 22.3, 25.1, 25.2, 25.7, 25.8, 25.9, 25.11, 25.12, 25.13, 25.14, 25.15_
 
-- [ ] 10. Wire accessibility across the app
-  - [ ] 10.1 Native semantics, labels, and live announcements
+- [x] 10. Wire accessibility across the app
+  - [x] 10.1 Native semantics, labels, and live announcements
     - Use native `<button>`/`<input>`/`<a>`; `aria-label` on every icon-only button; card `aria-label` in the "<Suit> <Value>" / wild-name pattern; announce turn changes and card plays in an `aria-live="polite"` region without dropping the latest turn/card announcement
     - _Requirements: 18.1, 18.2, 18.4, 18.7_
 
-  - [ ] 10.2 Focus management, keyboard operability, and drag alternatives
+  - [x] 10.2 Focus management, keyboard operability, and drag alternatives
     - Move focus into dialogs/sheets on open and return it on close; close with Escape except the wild picker and the paused overlay; keyboard operability with visible focus for all controls including the drag-handle tap/keyboard alternative
     - _Requirements: 18.6, 18.8, 18.9, 18.10, 21.6_
 
-  - [ ]\* 10.3 Automated accessibility checks
+  - [x]\* 10.3 Automated accessibility checks
     - Add automated checks for roles, icon-button `aria-label`s, live-region wiring, focus management, and contrast tokens; add a note that full WCAG conformance requires manual testing with assistive technologies and expert review
     - _Requirements: 18.1, 18.4, 18.5, 18.6, 18.9_
 
-- [ ] 11. Checkpoint — full test suite green
+- [x] 11. Checkpoint — full test suite green
   - Ensure all property, unit, integration, realtime, and accessibility tests pass. Ensure all tests pass, ask the user if questions arise.
   - _Requirements: 14.x, 23.x, 18.x_
 

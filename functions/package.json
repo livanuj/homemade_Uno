@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test:integration": "firebase emulators:exec --only firestore,auth,functions --project demo-homemade-uno \"vitest run --config vitest.integration.config.ts\""
+    "test:integration": "firebase emulators:exec --only firestore,auth,functions --project homemadeuno \"vitest run --config vitest.integration.config.ts\""
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

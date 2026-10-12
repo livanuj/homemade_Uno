@@ -44,23 +44,27 @@ export function useEmulator(): boolean {
 }
 
 /**
- * Firebase web config. When targeting the emulator a demo project id is enough
- * (`demo-*` project ids never touch a real backend), so the real
- * `VITE_FIREBASE_*` values are optional in local dev.
+ * Firebase web config, read from the `VITE_FIREBASE_*` env (see `.env` /
+ * `.env.example`). Each value coalesces to an empty string so the shape is a
+ * `FirebaseOptions` with all-`string` properties (strict `exactOptional
+ * PropertyTypes`); in real use the env supplies the project values, and when
+ * targeting the Emulator Suite the SDK never contacts a real backend so empty
+ * strings are harmless. `authDomain` / `storageBucket` fall back to the
+ * conventional `${projectId}` forms when their own env vars are unset.
  */
 function firebaseConfig() {
-  const projectId =
-    import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "demo-homemade-uno";
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "";
   return {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "demo-api-key",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? "",
     authDomain:
-      import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? `${projectId}.firebaseapp.com`,
+      import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ??
+      (projectId ? `${projectId}.firebaseapp.com` : ""),
     projectId,
     storageBucket:
-      import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? `${projectId}.appspot.com`,
-    messagingSenderId:
-      import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "000000000000",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "demo-app-id",
+      import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ??
+      (projectId ? `${projectId}.appspot.com` : ""),
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "",
   };
 }
 

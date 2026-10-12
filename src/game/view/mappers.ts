@@ -29,7 +29,7 @@ import type {
     Team
 } from "@/firebase/types";
 import type { RealtimeStore, StorePlayer } from "@/realtime/store";
-import { inviteLinkForCode } from "./fixtures";
+import { inviteLinkForCode } from "@/lib/share";
 import type { OverlayId } from "./overlays";
 import type {
     CardView,

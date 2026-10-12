@@ -92,3 +92,22 @@ export async function shareInvite(data: ShareData): Promise<ShareResult> {
   const copied = await copyToClipboard(data.url);
   return copied ? "copied" : "failed";
 }
+
+/**
+ * Build the shareable invite link for a room code, RELATIVE to wherever the app
+ * is actually served (Req 1.4). The link points at the Home route with the code
+ * prefilled via `?code=…`, which `HomeRoute` reads to pre-populate the join
+ * field. We never hardcode a domain: the origin is read from
+ * `window.location.origin` at call time so the link is correct whether the app
+ * runs on localhost, a Firebase Hosting URL, or a custom domain.
+ *
+ * In a non-DOM context (tests / SSR) there is no origin, so we return a
+ * root-relative URL (`/?code=…`) — still a valid, shareable path.
+ */
+export function inviteLinkForCode(code: string): string {
+  const path = `/?code=${encodeURIComponent(code)}`;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}${path}`;
+  }
+  return path;
+}

@@ -8,7 +8,7 @@
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-const PROJECT_ID = "demo-homemade-uno";
+const PROJECT_ID = "homemadeuno";
 
 function ensureAdmin() {
   if (getApps().length === 0) {
