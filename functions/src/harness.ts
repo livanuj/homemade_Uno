@@ -26,6 +26,7 @@ import {
     db,
     deckRef,
     handRef,
+    playerRef,
     playersRef,
     roomRef,
     stateRef,
@@ -168,10 +169,14 @@ export async function runAction(
 
     // Hands: write every seat whose cards changed (draw/penalty/reshuffle can
     // touch multiple seats). Comparing by reference is enough — the engine
-    // returns new arrays only for changed hands.
+    // returns new arrays only for changed hands. Mirror the public card count
+    // onto the player doc for opponent badges (Req 13.5).
     next.seats.forEach((seat, seatIndex) => {
       if (before.hands[seatIndex] !== next.hands[seatIndex]) {
         tx.set(handRef(roomId, seat.playerId), handDocForSeat(next, seatIndex));
+        tx.update(playerRef(roomId, seat.playerId), {
+          cardCount: next.hands[seatIndex].length,
+        });
       }
     });
 

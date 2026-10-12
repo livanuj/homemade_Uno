@@ -47,6 +47,13 @@ export interface PlayerDoc {
   connectionState: ConnectionState;
   lastSeen: Timestamp;
   hasLeft: boolean;
+  /**
+   * Denormalized remaining-card count for opponent badges (Req 13.5). A client
+   * cannot read another player's hand doc (Security Rules), so the server
+   * mirrors the count here — a public, non-secret integer — on every hand
+   * change. Undefined before the first deal.
+   */
+  cardCount?: number;
 }
 
 export interface PendingChoice {

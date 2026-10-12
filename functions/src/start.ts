@@ -12,29 +12,49 @@
  * Deck secrecy (Req 23.2): the shuffled draw order goes ONLY to `private/deck`;
  * `state/current` carries just the public discard/color/seat/etc.
  */
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import type { DealInput } from "../../src/game/engine/deal";
 import {
-  db,
-  deckRef,
-  handRef,
-  playerRef,
-  playersRef,
-  roomRef,
-  stateRef,
-  Timestamp,
+    db,
+    deckRef,
+    handRef,
+    playerRef,
+    playersRef,
+    roomRef,
+    stateRef,
+    Timestamp,
 } from "./admin";
 import { deal } from "./engine";
-import type { DealInput } from "../../src/game/engine/deal";
-import { createCsprng } from "./rng";
 import {
-  deckDocFrom,
-  handDocForSeat,
-  stateDocFieldsFrom,
+    deckDocFrom,
+    handDocForSeat,
+    stateDocFieldsFrom,
 } from "./mapping";
 import type { PlayerDoc, StateDoc, Team } from "./model";
+import { createCsprng } from "./rng";
 
 const MIN_NORMAL = 2;
 const TEAM_SIZE = 4;
+
+/**
+ * Order Team-mode members so the engine's even/odd seat parity (even → Team A,
+ * odd → Team B) reproduces the host's persisted A/B split with partners
+ * opposite: seats [A0, B0, A1, B1]. Returns `null` when the split is not
+ * exactly two-and-two (a partially-assigned lobby), letting the caller fall
+ * back to join order or reject.
+ */
+function interleaveByTeam(
+  members: { id: string; doc: PlayerDoc }[],
+): { id: string; doc: PlayerDoc }[] | null {
+  const teamA = members
+    .filter((m) => m.doc.team === "A")
+    .sort((a, b) => a.doc.joinOrder - b.doc.joinOrder);
+  const teamB = members
+    .filter((m) => m.doc.team === "B")
+    .sort((a, b) => a.doc.joinOrder - b.doc.joinOrder);
+  if (teamA.length !== 2 || teamB.length !== 2) return null;
+  return [teamA[0], teamB[0], teamA[1], teamB[1]];
+}
 
 export const startGame = onCall(async (request) => {
   const uid = request.auth?.uid;
@@ -69,18 +89,35 @@ export const startGame = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "Need at least 2 players to start.");
     }
 
-    // Deal through the engine (seats assigned by join order; team-alternating).
+    // Order the players so the engine's seat-parity team assignment (even seats
+    // → Team A, odd → Team B) reproduces the HOST'S arrangement from the lobby
+    // (Req 5.7 / 21.x). In Team mode we interleave the two teams [A0, B0, A1,
+    // B1] so partners sit opposite; when a team assignment is missing we fall
+    // back to join order. Normal mode keeps plain join order.
+    const ordered =
+      room.gameMode === "team" ? interleaveByTeam(members) : members;
+    if (room.gameMode === "team" && ordered === null) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Team mode needs exactly two players on each team.",
+      );
+    }
+
+    // Deal through the engine (seats assigned by the ordered list above).
     const dealInput: DealInput = {
       mode: room.gameMode,
-      players: members.map((m) => ({ playerId: m.id })),
+      players: (ordered ?? members).map((m) => ({ playerId: m.id })),
     };
     const state = deal(dealInput, createCsprng());
 
-    // Persist seats/team onto each player doc (Req 5.7).
-    state.seats.forEach((seat) => {
-      const update: { seatIndex: number; team: Team | null } = {
+    // Persist seats/team + denormalized card count onto each player doc (Req
+    // 5.7, 13.5). The count is public (badge-only); the cards stay in the
+    // per-player hand doc.
+    state.seats.forEach((seat, seatIndex) => {
+      const update: { seatIndex: number; team: Team | null; cardCount: number } = {
         seatIndex: seat.seat,
         team: seat.team ?? null,
+        cardCount: state.hands[seatIndex].length,
       };
       tx.update(playerRef(roomId, seat.playerId), update);
     });

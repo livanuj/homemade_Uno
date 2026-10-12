@@ -55,6 +55,23 @@ export interface GameOverlaysProps {
   onHowToPlay?: () => void;
   /** Close the whole overlay (task 9 wires navigation back to the table). */
   onClose?: () => void;
+
+  // ---- live action handlers (Task 9.4 / 9.6) — optional so the fixture
+  // preview path can omit them and keep the seams as no-ops. ----
+  /** Copy the invite link from the menu (Req 1.3). */
+  onCopyLink?: () => void;
+  /** Pause the game from the menu (Req 25.1). */
+  onPause?: () => void;
+  /** Leave the game (menu → confirm, or the direct leave overlay) (Req 22.1). */
+  onLeave?: () => void;
+  /** Choose a color for a played wild (Req 8.2). */
+  onChooseColor?: (color: Suit) => void;
+  /** Play the freshly drawn card (Req 10.2). */
+  onPlayDrawn?: () => void;
+  /** Keep the freshly drawn card and end the turn (Req 10.4). */
+  onKeepDrawn?: () => void;
+  /** Pause to wait for the disconnected player (Req 25.2). */
+  onPauseAndWait?: () => void;
 }
 
 /** Build the "CARDS LEFT" rows from the room roster (§5.10). */
@@ -126,6 +143,13 @@ export function GameOverlays({
   data,
   onHowToPlay,
   onClose,
+  onCopyLink,
+  onPause,
+  onLeave,
+  onChooseColor,
+  onPlayDrawn,
+  onKeepDrawn,
+  onPauseAndWait,
 }: GameOverlaysProps) {
   const reduced = usePrefersReducedMotion();
   const { settings, set } = useSettings();
@@ -150,12 +174,8 @@ export function GameOverlays({
           onSoundChange={(on) => set({ sound: on })}
           onVibrationChange={(on) => set({ vibration: on })}
           onHighlightChange={(on) => set({ highlight: on })}
-          onCopyLink={() => {
-            /* task 9 wires clipboard + confirmation */
-          }}
-          onPause={() => {
-            /* task 9 wires pause (8.7 renders the paused overlay) */
-          }}
+          onCopyLink={() => onCopyLink?.()}
+          onPause={() => onPause?.()}
           onHowToPlay={() => onHowToPlay?.()}
           onLeave={() => setLeaveOpen(true)}
           onClose={() => onClose?.()}
@@ -165,9 +185,7 @@ export function GameOverlays({
           <LeaveConfirmDialog
             reduced={reduced}
             onStay={() => setLeaveOpen(false)}
-            onLeave={() => {
-              /* task 9 wires leave → return home */
-            }}
+            onLeave={() => onLeave?.()}
           />
         )}
       </>
@@ -193,11 +211,7 @@ export function GameOverlays({
           </div>
         }
       >
-        <WildColorButtons
-          onSelect={(_suit: Suit) => {
-            /* task 9 wires chooseColor */
-          }}
-        />
+        <WildColorButtons onSelect={(suit: Suit) => onChooseColor?.(suit)} />
       </BottomSheet>
     );
   }
@@ -223,18 +237,14 @@ export function GameOverlays({
             <Button
               variant="primary"
               className="font-display text-cta"
-              onClick={() => {
-                /* task 9 wires play the drawn card */
-              }}
+              onClick={() => onPlayDrawn?.()}
             >
               Play it
             </Button>
             <Button
               variant="outline"
               className="h-[50px] font-extrabold"
-              onClick={() => {
-                /* task 9 wires keep (ends the turn) */
-              }}
+              onClick={() => onKeepDrawn?.()}
             >
               Keep it
             </Button>
@@ -263,9 +273,7 @@ export function GameOverlays({
           <Button
             variant="soft"
             className="h-9"
-            onClick={() => {
-              /* task 9 wires pause-to-wait (8.7 renders the paused overlay) */
-            }}
+            onClick={() => onPauseAndWait?.()}
             // The ring fraction the countdown maps to (documented seam for 9.6).
             data-grace-seconds={grace}
           >
@@ -281,9 +289,7 @@ export function GameOverlays({
       <LeaveConfirmDialog
         reduced={reduced}
         onStay={() => onClose?.()}
-        onLeave={() => {
-          /* task 9 wires leave → return home */
-        }}
+        onLeave={() => onLeave?.()}
       />
     );
   }

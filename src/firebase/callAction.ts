@@ -33,7 +33,9 @@ export type ActionName =
   | "leave"
   | "playAgain"
   | "setConnection"
-  | "enforceGrace";
+  | "enforceGrace"
+  | "setMode"
+  | "setTeams";
 
 /** A normalized server result. `ok:false` carries a machine reason code. */
 export interface CallResult<T = Record<string, unknown>> {

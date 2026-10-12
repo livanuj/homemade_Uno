@@ -18,8 +18,8 @@
  * The draw pile lives ONLY in the server-only `private/deck` doc so no client
  * can read draw order (Req 23.2).
  */
-import type { Timestamp } from "firebase/firestore";
 import type { Card, Suit } from "@/game/engine/types";
+import type { Timestamp } from "firebase/firestore";
 
 /** Card, discardPile, and Suit reuse the engine's card representation. */
 export type { Card, Suit } from "@/game/engine/types";
@@ -83,6 +83,13 @@ export interface PlayerDoc {
   lastSeen: Timestamp;
   /** Explicit leave (Req 22). */
   hasLeft: boolean;
+  /**
+   * Denormalized remaining-card count for opponent badges (Req 13.5). A client
+   * cannot read another player's hand doc, so the server mirrors the count here
+   * (a public, non-secret integer) on every hand change. Undefined until the
+   * first deal.
+   */
+  cardCount?: number;
 }
 
 /** Wild-color choice re-shown to a player after resume (Req 25.14). */

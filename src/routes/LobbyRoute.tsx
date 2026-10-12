@@ -1,18 +1,21 @@
 /**
  * Lobby route — screens `02a`–`02f` (design.md §7.2). Mode, host/guest, and the
- * drag state are all *state*, not separate routes, so one component renders the
- * lot from a `LobbyView`.
+ * drag state are all *state*, not separate routes, so one presentational
+ * component (`LobbyScreen`) renders the lot from a `LobbyView` + handlers.
  *
- * The view-model comes from the injectable fixtures seam (task 8.1): the six
- * states map to the `02a`–`02f` fixtures in `@/game/view/fixtures`, chosen by a
- * `?state=` query param so Playwright (and links) can reach each distinct
- * screen. The realtime Firestore wiring + real drag-and-drop behaviour land in
- * task 9.2; here the buttons/mode/drag are visual with optimistic feedback.
+ * Two containers feed it:
+ *  - `LiveLobby` (the real route): subscribes to the room's realtime channel via
+ *    `useRoomChannel`, derives the `LobbyView` from live Firestore data through
+ *    `mappers.ts`, and wires the buttons/mode/team controls to the Cloud
+ *    Functions (`setMode`, `setTeams`, `startGame`, `leave`) plus the clipboard
+ *    / native-share flows (Task 9.1/9.2/9.3).
+ *  - `FixtureLobby` (preview/tests): when a `?state=02a..02f` param is present,
+ *    renders the Task-8 fixture for that screen so Playwright captures and the
+ *    existing unit tests keep working against a deterministic view.
  *
  * Host vs. guest is driven by `LobbyView.selfId === <host id>`. Tokens only,
- * built to the PNGs (design-fidelity.md / token-policy.md); reuses
- * `IconButton`, `Button`, `ModeControl`, `PlayerRow`, `EmptySlot`, `TeamCard`,
- * `DragHandle` (+ `DRAG_STATE` / `MotionDragRow`), `StartControl`, `HostBadge`.
+ * built to the PNGs; reuses `IconButton`, `Button`, `ModeControl`, `PlayerRow`,
+ * `EmptySlot`, `TeamCard`, `DragHandle`, `StartControl`.
  */
 import type { AvatarRing } from "@/components/Avatar";
 import { Button } from "@/components/Button";
@@ -24,7 +27,11 @@ import { MotionDragRow } from "@/components/MotionDragRow";
 import { PlayerRow } from "@/components/PlayerRow";
 import { StartControl } from "@/components/StartControl";
 import { TeamCard } from "@/components/TeamCard";
+import { Toast } from "@/components/Toast";
+import { callAction } from "@/firebase/callAction";
+import { useSession } from "@/firebase/useSession";
 import { makeLobbyView } from "@/game/view/fixtures";
+import { startEnablement, toLobbyView } from "@/game/view/mappers";
 import type {
   GameMode,
   LobbyView,
@@ -32,40 +39,21 @@ import type {
   TeamId,
 } from "@/game/view/types";
 import { cn } from "@/lib/cn";
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { copyToClipboard, shareInvite } from "@/lib/share";
+import { useRoomChannel } from "@/realtime/useRoomChannel";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 /** 2v2 needs exactly 4 players (design.md §5.14 / Req 4.8). */
 const TEAM_PLAYER_COUNT = 4;
-/** Normal mode needs at least 2 players to start (Req 4.7). */
-const NORMAL_MIN_PLAYERS = 2;
 /** "Play 2v2" is disabled once the room grows past 4 (Req 4.9). */
 const TEAM_MAX_PLAYERS = TEAM_PLAYER_COUNT;
+/** Auto-switch to Normal once the room passes this many players (Req 4.11). */
+const AUTO_NORMAL_THRESHOLD = 5;
 
 /** The room host is the player carrying `isHost`. */
 function hostOf(view: LobbyView): PlayerView | undefined {
   return view.room.players.find((p) => p.isHost);
-}
-
-/** Compose the disabled/enabled Start caption for the current view (§5.14). */
-function startCaption(view: LobbyView): { caption: string; disabled: boolean } {
-  const count = view.room.players.length;
-  if (view.room.mode === "team") {
-    if (count !== TEAM_PLAYER_COUNT) {
-      return {
-        disabled: true,
-        caption: `2v2 needs exactly 4 players. ${count} of ${TEAM_PLAYER_COUNT} have joined.`,
-      };
-    }
-    return { disabled: false, caption: "Everyone is ready" };
-  }
-  if (count < NORMAL_MIN_PLAYERS) {
-    return {
-      disabled: true,
-      caption: "Invite at least 1 more player to start",
-    };
-  }
-  return { disabled: false, caption: "Everyone is ready" };
 }
 
 /** Avatar ring for a filled row: team color in 2v2, else host/neutral ink. */
@@ -74,53 +62,224 @@ function ringFor(player: PlayerView, mode: GameMode): AvatarRing {
   return player.isHost ? "ink" : "ink-muted";
 }
 
+/** Handlers the presentational `LobbyScreen` calls; a container supplies them. */
+interface LobbyHandlers {
+  onCopyLink(): void;
+  onShare(): void;
+  onModeChange(mode: GameMode): void;
+  /** Move a player to the other team (tap/keyboard swap, Req 21.6). */
+  onMovePlayer(playerId: string): void;
+  onStart(): void;
+  onLeave(): void;
+  onBack(): void;
+  /** Optional transient toast text (e.g. copy confirmation, auto-switch). */
+  toast?: string | null;
+  /** True while a room action is in flight (disables the primary CTAs). */
+  busy?: boolean;
+}
+
+/** The default route: fixture preview when `?state=` is set, else live. */
 export function LobbyRoute() {
   const [params] = useSearchParams();
-  const navigate = useNavigate();
-  const view = makeLobbyView(params.get("state"));
+  const stateParam = params.get("state");
+  if (stateParam) return <FixtureLobby state={stateParam} />;
+  return <LiveLobby />;
+}
 
+// ---------------------------------------------------------------------------
+// Live container (the real route).
+// ---------------------------------------------------------------------------
+
+function LiveLobby() {
+  const navigate = useNavigate();
+  const { code } = useParams();
+  const { playerId } = useSession();
+  const roomId = code ?? null;
+  const { store } = useRoomChannel(roomId, playerId);
+
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const flash = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  const view = useMemo(() => toLobbyView(store), [store]);
+
+  // Once the game starts, everyone (host + guests) transitions to the table.
+  useEffect(() => {
+    if (store.room?.phase === "playing") {
+      navigate(`/room/${code}/game`, { replace: true });
+    }
+  }, [store.room?.phase, code, navigate]);
+
+  // Auto-switch 2v2 → Normal when the room reaches 5+ players (Req 4.11); only
+  // the host performs the mutation, and a toast explains it.
+  const playerCount = view?.room.players.length ?? 0;
+  const isHost = !!view && hostOf(view)?.id === view.selfId;
+  useEffect(() => {
+    if (!roomId || !isHost) return;
+    if (
+      store.room?.gameMode === "team" &&
+      playerCount >= AUTO_NORMAL_THRESHOLD
+    ) {
+      void callAction("setMode", { roomId, mode: "normal" });
+      flash("Switched to Normal — 2v2 needs exactly 4 players");
+    }
+  }, [roomId, isHost, store.room?.gameMode, playerCount, flash]);
+
+  if (!view || !roomId) {
+    return <LobbyLoading onBack={() => navigate("/")} />;
+  }
+
+  const handlers: LobbyHandlers = {
+    onCopyLink: async () => {
+      const ok = await copyToClipboard(view.room.inviteLink);
+      flash(ok ? "Link copied" : `Copy failed — ${view.room.inviteLink}`);
+    },
+    onShare: async () => {
+      const result = await shareInvite({
+        title: "Homemade Uno",
+        text: `Join my game — room ${view.room.code}`,
+        url: view.room.inviteLink,
+      });
+      if (result === "copied") flash("Link copied to share");
+    },
+    onModeChange: (mode) => {
+      void callAction("setMode", { roomId, mode });
+    },
+    onMovePlayer: (pid) => {
+      const assignments = swapAssignment(view, pid);
+      if (assignments) void callAction("setTeams", { roomId, assignments });
+    },
+    onStart: async () => {
+      setBusy(true);
+      await callAction("startGame", { roomId });
+      setBusy(false);
+      // Navigation happens via the phase→playing effect above.
+    },
+    onLeave: async () => {
+      await callAction("leave", { roomId });
+      navigate("/");
+    },
+    onBack: () => navigate("/"),
+    toast,
+    busy,
+  };
+
+  return <LobbyScreen view={view} handlers={handlers} />;
+}
+
+/**
+ * Compute the new `{ playerId: team }` assignment for moving `pid` to the other
+ * team, swapping with a member of the target team when it is already full
+ * (Req 21.3/21.4). Returns null if the move is not possible.
+ */
+function swapAssignment(
+  view: LobbyView,
+  pid: string,
+): Record<string, TeamId> | null {
+  const player = view.room.players.find((p) => p.id === pid);
+  if (!player?.team) return null;
+  const from = player.team;
+  const to: TeamId = from === "A" ? "B" : "A";
+  const targetTeam = view.room.players.filter((p) => p.team === to);
+  const assignment: Record<string, TeamId> = { [pid]: to };
+  if (targetTeam.length >= 2) {
+    // Swap: bump one target-team member back to the vacated team.
+    assignment[targetTeam[0].id] = from;
+  }
+  return assignment;
+}
+
+/** A minimal loading shell shown until the room snapshot hydrates. */
+function LobbyLoading({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="flex h-full flex-col gap-3 px-5 pt-4 pb-6 pt-safe pb-safe">
+      <header className="flex h-11 shrink-0 items-center justify-between">
+        <IconButton aria-label="Back" onClick={onBack}>
+          <BackIcon />
+        </IconButton>
+        <h1 className="font-display text-title text-ink">Game room</h1>
+        <span className="w-11" aria-hidden="true" />
+      </header>
+      <div className="flex flex-1 items-center justify-center">
+        <span role="status" className="text-body text-ink-muted">
+          Loading room…
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fixture container (preview / tests via ?state=).
+// ---------------------------------------------------------------------------
+
+function FixtureLobby({ state }: { state: string }) {
+  const navigate = useNavigate();
+  const view = makeLobbyView(state);
+  const { code } = view.room;
+  const [selectedMode, setSelectedMode] = useState<GameMode>(view.room.mode);
   const host = hostOf(view);
   const isHost = host?.id === view.selfId;
-  const { code, inviteLink, mode, players } = view.room;
 
-  // Optimistic mode selection (real host mutation is task 9.2). Seeded from the
-  // fixture so the control reflects the state being previewed.
-  const [selectedMode, setSelectedMode] = useState<GameMode>(mode);
+  const handlers: LobbyHandlers = {
+    onCopyLink: () => void copyToClipboard(view.room.inviteLink),
+    onShare: () =>
+      void shareInvite({
+        title: "Homemade Uno",
+        text: `Join my game — room ${code}`,
+        url: view.room.inviteLink,
+      }),
+    onModeChange: (mode) => setSelectedMode(mode),
+    onMovePlayer: () => {
+      /* fixture preview — team changes are exercised live (Req 21.2) */
+    },
+    onStart: () => navigate(`/room/${code}/game`),
+    onLeave: () => navigate("/"),
+    onBack: () => navigate("/"),
+  };
+
+  // For the fixture preview keep the optimistic selected-mode behaviour on the
+  // host's control while everything else renders from the fixture view.
+  const previewView: LobbyView = isHost
+    ? { ...view, room: { ...view.room, mode: selectedMode } }
+    : view;
+
+  return <LobbyScreen view={previewView} handlers={handlers} />;
+}
+
+// ---------------------------------------------------------------------------
+// Presentational screen.
+// ---------------------------------------------------------------------------
+
+function LobbyScreen({
+  view,
+  handlers,
+}: {
+  view: LobbyView;
+  handlers: LobbyHandlers;
+}) {
+  const host = hostOf(view);
+  const isHost = host?.id === view.selfId;
+  const { code, mode, players } = view.room;
   const [copied, setCopied] = useState(false);
 
   const teamDisabled = players.length > TEAM_MAX_PLAYERS;
-  const { caption, disabled: startDisabled } = startCaption(view);
+  const { caption, disabled: startDisabled } = startEnablement(view.room);
 
-  async function handleCopyLink() {
-    // Optimistic confirmation; the clipboard-failure fallback is task 9.1.
-    try {
-      await navigator.clipboard?.writeText(inviteLink);
-    } catch {
-      // Swallowed here — 9.1 wires the toast + manual-copy fallback.
-    }
+  function handleCopyLink() {
+    handlers.onCopyLink();
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   }
 
-  async function handleShare() {
-    // Native share sheet with a graceful no-op when unsupported (9.1 adds the
-    // clipboard fallback + toast).
-    try {
-      await navigator.share?.({
-        title: "Homemade Uno",
-        text: `Join my game — room ${code}`,
-        url: inviteLink,
-      });
-    } catch {
-      // User dismissed / unsupported — nothing to do in 8.3.
-    }
-  }
-
   return (
-    <div className="flex h-full flex-col gap-3 px-5 pt-4 pb-6 pt-safe pb-safe">
+    <div className="relative flex h-full flex-col gap-3 px-5 pt-4 pb-6 pt-safe pb-safe">
       {/* Header — back, "Game room" title, 44px right spacer for symmetry. */}
       <header className="flex h-11 shrink-0 items-center justify-between">
-        <IconButton aria-label="Back" onClick={() => navigate("/")}>
+        <IconButton aria-label="Back" onClick={handlers.onBack}>
           <BackIcon />
         </IconButton>
         <h1 className="font-display text-title text-ink">Game room</h1>
@@ -145,7 +304,7 @@ export function LobbyRoute() {
           <Button
             variant="primary-small"
             className="flex-1"
-            onClick={handleShare}
+            onClick={handlers.onShare}
           >
             Share invite
           </Button>
@@ -154,10 +313,10 @@ export function LobbyRoute() {
 
       {/* Mode control — host editable / guest read-only "chosen by the host". */}
       <ModeControl
-        mode={isHost ? selectedMode : mode}
+        mode={mode}
         canEdit={isHost}
         teamDisabled={teamDisabled}
-        onModeChange={setSelectedMode}
+        onModeChange={handlers.onModeChange}
       />
 
       {/* Players header — count + right-side hint (drag in 2v2, "Up to 8" else). */}
@@ -171,9 +330,11 @@ export function LobbyRoute() {
       {/* Player area — single list (Normal) or Team A / Team B cards (2v2). */}
       {mode === "team" ? (
         <div className="relative flex flex-col gap-3">
-          <TeamArea view={view} isHost={isHost} />
-          {/* The dragged row floats over the drop target (screen 02e). The real
-              pointer tracking is task 9.2; here it sits near the swap target. */}
+          <TeamArea
+            view={view}
+            isHost={isHost}
+            onMovePlayer={handlers.onMovePlayer}
+          />
           {view.drag &&
             (() => {
               const dragged = players.find(
@@ -193,14 +354,21 @@ export function LobbyRoute() {
       {isHost ? (
         <StartControl
           caption={caption}
-          disabled={startDisabled}
-          onStart={() => navigate(`/room/${code}/game`)}
+          disabled={startDisabled || !!handlers.busy}
+          onStart={handlers.onStart}
         />
       ) : (
         <GuestFooter
           hostName={host?.name ?? "the host"}
-          onLeave={() => navigate("/")}
+          onLeave={handlers.onLeave}
         />
+      )}
+
+      {/* Transient toast (copy confirmation, clipboard fallback, auto-switch). */}
+      {handlers.toast && (
+        <div className="pointer-events-none absolute inset-x-0 top-20 flex justify-center">
+          <Toast>{handlers.toast}</Toast>
+        </div>
       )}
     </div>
   );
@@ -243,14 +411,32 @@ function NormalList({ view }: { view: LobbyView }) {
 }
 
 /** 2v2 team area — Team A / Team B cards with two slots each (screens 02c–02e). */
-function TeamArea({ view, isHost }: { view: LobbyView; isHost: boolean }) {
+function TeamArea({
+  view,
+  isHost,
+  onMovePlayer,
+}: {
+  view: LobbyView;
+  isHost: boolean;
+  onMovePlayer: (playerId: string) => void;
+}) {
   return (
     <>
       <TeamCard team="a" name="TEAM A">
-        <TeamSlots view={view} team="A" isHost={isHost} />
+        <TeamSlots
+          view={view}
+          team="A"
+          isHost={isHost}
+          onMovePlayer={onMovePlayer}
+        />
       </TeamCard>
       <TeamCard team="b" name="TEAM B">
-        <TeamSlots view={view} team="B" isHost={isHost} />
+        <TeamSlots
+          view={view}
+          team="B"
+          isHost={isHost}
+          onMovePlayer={onMovePlayer}
+        />
       </TeamCard>
     </>
   );
@@ -258,17 +444,20 @@ function TeamArea({ view, isHost }: { view: LobbyView; isHost: boolean }) {
 
 /**
  * The two seats of one team: filled rows for that team's players (host gets a
- * drag handle), the dragging visuals for screen `02e`, then a dashed
+ * drag handle whose tap/keyboard action moves the player to the other team,
+ * Req 21.6), the dragging visuals for screen `02e`, then a dashed
  * "Waiting for a player" slot for each unfilled seat.
  */
 function TeamSlots({
   view,
   team,
   isHost,
+  onMovePlayer,
 }: {
   view: LobbyView;
   team: TeamId;
   isHost: boolean;
+  onMovePlayer: (playerId: string) => void;
 }) {
   const { players, mode } = view.room;
   const seated = players.filter((p) => p.team === team);
@@ -281,8 +470,6 @@ function TeamSlots({
         const isDragging = drag?.draggingId === p.id;
         const isSwapTarget = drag?.overId === p.id;
 
-        // The lifted row is drawn detached; its origin seat shows a dashed
-        // placeholder (design.md §5.13 / screen 02e).
         if (isDragging) {
           return <DragPlaceholder key={p.id} name={p.name} />;
         }
@@ -303,9 +490,7 @@ function TeamSlots({
                   rightSlot: (
                     <DragHandle
                       playerName={displayName(p, view.selfId)}
-                      onMove={() => {
-                        /* keyboard/tap swap wiring is task 9.2 */
-                      }}
+                      onMove={() => onMovePlayer(p.id)}
                     />
                   ),
                 }
@@ -348,13 +533,7 @@ function SwapTargetRow({ name }: { name: string }) {
   );
 }
 
-/**
- * The lifted/tilted row following the finger (design.md §5.13 / screen 02e).
- * The real pointer tracking is task 9.2; here it floats as an absolute overlay
- * near the swap target with the `MotionDragRow` lift/tilt + `shadow-card-lifted`
- * treatment. Left-aligned near the top of the player area to overlap the drop
- * target, mirroring the reference.
- */
+/** The lifted/tilted row following the finger (design.md §5.13 / screen 02e). */
 function LiftedRow({ name }: { name: string }) {
   return (
     <div className="pointer-events-none absolute left-2 right-24 top-[104px] z-10">

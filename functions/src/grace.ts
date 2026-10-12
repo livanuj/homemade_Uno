@@ -35,6 +35,7 @@ import {
     db,
     deckRef,
     handRef,
+    playerRef,
     playersRef,
     roomRef,
     stateRef,
@@ -296,6 +297,10 @@ export const enforceGrace = onCall(async (request): Promise<GraceResult> => {
         cards: updatedActiveHand,
         cardCount: updatedActiveHand.length,
       } satisfies HandDoc);
+      // Mirror the public count for opponent badges (Req 13.5).
+      tx.update(playerRef(roomId, activeSeated.id), {
+        cardCount: updatedActiveHand.length,
+      });
     }
     tx.update(roomRef(roomId), { lastActivityAt: Timestamp.now() });
     logAction(tx, roomId, activeSeated.id, "accepted:grace_skip", state.version);
