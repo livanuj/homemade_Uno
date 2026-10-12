@@ -21,8 +21,9 @@
 import { dialogFade, instant } from "@/design/motion";
 import { cn } from "@/lib/cn";
 import { AnimatePresence, motion } from "motion/react";
-import { useId, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import { MotionBackdrop } from "./MotionBackdrop";
+import { useModalA11y } from "@/lib/useModalA11y";
 
 export interface DialogProps {
   /** Title line (`text-sheet`, wired to `aria-labelledby`). */
@@ -60,6 +61,14 @@ export function Dialog({
 }: DialogProps) {
   const titleId = useId();
   const descId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Focus-in / return-focus / trap, close on Escape (Req 18.6, 18.9).
+  useModalA11y(panelRef, {
+    open,
+    onClose: () => onClose?.(),
+    escapeCloses: true,
+  });
 
   return (
     <AnimatePresence>
@@ -71,6 +80,7 @@ export function Dialog({
             reduced={reduced}
           />
           <motion.div
+            ref={panelRef}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={titleId}

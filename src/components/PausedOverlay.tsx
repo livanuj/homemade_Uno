@@ -32,10 +32,11 @@
 import { instant, pauseFade } from "@/design/motion";
 import { cn } from "@/lib/cn";
 import { AnimatePresence, motion } from "motion/react";
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { Button } from "./Button";
 import { MotionBackdrop } from "./MotionBackdrop";
 import { OfflineAvatar } from "./OfflineAvatar";
+import { useModalA11y } from "@/lib/useModalA11y";
 
 export type PausedVariant = "break" | "waiting" | "auto";
 
@@ -124,6 +125,11 @@ export function PausedOverlay({
       : variant === "waiting"
         ? `Continue without ${offlineName ?? "them"}`
         : "End game";
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Focus-in / return-focus / trap. Pausing is a decision gate: Escape must NOT
+  // dismiss it (Req 18.10) — there is no `onClose`.
+  useModalA11y(panelRef, { open, onClose: () => {}, escapeCloses: false });
 
   return (
     <AnimatePresence>
@@ -132,6 +138,7 @@ export function PausedOverlay({
           {/* Backdrop is inert: pausing is not dismissed by tapping outside. */}
           <MotionBackdrop reduced={reduced} />
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
