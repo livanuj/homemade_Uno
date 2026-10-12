@@ -279,19 +279,19 @@ graph TD
     - _Requirements: 14.1, 14.2, 14.3, 14.7, 15.3, 25.10_
 
 - [ ] 6. Build shared UI components grounded in Design_Spec tokens
-  - [ ] 6.1 Implement card and avatar primitives
+  - [-] 6.1 Implement card and avatar primitives
     - `PlayingCard` (§5.1) with distinct suit shapes at all sizes, `CardBack` (§5.2), `Avatar` (§5.3) with card-count badge and turn pulse
     - _Requirements: 13.5, 18.3, 20.1, 20.3_
 
-  - [ ] 6.2 Implement buttons, chips, inputs, and switch
+  - [-] 6.2 Implement buttons, chips, inputs, and switch
     - Buttons (§5.4 incl. disabled primary), `Chip`/`TurnPill` (§5.5), `Input`/`InputError` (§5.6, §5.21), `Switch` (§5.7), `InfoNote` (§5.22)
     - _Requirements: 20.1, 20.3_
 
-  - [ ] 6.3 Implement lobby structural components
+  - [-] 6.3 Implement lobby structural components
     - `TeamCard`/`PlayerRow` (§5.8, §5.11), `ModeControl` segmented (§5.9), `EmptySlot` (§5.12), `DragHandle` + drag states (lifted/tilted row, drop target, dashed placeholder) (§5.13), `StartControl` (§5.14)
     - _Requirements: 20.1, 20.3, 21.1_
 
-  - [ ] 6.4 Implement overlay and result components
+  - [-] 6.4 Implement overlay and result components
     - `MenuDrawer` (§5.10), `BottomSheet` (§5.15), `WildColorButtons` (§5.16), `SpotlightCard` (§5.17), `Dialog` (§5.18), `Toast` (§5.19), `OfflineAvatar` + `CountdownRing` (§5.20), `Confetti` (§5.25), `PausedOverlay` (§11/§12)
     - _Requirements: 20.1, 20.3_
 
