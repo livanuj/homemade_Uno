@@ -107,7 +107,7 @@ There are two families, and each has a fixed job.
 
 | Family                  | Tailwind              | Weights            | Job                                                                                       |
 | ----------------------- | --------------------- | ------------------ | ----------------------------------------------------------------------------------------- |
-| **Bricolage Grotesque** | `font-display`        | 700, 800           | App title, screen titles, room codes, card numerals, primary CTA, the "Last card!" button |
+| **Bricolage Grotesque** | `font-display`        | 700, 800           | App title, screen titles, room codes, card numerals, primary CTA, the round "UNO" button |
 | **Manrope**             | `font-sans` (default) | 500, 600, 700, 800 | All other text: names, labels, body, chips, buttons                                       |
 
 Load both fonts in `index.html`:
@@ -144,7 +144,7 @@ Each size token carries its own line-height, tracking and weight, so `text-title
 
 ### Casing and tracking rules
 
-- **Uppercase + tracking 0.08–0.1em** is used only for: room-code chips ("ROOM · K7QX"), section headers ("CARDS LEFT", "TEAM A"), the "ROOM CODE" label, and the "LAST CARD!" button. Everything else is sentence case.
+- **Uppercase + tracking 0.08–0.1em** is used only for: room-code chips ("ROOM · K7QX"), section headers ("CARDS LEFT", "TEAM A"), the "ROOM CODE" label, and the round "UNO" button. Everything else is sentence case.
 - The room-code input uses `font-display`, 22px, 800, tracking 0.3em, `uppercase`, `maxLength=4`.
 - Numbers in badges and counts use Manrope 800 at 12–13px.
 
@@ -260,7 +260,7 @@ A circle with `avatar` fill and a 3px ring, showing the initial in Manrope 800 a
 | ---------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Primary          | `h-14 w-full rounded-full bg-ink text-surface font-display text-cta shadow-cta`                 | Create a room, Start game                                                       |
 | Primary (small)  | `h-11 rounded-full bg-ink text-surface text-body`                                               | Share invite                                                                    |
-| Outline          | `h-11 rounded-full border-2 border-ink text-ink text-body`                                      | Copy link, Join, "LAST CARD!" (uses `font-display` + uppercase)                 |
+| Outline          | `h-11 rounded-full border-2 border-ink text-ink text-body`                                      | Copy link, Join, "UNO" (a `size-12` circle, `font-display` + uppercase)        |
 | Soft             | `h-[50px] rounded-full bg-paper text-ink text-body` (on `surface`: `bg-surface`)                | How to play, Back to home, Leave room                                           |
 | Danger outline   | `h-[50px] rounded-full border-2 border-danger text-danger font-extrabold`                       | Leave game                                                                      |
 | Primary disabled | `h-14 w-full rounded-full bg-line text-ink-muted font-display text-cta` + `disabled`, no shadow | Start game when it can't start yet (always paired with a reason caption, §5.14) |
@@ -534,7 +534,7 @@ The lobby may scroll when 6–8 players are listed.
 | Direction ring | 90, 290, 210×210          | SVG dashed circle r=96 in the current suit color at 45%, plus two arrowheads (clockwise, flipped when reversed)                      |
 | Piles          | 105, 340, 180×116, gap 22 | Draw pile (left) and discard pile (right). The top discard card is rotated +8° with a suit glow; the previous card shows at −12°     |
 | Turn pill      | centered, y 512           |                                                                                                                                      |
-| Your row       | inset 16, y 596, h 48     | Avatar 44 (team ring + `animate-turn-pulse` on your turn), "You", "Team A · N cards"; right side has the "LAST CARD!" outline button |
+| Your row       | inset 16, y 596, h 48     | Avatar 44 (team ring + `animate-turn-pulse` on your turn), "You", "Team A · N cards"; right side has the round "UNO" outline button (48px, shown at 2 or fewer cards) |
 | Your hand      | 0, 664, 390×180           | Fan (see §7.7)                                                                                                                       |
 
 ### 7.6 Game table layout — normal (`04-game-normal`)
@@ -573,7 +573,7 @@ Above 10 cards, allow horizontal scrolling of the hand rather than shrinking car
 
 - **`01c-game-already-started`:** a column with 44px top space, three fanned card backs (hero size, 84×124, at −14°, 0°, and +14°), the room chip, the title (`text-sheet`), the explanation (`text-paragraph text-ink-muted`, max 300px wide), a spacer, and primary "Back to home".
 - **`01d-settings`:** header "Settings", then settings panels (§5.23).
-- **`01e-how-to-play`:** header "How to play", an intro (`text-sheet` sentence plus a `text-paragraph` line), then six sections (§5.24): On your turn, Action cards, Stacking, Last card!, 2v2 teams, If someone drops out. The page scrolls; its design height is 2012.
+- **`01e-how-to-play`:** header "How to play", an intro (`text-sheet` sentence plus a `text-paragraph` line), then six sections (§5.24): On your turn, Action cards, Stacking, Uno!, 2v2 teams, If someone drops out. The page scrolls; its design height is 2012.
 - **`07-game-over`:** see §5.25.
 
 ---

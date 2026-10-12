@@ -93,7 +93,8 @@ describe("Feature: homemade-uno, Property 11: Penalty clears only by drawing", (
         let steps = 0;
         runLegalSequence(initial, { rng }, MAX_STEPS, (state) => {
           if (steps > 0) {
-            if (prev.penaltyCount > 0 && state.penaltyCount === 0) {
+            // A win ends the game with the count zeroed; that is not a clear.
+            if (prev.penaltyCount > 0 && state.penaltyCount === 0 && state.phase !== "ended") {
               // The only way the count cleared is a penalty draw: the targeted
               // seat's hand grew by exactly the old count and the turn advanced.
               const targetSeat = prev.activeSeat;

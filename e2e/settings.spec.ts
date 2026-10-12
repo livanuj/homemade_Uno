@@ -57,7 +57,7 @@ test("01e-how-to-play renders and captures the full scrolling page", async ({
     "On your turn",
     "Action cards",
     "Stacking",
-    "Last card!",
+    "Uno!",
     "2v2 teams",
     "If someone drops out",
   ]) {

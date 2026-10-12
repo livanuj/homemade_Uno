@@ -36,7 +36,7 @@ describe("Feature: homemade-uno, Property 14: Win detection", () => {
           hands,
           discardPile: [{ id: "top", suit: color, value: 4 }],
           activeColor: color,
-          lastCardCalledSeat: 0, // avoid the forgot-to-call path on the winning turn
+          lastCardCalledSeats: [0],
         });
 
         const res = reducer(state, { type: "play", playerId: "p0", cardId: "win" }, { rng: createSeededRng(1) });
@@ -61,6 +61,11 @@ describe("Feature: homemade-uno, Property 14: Win detection", () => {
         runLegalSequence(initial, { rng }, MAX_STEPS, (state) => {
           if (state.phase === "ended") {
             expect(state.hands.some((h) => h.length === 0)).toBe(true);
+          } else if (state.phase === "wild_pending") {
+            // A winning wild leaves the hand empty until the color is chosen (Req 8.6).
+            state.hands.forEach((h, seat) => {
+              if (seat !== state.activeSeat) expect(h.length).toBeGreaterThan(0);
+            });
           } else {
             expect(state.hands.every((h) => h.length > 0)).toBe(true);
           }

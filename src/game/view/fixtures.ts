@@ -349,6 +349,7 @@ function game03(): GameView {
     activeSeatId: "self",
     turnText: "Your turn · match red or play a wild",
     canCallLastCard: false,
+    catchTargets: [],
   };
 }
 
@@ -402,6 +403,7 @@ function game04(): GameView {
     activeSeatId: "nora",
     turnText: "Nora's turn · color is green",
     canCallLastCard: false,
+    catchTargets: [],
   };
 }
 

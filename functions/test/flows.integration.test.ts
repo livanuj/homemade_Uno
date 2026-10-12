@@ -89,6 +89,7 @@ describe("gameplay flows", () => {
     let observedStack = false;
     let observedDrawKeep = false;
     let observedCallLast = false;
+    let drewDecisions = 0;
     let lastVersion = 0;
 
     for (let move = 0; move < 400; move++) {
@@ -116,18 +117,28 @@ describe("gameplay flows", () => {
       }
 
       if (phase === "drew_decision") {
-        // Keep it to end the turn (Req 10.4).
-        observedDrawKeep = true;
-        const r = await active.call<Record<string, unknown>, { ok: boolean }>("keep", {
-          roomId,
-          basedOnVersion: version,
-        });
+        // Alternate "Play it" (the drawn card, appended last — Req 10.2) and
+        // "Keep it" (ends the turn — Req 10.4) so both paths are exercised.
+        drewDecisions += 1;
+        const r =
+          drewDecisions % 2 === 1
+            ? await active.call<Record<string, unknown>, { ok: boolean }>("playCard", {
+                roomId,
+                basedOnVersion: version,
+                cardId: hand[hand.length - 1].id,
+              })
+            : await active.call<Record<string, unknown>, { ok: boolean }>("keep", {
+                roomId,
+                basedOnVersion: version,
+              });
         expect(r.ok).toBe(true);
+        observedDrawKeep = true;
         continue;
       }
 
       // Call last card when eligible (exactly 2 cards on our turn).
-      if (hand.length === 2 && (state.lastCardCalledSeat as number | null) !== activeSeat) {
+      const calledSeats = (state.lastCardCalledSeats as number[] | undefined) ?? [];
+      if (hand.length === 2 && !calledSeats.includes(activeSeat)) {
         const r = await active.call<Record<string, unknown>, { ok: boolean }>("callLast", {
           roomId,
           basedOnVersion: version,
@@ -181,6 +192,78 @@ describe("gameplay flows", () => {
     ];
     expect(all.length).toBe(108);
     expect(new Set(all.map((c) => c.id)).size).toBe(108);
+  });
+
+  it("a late last-card call and an opponent's catch both work off-turn, even on a stale version", async () => {
+    type Result = { ok: boolean; reason?: string };
+    let lateCalled = false;
+    let caught = false;
+
+    // A game can end before both moments surface; play up to a few games.
+    for (let game = 0; game < 4 && !(lateCalled && caught); game++) {
+      const { roomId, seatToClient } = await setupGame(["Alice", "Bob", "Cara"]);
+
+      for (let move = 0; move < 400 && !(lateCalled && caught); move++) {
+        const state = (await readStateAdmin(roomId))!;
+        if (state.phase === "ended") break;
+        const version = state.version as number;
+        const called = (state.lastCardCalledSeats as number[] | undefined) ?? [];
+        const hands = await readAllHands(roomId);
+        const sizeOf = (uid: string) => hands.find((h) => h.id === uid)?.cards.length ?? 0;
+
+        // Someone on 1 card who has not called: exercise the off-turn actions.
+        const target = seatToClient.findIndex((c, seat) => !called.includes(seat) && sizeOf(c.uid) === 1);
+        if (target !== -1) {
+          const targetClient = seatToClient[target];
+          const catcher = seatToClient[(target + 1) % seatToClient.length];
+          if (!lateCalled) {
+            // The player calls after playing down to 1 card → they are safe.
+            const call = await targetClient.call<Record<string, unknown>, Result>("callLast", {
+              roomId,
+              basedOnVersion: version,
+            });
+            expect(call.ok).toBe(true);
+            const miss = await catcher.call<Record<string, unknown>, Result>("catchLast", {
+              roomId,
+              basedOnVersion: version + 1,
+              targetPlayerId: targetClient.uid,
+            });
+            expect(miss).toMatchObject({ ok: false, reason: "not_catchable" });
+            lateCalled = true;
+          } else {
+            // A stale version on purpose: a catch races everyone else's moves.
+            const hit = await catcher.call<Record<string, unknown>, Result>("catchLast", {
+              roomId,
+              basedOnVersion: version - 1,
+              targetPlayerId: targetClient.uid,
+            });
+            expect(hit.ok).toBe(true);
+            const after = (await readStateAdmin(roomId))!;
+            expect(after.activeSeat).toBe(state.activeSeat);
+            expect((await readHand(targetClient, roomId, targetClient.uid))!.cards).toHaveLength(3);
+            caught = true;
+          }
+          continue;
+        }
+
+        // Otherwise advance the game without ever pre-calling LAST CARD!.
+        const active = seatToClient[state.activeSeat as number];
+        const hand = (await readHand(active, roomId, active.uid))!.cards as Card[];
+        const base = { roomId, basedOnVersion: version };
+        if (state.phase === "wild_pending") {
+          await active.call("chooseColor", { ...base, color: "red" });
+        } else if (state.phase === "drew_decision") {
+          await active.call("keep", base);
+        } else {
+          const legal = findLegal(hand, state);
+          if (legal) await active.call("playCard", { ...base, cardId: legal.id });
+          else await active.call("drawOne", base);
+        }
+      }
+    }
+
+    expect(lateCalled).toBe(true);
+    expect(caught).toBe(true);
   });
 
   it("pause → reject actions while paused → resume restores play", async () => {

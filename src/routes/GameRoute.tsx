@@ -105,6 +105,9 @@ function LiveGame() {
         window.setTimeout(() => setShakeCardId(null), 260);
       }
     }
+    // Losing a catch race (someone else caught them first, or they called just
+    // in time) is expected and silent.
+    if (r.kind === "catch_last" || r.kind === "call_last") return;
     setToast(rejectionToast(r.reason));
     window.setTimeout(() => setToast(null), 2600);
   }, [store.rejection, store.pendingAction]);
@@ -155,10 +158,12 @@ function LiveGame() {
     <GameTable
       view={view}
       highlight={settings.highlight}
+      reduced={reduced}
       onPlayCard={play}
       shakeCardId={shakeCardId}
       onDraw={() => void actions.drawOne()}
       onCallLastCard={() => void actions.callLast()}
+      onCatch={(targetId) => void actions.catchLast(targetId)}
       onMenu={() => setMenuOverlay("menu")}
       overlay={
         paused ? (

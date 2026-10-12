@@ -42,7 +42,8 @@ test("03-game-2v2 renders and captures", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText(
     "Your turn · match red or play a wild",
   );
-  await expect(page.getByRole("button", { name: "LAST CARD!" })).toBeVisible();
+  // UNO only appears at 2 cards or fewer; this fixture hand is larger.
+  await expect(page.getByRole("button", { name: "UNO" })).toBeHidden();
   expect(shot).toContain("03-game-2v2.png");
 });
 

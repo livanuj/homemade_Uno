@@ -138,7 +138,7 @@ describe("HowToPlayRoute — 01e", () => {
       "On your turn",
       "Action cards",
       "Stacking",
-      "Last card!",
+      "Uno!",
       "2v2 teams",
       "If someone drops out",
     ]) {

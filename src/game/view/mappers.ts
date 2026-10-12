@@ -33,6 +33,7 @@ import { inviteLinkForCode } from "@/lib/share";
 import type { OverlayId } from "./overlays";
 import type {
     CardView,
+    CatchTargetView,
     ConnectionState,
     Direction,
     GameMode,
@@ -300,17 +301,49 @@ export function toGameView(store: RealtimeStore): GameView | null {
     direction: state.direction as Direction,
     activeSeatId,
     turnText: turnText(state, isYourTurn, activeName, state.activeColor as Suit),
-    canCallLastCard:
-      isYourTurn &&
-      state.phase === "active" &&
-      hand.length === 2 &&
-      state.lastCardCalledSeat !== state.activeSeat,
+    canCallLastCard: canCallLastCard(state, me?.doc.seatIndex ?? null, hand.length, isYourTurn),
+    catchTargets: catchTargets(state, seated, opponents),
   };
   if (prev) view.discardPrev = prev;
   if (me?.doc.team) view.selfTeam = me.doc.team as TeamId;
   if (isTeam && partner) view.partner = partner;
   if (state.penaltyCount > 0) view.penaltyCount = state.penaltyCount;
   return view;
+}
+
+/**
+ * LAST CARD! is enabled on your turn with exactly two cards (call before you
+ * play), or at any time on one card you have not called yet — a late call that
+ * closes the window in which opponents can catch you (Req 11.1).
+ */
+function canCallLastCard(
+  state: StateDoc,
+  selfSeat: number | null,
+  handSize: number,
+  isYourTurn: boolean,
+): boolean {
+  if (selfSeat === null || state.phase === "ended") return false;
+  if (state.lastCardCalledSeats.includes(selfSeat)) return false;
+  if (handSize === 1) return true;
+  return isYourTurn && state.phase === "active" && handSize === 2;
+}
+
+/**
+ * Opponents on 1 card without a recorded call (Req 11.3). `opponents` already
+ * excludes the viewer and their 2v2 partner, so a partner is never catchable.
+ */
+function catchTargets(
+  state: StateDoc,
+  seated: readonly StorePlayer[],
+  opponents: readonly OpponentSeatView[],
+): CatchTargetView[] {
+  if (state.phase === "ended") return [];
+  return opponents
+    .filter((o) => {
+      const seat = seated.find((p) => p.playerId === o.id)?.doc.seatIndex ?? null;
+      return o.cardCount === 1 && seat !== null && !state.lastCardCalledSeats.includes(seat);
+    })
+    .map((o) => ({ id: o.id, name: o.name }));
 }
 
 /**

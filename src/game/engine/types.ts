@@ -80,8 +80,12 @@ export interface GameState {
   readonly phase: Phase;
   /** True once the active player has drawn their one card this turn. */
   readonly drewThisTurn: boolean;
-  /** Seat index that recorded a Last_Card_Call this turn, or null. */
-  readonly lastCardCalledSeat: number | null;
+  /**
+   * Seat indexes with a recorded Last_Card_Call. A seat on 1 card that is NOT
+   * listed can be caught by an opponent (+2). A call clears once that seat's
+   * hand grows above 1 card (Req 11.4).
+   */
+  readonly lastCardCalledSeats: readonly number[];
   /** Winner once the game has ended: a seat index (Normal) or a team (Team). */
   readonly winner: Winner | null;
 }
@@ -97,7 +101,8 @@ export type Action =
   | { readonly type: "choose_color"; readonly playerId: string; readonly color: Suit }
   | { readonly type: "draw"; readonly playerId: string }
   | { readonly type: "keep"; readonly playerId: string }
-  | { readonly type: "call_last"; readonly playerId: string };
+  | { readonly type: "call_last"; readonly playerId: string }
+  | { readonly type: "catch_last"; readonly playerId: string; readonly targetPlayerId: string };
 
 /** Reasons an action can be rejected. Rejections are values, never thrown. */
 export type RejectionReason =
@@ -109,6 +114,8 @@ export type RejectionReason =
   | "already_drew"
   | "no_penalty_pending"
   | "not_two_cards"
+  | "already_called"
+  | "not_catchable"
   | "game_ended";
 
 /** A rejection: the action was refused and state is left unchanged. */

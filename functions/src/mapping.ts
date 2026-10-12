@@ -102,7 +102,8 @@ export function hydrateState(
       ? "active"
       : state.phase,
     drewThisTurn: state.drewThisTurn,
-    lastCardCalledSeat: state.lastCardCalledSeat,
+    // Older state docs predate the list; treat them as "nobody has called".
+    lastCardCalledSeats: state.lastCardCalledSeats ?? [],
     winner: state.winner === null
       ? null
       : state.winner.kind === "team"
@@ -125,7 +126,7 @@ export function stateDocFieldsFrom(next: GameState): Omit<
     pendingPenaltyKind: next.pendingPenaltyKind,
     phase: toStatePhase(next.phase),
     drewThisTurn: next.drewThisTurn,
-    lastCardCalledSeat: next.lastCardCalledSeat,
+    lastCardCalledSeats: [...next.lastCardCalledSeats],
     winner: toDocWinner(next.winner),
   };
 }

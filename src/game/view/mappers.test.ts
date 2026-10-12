@@ -63,7 +63,7 @@ function baseState(overrides: Partial<StateDoc> = {}): StateDoc {
     pendingPenaltyKind: null,
     phase: "active",
     drewThisTurn: false,
-    lastCardCalledSeat: null,
+    lastCardCalledSeats: [],
     pausedBy: null,
     pausedAt: null,
     pendingChoice: null,
@@ -215,7 +215,7 @@ describe("toGameView", () => {
     expect(view.opponents.find((o) => o.id === "p1")?.cardCount).toBe(5);
   });
 
-  it("enables LAST CARD! only on your turn with exactly two cards, uncalled", () => {
+  it("enables UNO only on your turn with exactly two cards, uncalled", () => {
     const two: HandDoc = {
       cards: [
         { id: "h1", suit: "red", value: 3 },
@@ -231,13 +231,70 @@ describe("toGameView", () => {
     // Already called this turn → disabled.
     const called = store({
       ...seatedStore(0, two),
-      state: baseState({ activeSeat: 0, lastCardCalledSeat: 0 }),
+      state: baseState({ activeSeat: 0, lastCardCalledSeats: [0] }),
     });
     expect(toGameView(called)!.canCallLastCard).toBe(false);
 
     // Three cards → disabled.
     const three: HandDoc = { cards: [...two.cards, { id: "h3", value: "wild" }], cardCount: 3 };
     expect(toGameView(seatedStore(0, three))!.canCallLastCard).toBe(false);
+  });
+
+  it("on 1 card uncalled, UNO stays enabled on any turn (a late call)", () => {
+    const one: HandDoc = { cards: [{ id: "h1", suit: "red", value: 3 }], cardCount: 1 };
+    expect(toGameView(seatedStore(1, one))!.canCallLastCard).toBe(true);
+    const called = store({
+      ...seatedStore(1, one),
+      state: baseState({ activeSeat: 1, lastCardCalledSeats: [0] }),
+    });
+    expect(toGameView(called)!.canCallLastCard).toBe(false);
+  });
+
+  describe("catchTargets", () => {
+    const three: HandDoc = {
+      cards: [
+        { id: "h1", suit: "red", value: 3 },
+        { id: "h2", suit: "red", value: 4 },
+        { id: "h3", suit: "red", value: 5 },
+      ],
+      cardCount: 3,
+    };
+    function withOpponentCount(cardCount: number, state: Partial<StateDoc> = {}): RealtimeStore {
+      const base = seatedStore(0, three);
+      return store({
+        ...base,
+        players: [
+          base.players[0]!,
+          player("p1", { displayName: "Maya", seatIndex: 1, joinOrder: 1, cardCount }),
+        ],
+        state: baseState({ activeSeat: 0, ...state }),
+      });
+    }
+
+    it("lists an opponent on 1 card who has not called", () => {
+      expect(toGameView(withOpponentCount(1))!.catchTargets).toEqual([{ id: "p1", name: "Maya" }]);
+    });
+
+    it("is empty once they call, when they hold 2+ cards, or when the game ended", () => {
+      expect(toGameView(withOpponentCount(1, { lastCardCalledSeats: [1] }))!.catchTargets).toEqual([]);
+      expect(toGameView(withOpponentCount(2))!.catchTargets).toEqual([]);
+      expect(toGameView(withOpponentCount(1, { phase: "ended" }))!.catchTargets).toEqual([]);
+    });
+
+    it("never lists your partner in 2v2", () => {
+      const base = seatedStore(0, three);
+      const team = store({
+        ...base,
+        room: { ...base.room!, gameMode: "team" },
+        players: [
+          player("self", { displayName: "You", seatIndex: 0, isHost: true, team: "A", cardCount: 3 }),
+          player("b0", { displayName: "Maya", seatIndex: 1, joinOrder: 1, team: "B", cardCount: 1 }),
+          player("a1", { displayName: "Leo", seatIndex: 2, joinOrder: 2, team: "A", cardCount: 1 }),
+          player("b1", { displayName: "Nora", seatIndex: 3, joinOrder: 3, team: "B", cardCount: 4 }),
+        ],
+      });
+      expect(toGameView(team)!.catchTargets).toEqual([{ id: "b0", name: "Maya" }]);
+    });
   });
 });
 

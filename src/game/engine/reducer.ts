@@ -17,7 +17,7 @@ import type {
     Winner
 } from "./types";
 
-/** Cards a player draws for ending a turn on one card without calling. */
+/** Cards a player draws when caught on one card without calling. */
 const LAST_CARD_PENALTY = 2;
 
 /**
@@ -32,24 +32,26 @@ export function reducer(state: GameState, action: Action, ctx: EngineContext): R
 
   switch (action.type) {
     case "play":
-      return handlePlay(state, action.playerId, action.cardId, ctx);
+      return handlePlay(state, action.playerId, action.cardId);
     case "choose_color":
-      return handleChooseColor(state, action.playerId, action.color, ctx);
+      return handleChooseColor(state, action.playerId, action.color);
     case "draw":
       return handleDraw(state, action.playerId, ctx);
     case "keep":
-      return handleKeep(state, action.playerId, ctx);
+      return handleKeep(state, action.playerId);
     case "call_last":
       return handleCallLast(state, action.playerId);
+    case "catch_last":
+      return handleCatchLast(state, action.playerId, action.targetPlayerId, ctx);
   }
 }
 
 // --- play ------------------------------------------------------------------
 
-function handlePlay(state: GameState, playerId: string, cardId: string, ctx: EngineContext): Result {
-  // Play is only valid in the `active` phase (Req 8.5, 10.2 forbid it while a
-  // wild is pending or a drew-decision is open).
-  if (state.phase !== "active") {
+function handlePlay(state: GameState, playerId: string, cardId: string): Result {
+  // Play is valid in the `active` phase, and in `drew_decision` only for the
+  // just-drawn card ("Play it", Req 10.2). Never while a wild is pending (Req 8.5).
+  if (state.phase !== "active" && state.phase !== "drew_decision") {
     return reject("wrong_phase");
   }
   if (!isActive(state, playerId)) {
@@ -60,6 +62,10 @@ function handlePlay(state: GameState, playerId: string, cardId: string, ctx: Eng
   const cardIndex = hand.findIndex((c) => c.id === cardId);
   if (cardIndex === -1) {
     return reject("card_not_in_hand");
+  }
+  // The drawn card is appended last (see handleDraw).
+  if (state.phase === "drew_decision" && cardIndex !== hand.length - 1) {
+    return reject("wrong_phase");
   }
   const card = hand[cardIndex];
 
@@ -95,12 +101,12 @@ function handlePlay(state: GameState, playerId: string, cardId: string, ctx: Eng
 
   // Non-wild: set the active color to the card's suit (Req 7.4) and resolve.
   const activeColor = card.suit as Suit;
-  return ok(finalizeTurn({ ...afterPlay, activeColor }, card, ctx));
+  return ok(finalizeTurn({ ...afterPlay, activeColor }, card));
 }
 
 // --- choose_color ----------------------------------------------------------
 
-function handleChooseColor(state: GameState, playerId: string, color: Suit, ctx: EngineContext): Result {
+function handleChooseColor(state: GameState, playerId: string, color: Suit): Result {
   if (state.phase !== "wild_pending") {
     return reject("wrong_phase");
   }
@@ -111,7 +117,7 @@ function handleChooseColor(state: GameState, playerId: string, color: Suit, ctx:
   // was deferred at wild time resolves — including any win (Req 8.6).
   const withColor: GameState = { ...state, activeColor: color };
   const playedWild = discardTop(state);
-  return ok(finalizeTurn(withColor, playedWild, ctx));
+  return ok(finalizeTurn(withColor, playedWild));
 }
 
 // --- draw ------------------------------------------------------------------
@@ -141,7 +147,7 @@ function handleDraw(state: GameState, playerId: string, ctx: EngineContext): Res
   if (drawn.cards.length === 0) {
     // Draw pile empty and only the discard top remains: complete the turn
     // without drawing and advance (Req 10.8).
-    return ok(finalizeAfterNonPlay(drawn.state, ctx));
+    return ok(finalizeAfterNonPlay(drawn.state));
   }
 
   const card = drawn.cards[0];
@@ -150,19 +156,25 @@ function handleDraw(state: GameState, playerId: string, ctx: EngineContext): Res
     drawn.state.activeSeat,
     [...drawn.state.hands[drawn.state.activeSeat], card],
   );
-  const afterDraw: GameState = { ...drawn.state, hands, drewThisTurn: true };
+  const afterDraw: GameState = {
+    ...drawn.state,
+    hands,
+    drewThisTurn: true,
+    // The hand grew above 1 card, so any earlier call no longer stands (Req 11.4).
+    lastCardCalledSeats: withoutSeat(drawn.state.lastCardCalledSeats, drawn.state.activeSeat),
+  };
 
   if (isLegalPlay(card, afterDraw)) {
     // Playable: offer play-or-keep (Req 10.2). Turn stays with this player.
     return ok({ ...afterDraw, phase: "drew_decision" });
   }
   // Not playable: keep it and advance (Req 10.5).
-  return ok(finalizeAfterNonPlay(afterDraw, ctx));
+  return ok(finalizeAfterNonPlay(afterDraw));
 }
 
 // --- keep ------------------------------------------------------------------
 
-function handleKeep(state: GameState, playerId: string, ctx: EngineContext): Result {
+function handleKeep(state: GameState, playerId: string): Result {
   if (state.phase !== "drew_decision") {
     return reject("wrong_phase");
   }
@@ -170,33 +182,70 @@ function handleKeep(state: GameState, playerId: string, ctx: EngineContext): Res
     return reject("not_active");
   }
   // Keep the drawn card and end the turn (Req 10.4).
-  return ok(finalizeAfterNonPlay(state, ctx));
+  return ok(finalizeAfterNonPlay(state));
 }
 
-// --- call_last -------------------------------------------------------------
+// --- call_last / catch_last ------------------------------------------------
 
 function handleCallLast(state: GameState, playerId: string): Result {
-  // Enabled only on the player's turn while holding exactly 2 cards (Req 11.1).
-  if (state.phase !== "active" && state.phase !== "drew_decision") {
-    return reject("wrong_phase");
-  }
-  if (!isActive(state, playerId)) {
+  const seat = seatOf(state, playerId);
+  if (seat === -1) {
     return reject("not_active");
   }
-  if (state.hands[state.activeSeat].length !== 2) {
+  if (state.lastCardCalledSeats.includes(seat)) {
+    return reject("already_called");
+  }
+  const handSize = state.hands[seat].length;
+  // On 1 card the call is allowed at any time, even on another player's turn:
+  // it closes the window in which opponents can catch them (Req 11.1).
+  const lateCall = handSize === 1;
+  // On 2 cards the call is made on the player's own turn, before they play.
+  const preCall =
+    handSize === 2 &&
+    seat === state.activeSeat &&
+    (state.phase === "active" || state.phase === "drew_decision");
+  if (!lateCall && !preCall) {
     return reject("not_two_cards");
   }
-  return ok({ ...state, lastCardCalledSeat: state.activeSeat });
+  return ok({ ...state, lastCardCalledSeats: [...state.lastCardCalledSeats, seat] });
+}
+
+/**
+ * An opponent catches a player sitting on 1 card without a recorded call: the
+ * caught player draws 2 (Req 11.3). The turn, phase, and active seat are
+ * unchanged. In Team mode only the opposing team can catch.
+ */
+function handleCatchLast(
+  state: GameState,
+  playerId: string,
+  targetPlayerId: string,
+  ctx: EngineContext,
+): Result {
+  const catcher = seatOf(state, playerId);
+  const target = seatOf(state, targetPlayerId);
+  if (catcher === -1 || target === -1 || !isCatchable(state, catcher, target)) {
+    return reject("not_catchable");
+  }
+  return ok(drawCatchPenalty(state, target, ctx));
+}
+
+/** Whether `catcher` may catch `target` right now. */
+function isCatchable(state: GameState, catcher: number, target: number): boolean {
+  if (catcher === target) return false;
+  if (state.mode === "team" && state.seats[catcher].team === state.seats[target].team) {
+    return false;
+  }
+  return state.hands[target].length === 1 && !state.lastCardCalledSeats.includes(target);
 }
 
 // --- shared turn resolution ------------------------------------------------
 
 /**
  * Resolve a turn after a card has been fully committed (including any wild
- * color choice). Handles win detection, the forgot-to-call penalty, turn
+ * color choice). Handles win detection, turn
  * advancement (with reverse/skip), penalty targeting, and flag hygiene.
  */
-function finalizeTurn(state: GameState, playedCard: Card, ctx: EngineContext): GameState {
+function finalizeTurn(state: GameState, playedCard: Card): GameState {
   const playedSeat = state.activeSeat;
 
   // Win: the acting player's hand is empty after a legal final play (Req 12).
@@ -210,16 +259,11 @@ function finalizeTurn(state: GameState, playedCard: Card, ctx: EngineContext): G
     };
   }
 
-  // Forgot-to-call penalty: the turn ends with the player on 1 card and no call
-  // recorded this turn → they draw 2 (Req 11.3). This does not apply to the
-  // winning case above (handled first) since a win empties the hand.
-  let working = state;
-  if (working.hands[playedSeat].length === 1 && working.lastCardCalledSeat !== playedSeat) {
-    working = drawPenaltyForForgotCall(working, playedSeat, ctx);
-  }
+  // A player left on 1 card without calling is NOT penalized here: the +2 only
+  // applies if an opponent catches them (see handleCatchLast, Req 11.3).
 
   // Advance the active player, applying reverse/skip semantics.
-  working = advanceTurn(working, playedCard);
+  const working = advanceTurn(state, playedCard);
 
   // Reset per-turn flags and clear stale last-card calls (Req 11.4).
   return clearTurnFlags(working);
@@ -230,17 +274,8 @@ function finalizeTurn(state: GameState, playedCard: Card, ctx: EngineContext): G
  * unplayable draw, or a no-draw-empty-pile turn). No card was added to the
  * discard, so there is no reverse/skip to apply.
  */
-function finalizeAfterNonPlay(state: GameState, ctx: EngineContext): GameState {
-  const playedSeat = state.activeSeat;
-
-  // Forgot-to-call penalty still applies if the turn ends on 1 card (Req 11.3).
-  let working = state;
-  if (working.hands[playedSeat].length === 1 && working.lastCardCalledSeat !== playedSeat) {
-    working = drawPenaltyForForgotCall(working, playedSeat, ctx);
-  }
-
-  working = { ...working, activeSeat: advanceActive(working) };
-  return clearTurnFlags(working);
+function finalizeAfterNonPlay(state: GameState): GameState {
+  return clearTurnFlags({ ...state, activeSeat: advanceActive(state) });
 }
 
 /** Advance the active seat honoring reverse and skip (Req 6.1–6.5). */
@@ -273,8 +308,8 @@ function resolvePenaltyDraw(state: GameState, ctx: EngineContext): GameState {
   return clearTurnFlags(advanced);
 }
 
-/** Apply the forgot-to-call +2 to a seat, drawing from the pile (Req 11.3). */
-function drawPenaltyForForgotCall(state: GameState, seat: number, ctx: EngineContext): GameState {
+/** Apply the caught-without-calling +2 to a seat, drawing from the pile (Req 11.3). */
+function drawCatchPenalty(state: GameState, seat: number, ctx: EngineContext): GameState {
   // Draw up to LAST_CARD_PENALTY; reshuffles if needed. The player keeps the
   // cards; this only grows the hand so it never triggers a win.
   const drawn = drawCards(state, LAST_CARD_PENALTY, ctx);
@@ -287,11 +322,10 @@ function drawPenaltyForForgotCall(state: GameState, seat: number, ctx: EngineCon
  * hygiene: any seat holding more than one card must not retain a call (Req 11.4).
  */
 function clearTurnFlags(state: GameState): GameState {
-  let lastCardCalledSeat = state.lastCardCalledSeat;
-  if (lastCardCalledSeat !== null && state.hands[lastCardCalledSeat].length > 1) {
-    lastCardCalledSeat = null;
-  }
-  return { ...state, phase: "active", drewThisTurn: false, lastCardCalledSeat };
+  const lastCardCalledSeats = state.lastCardCalledSeats.filter(
+    (seat) => state.hands[seat].length <= 1,
+  );
+  return { ...state, phase: "active", drewThisTurn: false, lastCardCalledSeats };
 }
 
 // --- drawing / reshuffle ---------------------------------------------------
@@ -337,6 +371,15 @@ function ok(state: GameState): Result {
 
 function reject(reason: RejectionReason): Result {
   return { ok: false, reason };
+}
+
+/** The seat index of a player, or -1 if they are not seated. */
+function seatOf(state: GameState, playerId: string): number {
+  return state.seats.findIndex((s) => s.playerId === playerId);
+}
+
+function withoutSeat(seats: readonly number[], seat: number): readonly number[] {
+  return seats.includes(seat) ? seats.filter((s) => s !== seat) : seats;
 }
 
 function isActive(state: GameState, playerId: string): boolean {

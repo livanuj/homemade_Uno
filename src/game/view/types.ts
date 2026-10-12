@@ -211,10 +211,22 @@ export interface GameView {
   /** Pending draw penalty count, if a +2/+4 chain is open (Req 9). */
   penaltyCount?: number;
   /**
-   * Whether the viewer may call "LAST CARD!" right now: their turn AND exactly
-   * two cards in hand (Req 11.1). The button is enabled only when true.
+   * Whether the viewer may call "LAST CARD!" right now: on their turn with
+   * exactly two cards, or at any time on one card they have not called yet
+   * (Req 11.1). The button is enabled only when true.
    */
   canCallLastCard: boolean;
+  /**
+   * Opponents the viewer can catch: on 1 card without a recorded call
+   * (Req 11.3). Never includes the viewer's partner in 2v2.
+   */
+  catchTargets: CatchTargetView[];
+}
+
+/** An opponent the viewer can catch for not calling "UNO". */
+export interface CatchTargetView {
+  id: string;
+  name: string;
 }
 
 /**

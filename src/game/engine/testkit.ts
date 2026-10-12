@@ -45,6 +45,28 @@ export function pickLegalAction(state: GameState, rng: Rng): DriverAction | null
     return { type: "choose_color", playerId: activePlayerId(state), color };
   }
 
+  // Occasionally exercise the last-card mechanics: an opponent catches an
+  // uncalled 1-card player, or the active player calls with 2 cards in hand.
+  const target = state.seats.findIndex(
+    (_, seat) => state.hands[seat].length === 1 && !state.lastCardCalledSeats.includes(seat),
+  );
+  if (target !== -1 && rng() < 0.3) {
+    const catcher = state.seats.find(
+      (s, seat) => seat !== target && (state.mode !== "team" || s.team !== state.seats[target].team),
+    );
+    if (catcher) {
+      return { type: "catch_last", playerId: catcher.playerId, targetPlayerId: state.seats[target].playerId };
+    }
+  }
+  if (
+    state.phase === "active" &&
+    state.hands[state.activeSeat].length === 2 &&
+    !state.lastCardCalledSeats.includes(state.activeSeat) &&
+    rng() < 0.5
+  ) {
+    return { type: "call_last", playerId: activePlayerId(state) };
+  }
+
   if (state.phase === "drew_decision") {
     // Half the time keep, half the time play the (playable) drawn card.
     const hand = state.hands[state.activeSeat];
@@ -70,7 +92,9 @@ export type DriverAction =
   | { type: "play"; playerId: string; cardId: string }
   | { type: "choose_color"; playerId: string; color: Suit }
   | { type: "draw"; playerId: string }
-  | { type: "keep"; playerId: string };
+  | { type: "keep"; playerId: string }
+  | { type: "call_last"; playerId: string }
+  | { type: "catch_last"; playerId: string; targetPlayerId: string };
 
 /**
  * Run up to `maxSteps` random legal actions, invoking `onStep(state)` after
@@ -131,7 +155,7 @@ export function makeState(overrides: Partial<GameState> & Pick<GameState, "seats
     pendingPenaltyKind: null,
     phase: "active",
     drewThisTurn: false,
-    lastCardCalledSeat: null,
+    lastCardCalledSeats: [],
     winner: null,
     ...overrides,
   };

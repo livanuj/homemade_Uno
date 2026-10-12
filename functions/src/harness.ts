@@ -1,14 +1,17 @@
 /**
  * Shared action harness (Task 4.1) — the single server-authoritative path that
  * every engine-driven action (`playCard`, `chooseColor`, `drawOne`, `keep`,
- * `callLast`) flows through.
+ * `callLast`, `catchLast`) flows through.
  *
  * It runs ONE Firestore transaction that:
  *   1. reads `state/current`, the room, the seated players, all hand docs, and
  *      the server-only `private/deck`;
  *   2. rejects (state unchanged) when the game is paused/ended, when
  *      `basedOnVersion != state.version` (stale, Req 14.5), or when the caller
- *      is not the active player (Req 6.9/14.5);
+ *      is not the active player (Req 6.9/14.5). Off-turn actions (a late
+ *      last-card call, a catch) skip the version + active-player checks: they
+ *      race other players' moves, and the engine validates them against the
+ *      current state instead;
  *   3. hydrates the engine `GameState`, applies the pure engine transition
  *      (rejections come back as values, never thrown), and on success
  *   4. increments `version`, and WRITES `state/current` + changed `hands` +
@@ -66,7 +69,14 @@ function logType(action: Action): ActionType {
       return "keep";
     case "call_last":
       return "call_last";
+    case "catch_last":
+      return "catch_last";
   }
+}
+
+/** Actions any seated player may take at any time (not only the active one). */
+function isOffTurnAction(action: Action): boolean {
+  return action.type === "call_last" || action.type === "catch_last";
 }
 
 /**
@@ -101,8 +111,11 @@ export async function runAction(
       return { ok: false, reason: "game_ended" };
     }
 
+    const action = buildAction(uid);
+    const offTurn = isOffTurnAction(action);
+
     // Optimistic concurrency: a stale action rejects, state unchanged (Req 14.5).
-    if (basedOnVersion !== state.version) {
+    if (!offTurn && basedOnVersion !== state.version) {
       return { ok: false, reason: "stale_version" };
     }
 
@@ -114,13 +127,11 @@ export async function runAction(
 
     const seats = seatsFromPlayers(seated);
 
+    if (!seated.some((p) => p.playerId === uid)) {
+      return { ok: false, reason: "not_in_game" };
+    }
     // Non-active-player actions reject with state unchanged (Req 6.9/14.5).
-    if (seats.length === 0 || seats[state.activeSeat]?.playerId !== uid) {
-      // Still validate the caller is a seated member before deciding.
-      const isSeated = seated.some((p) => p.playerId === uid);
-      if (!isSeated) {
-        return { ok: false, reason: "not_in_game" };
-      }
+    if (!offTurn && seats[state.activeSeat]?.playerId !== uid) {
       return { ok: false, reason: "not_active" };
     }
 
@@ -140,7 +151,6 @@ export async function runAction(
 
     const before = hydrateState(room.gameMode, state, seated, handsBySeat, deck);
 
-    const action = buildAction(uid);
     const ctx: EngineContext = { rng: createCsprng() };
     const engineResult = reducer(before, action, ctx);
 

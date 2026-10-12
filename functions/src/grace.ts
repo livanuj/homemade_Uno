@@ -288,6 +288,10 @@ export const enforceGrace = onCall(async (request): Promise<GraceResult> => {
       penaltyCount: 0,
       pendingPenaltyKind: null,
       drewThisTurn: false,
+      // A penalty draw grows the skipped player's hand, clearing their call (Req 11.4).
+      lastCardCalledSeats: updatedActiveHand
+        ? engine.lastCardCalledSeats.filter((seat) => seat !== state.activeSeat)
+        : engine.lastCardCalledSeats,
       discardPile,
       version: newVersion,
     });

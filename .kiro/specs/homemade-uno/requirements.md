@@ -19,7 +19,7 @@ The application must be built strictly to the provided design assets in the `des
 - **Seat**: A fixed position at the game table, assigned when the game starts and kept for that game.
 - **Hand**: The set of cards held by a Player.
 - **Partner**: In 2v2 mode, the Player seated opposite whose Hand is visible face-up.
-- **Paused**: A game state in which no Player can play, draw, call "LAST CARD!", or be skipped, and no Grace_Period countdown runs.
+- **Paused**: A game state in which no Player can play, draw, call "UNO", or be skipped, and no Grace_Period countdown runs.
 - **Team**: In 2v2 mode, a pair of Players (Team A or Team B) who win or lose together.
 - **Game_Mode**: The Host's selection of Normal_Mode or Team_Mode for the next game in the Room.
 - **Normal_Mode**: The free-for-all mode, selectable by the Host for 2 to 8 Players.
@@ -33,7 +33,7 @@ The application must be built strictly to the provided design assets in the `des
 - **Play_Direction**: The order of turn rotation, either clockwise or counter-clockwise.
 - **Active_Color**: The Suit that the next Card must currently match; set by the top Discard_Pile Card or by a Wild color selection.
 - **Penalty_Count**: The accumulated number of cards a Player must draw due to unresolved +2 or +4 cards under stacking.
-- **Last_Card_Call**: The action a Player takes by pressing "LAST CARD!" on their turn while holding 2 Cards, before playing one.
+- **Last_Card_Call**: The action a Player takes by pressing "UNO" on their turn while holding 2 Cards, before playing one.
 - **Grace_Period**: The 60 seconds a disconnected Active_Player has to reconnect before their turn is skipped.
 - **Toast**: A short, temporary message shown to all Players, per the Design_Spec.
 - **Realtime_Service**: The Cloud Firestore realtime listeners (onSnapshot) that synchronize Room and game state across all Players.
@@ -204,9 +204,9 @@ The application must be built strictly to the provided design assets in the `des
 
 #### Acceptance Criteria
 
-1. THE App SHALL always display the "LAST CARD!" button, per the Design_Spec, and SHALL enable it only on the Player's turn while they hold exactly 2 Cards.
-2. WHEN a Player presses "LAST CARD!", THE App SHALL record the Last_Card_Call for that turn.
-3. IF a Player's turn ends with 1 Card and no Last_Card_Call recorded, THEN THE App SHALL make that Player draw 2 Cards and show a Toast to everyone (for example, "Leo forgot to call last card, +2").
+1. THE App SHALL display the "UNO" button, per the Design_Spec, only while the Player holds 2 or fewer Cards, and SHALL enable it only while the Player has no Last_Card_Call recorded and either (a) it is the Player's turn and they hold exactly 2 Cards, or (b) they hold exactly 1 Card, on any Player's turn.
+2. WHEN a Player presses "UNO", THE App SHALL record the Last_Card_Call for that Player.
+3. WHILE a Player holds exactly 1 Card with no Last_Card_Call recorded, THE App SHALL show a "Catch <name>!" button to each of that Player's opponents (excluding their partner in Team_Mode); WHEN an opponent presses it first, THE App SHALL make that Player draw 2 Cards, without a Toast and without changing the Active_Player, and SHALL remove the button for everyone. THE App SHALL NOT apply any last-card penalty automatically.
 4. WHEN a Player's Hand grows above 1 Card, THE App SHALL clear their Last_Card_Call.
 
 ### Requirement 12: Win Conditions
@@ -341,7 +341,7 @@ All boards are 390×844 and use the "Paper Café" color theme (the name of the p
 | 9   | Homemade Uno · Lobby · 2v2 ready             | `Lobby.dc.html`           | `02d-lobby-2v2-ready`      | Host view with exactly 4 players in 2v2. Two full teams, a six-dot drag handle on every row, the hint "Drag to change teams", and "Start game" enabled.                                                                                                                                                              | 4.5, 21.1                      |
 | 10  | Homemade Uno · Lobby · dragging a player     | `LobbyDragging.dc.html`   | `02e-lobby-dragging`       | The moment the host drags Leo from Team B onto Maya in Team A. Leo's row is lifted and tilted, Maya's row shows a dashed "Swap" target, Leo's old slot is a dashed placeholder, and the hint reads "Drop on a player to swap".                                                                                       | 21.2–21.5, 17.8                |
 | 11  | Homemade Uno · Lobby · guest view            | `LobbyGuest.dc.html`      | `02f-lobby-guest`          | What non-host players see (here, Maya). The mode is read-only ("chosen by the host"), there are no drag handles, and "Waiting for Alex to start the game" with a "Leave room" button replaces "Start game".                                                                                                          | 4.3, 4.10, 21.7                |
-| 12  | Homemade Uno · 2v2 table                     | `Game2v2_Paper.dc.html`   | `03-game-2v2`              | 2v2 game in progress on your turn. Partner's hand face-up and tilted at the top, opponents' card backs angled on the sides, draw and discard piles with the direction ring, the turn pill, your avatar with the "LAST CARD!" button, and your fanned hand with unplayable cards dimmed and the selected card raised. | 6.4, 6.5, 7.5, 11.1, 13.1–13.4 |
+| 12  | Homemade Uno · 2v2 table                     | `Game2v2_Paper.dc.html`   | `03-game-2v2`              | 2v2 game in progress on your turn. Partner's hand face-up and tilted at the top, opponents' card backs angled on the sides, draw and discard piles with the direction ring, the turn pill, your avatar with the "UNO" button, and your fanned hand with unplayable cards dimmed and the selected card raised. | 6.4, 6.5, 7.5, 11.1, 13.1–13.4 |
 | 13  | Homemade Uno · Normal table                  | `GameNormal.dc.html`      | `04-game-normal`           | Normal game with 5 players on someone else's turn. Four opponents with card backs (two tilted at the top, two angled at the sides), the active player's avatar glowing, and the turn pill naming them and the current color.                                                                                         | 5.6, 6.4, 6.5, 13.3            |
 | 14  | Homemade Uno · In-game menu                  | `Menu.dc.html`            | `05-menu`                  | Drawer that slides in from the right when the menu button is tapped. Room code with "Copy link", cards left per player (grouped by team in 2v2), the three setting switches, a "Pause game" button above "How to play", "How to play", and "Leave game".                                                             | 1.3, 22.1, 25.1                |
 | 15  | Homemade Uno · Wild · choose a color         | `WildPicker.dc.html`      | `06a-wild-color-picker`    | Bottom sheet over the table right after playing a Wild or Wild +4. Shows the card played, "Choose a color", who draws next, and four large color buttons, each with its shape and name. There is no cancel option.                                                                                                   | 8.1, 8.2, 9.6                  |
@@ -430,7 +430,7 @@ These states are required but have no board yet. Each can reuse existing compone
 3. WHEN a Player pauses the game, THE App SHALL enter the Paused state for all Players within 2 seconds, show a Toast "[name] paused the game", and show the paused overlay over the game table.
 4. WHILE the game is Paused and no Player is disconnected, THE App SHALL show "Game paused", the name of the Player who paused, the time paused so far, and a "Resume game" button, per the `08a-paused` reference.
 5. WHILE the game is Paused and one or more Players are disconnected, THE App SHALL show "Waiting for [name]", their offline avatar, the time paused so far, and a "Continue without [name]" button, per the `08b-paused-waiting` reference.
-6. WHILE the game is Paused, THE server SHALL reject every play, draw, "LAST CARD!" call, color choice, and turn skip, and SHALL stop the Grace_Period countdown.
+6. WHILE the game is Paused, THE server SHALL reject every play, draw, "UNO" call, color choice, and turn skip, and SHALL stop the Grace_Period countdown.
 7. WHEN any connected Player selects "Resume game", THE App SHALL leave the Paused state for all Players and show a Toast "[name] resumed the game".
 8. WHEN the game was paused while waiting and every disconnected Player has reconnected, THE App SHALL resume automatically and show a Toast "[name] is back".
 9. WHEN any connected Player selects "Continue without [name]", THE App SHALL resume the game, skip the disconnected Player's current turn if it is theirs and draw any pending Penalty_Count for them, and skip their later turns immediately until they reconnect.
