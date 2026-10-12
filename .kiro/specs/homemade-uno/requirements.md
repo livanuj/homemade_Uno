@@ -4,7 +4,7 @@
 
 Homemade Uno is a mobile-first, link-shareable, multiplayer color-matching card game built as a portrait-only Progressive Web App. Players create a private room, share a link (or a 4-character room code), and play a standard UNO-style match with friends. There are no accounts and no bots: access is anonymous and gated only by the room code, and every player is a human. The host chooses the game mode in the lobby. Normal mode is a free-for-all for 2 to 8 players. 2v2 team mode requires exactly 4 players; partners see each other's cards face-up, and a team wins when either partner empties their hand.
 
-The application must be built strictly to the provided design assets in the `design/uno-design/` folder (`design/uno-design/design.md`, `design/uno-design/screen-map.json`, `design/uno-design/theme.css`, `design/uno-design/tokens.json`, and the screen references under `design/uno-design/screens/`). All colors, typography, radii, shadows, spacing, components, screen layouts, motion, and accessibility rules are defined there and must be followed exactly. No tokens or visual values may be invented. Realtime play, room data, and player hands are backed by Supabase, and player identity is preserved across disconnects via a Supabase anonymous sign-in session.
+The application must be built strictly to the provided design assets in the `design/uno-design/` folder (`design/uno-design/design.md`, `design/uno-design/screen-map.json`, `design/uno-design/theme.css`, `design/uno-design/tokens.json`, and the screen references under `design/uno-design/screens/`). All colors, typography, radii, shadows, spacing, components, screen layouts, motion, and accessibility rules are defined there and must be followed exactly. No tokens or visual values may be invented. Realtime play, room data, and player hands are backed by Cloud Firestore with Cloud Functions running the authoritative game logic, and player identity is preserved across disconnects via a Firebase Anonymous Auth session.
 
 ## Glossary
 
@@ -15,11 +15,11 @@ The application must be built strictly to the provided design assets in the `des
 - **Room**: A private game session identified by a unique 4-character Room_Code and reachable by an Invite_Link.
 - **Room_Code**: A 4-character uppercase alphanumeric identifier for a Room (for example "K7QX").
 - **Invite_Link**: A shareable URL that opens the App directly into the Room identified by its embedded Room_Code.
-- **Player_ID**: The user ID from the Player's Supabase anonymous sign-in session, persisted by the Supabase client and used to restore the Player's Seat and Hand on reconnect.
+- **Player_ID**: The user ID from the Player's Firebase Anonymous Auth session, used to restore the Player's Seat and Hand on reconnect.
 - **Seat**: A fixed position at the game table, assigned when the game starts and kept for that game.
 - **Hand**: The set of cards held by a Player.
 - **Partner**: In 2v2 mode, the Player seated opposite whose Hand is visible face-up.
-- **Paused**: A game state in which no Player can play, draw, call "LAST CARD!", or be skipped, and no Grace_Period countdown runs.
+- **Paused**: A game state in which no Player can play, draw, call "UNO", or be skipped, and no Grace_Period countdown runs.
 - **Team**: In 2v2 mode, a pair of Players (Team A or Team B) who win or lose together.
 - **Game_Mode**: The Host's selection of Normal_Mode or Team_Mode for the next game in the Room.
 - **Normal_Mode**: The free-for-all mode, selectable by the Host for 2 to 8 Players.
@@ -33,10 +33,10 @@ The application must be built strictly to the provided design assets in the `des
 - **Play_Direction**: The order of turn rotation, either clockwise or counter-clockwise.
 - **Active_Color**: The Suit that the next Card must currently match; set by the top Discard_Pile Card or by a Wild color selection.
 - **Penalty_Count**: The accumulated number of cards a Player must draw due to unresolved +2 or +4 cards under stacking.
-- **Last_Card_Call**: The action a Player takes by pressing "LAST CARD!" on their turn while holding 2 Cards, before playing one.
+- **Last_Card_Call**: The action a Player takes by pressing "UNO" on their turn while holding 2 Cards, before playing one.
 - **Grace_Period**: The 60 seconds a disconnected Active_Player has to reconnect before their turn is skipped.
 - **Toast**: A short, temporary message shown to all Players, per the Design_Spec.
-- **Realtime_Service**: The Supabase-backed service that synchronizes Room and game state across all Players.
+- **Realtime_Service**: The Cloud Firestore realtime listeners (onSnapshot) that synchronize Room and game state across all Players.
 - **Design_Spec**: The design source of truth comprising `design/uno-design/design.md`, `design/uno-design/screen-map.json`, `design/uno-design/theme.css`, `design/uno-design/tokens.json`, and the screen references under `design/uno-design/screens/`.
 - **Reduced_Motion**: The user preference expressed by the `prefers-reduced-motion` media query.
 
@@ -86,7 +86,7 @@ The application must be built strictly to the provided design assets in the `des
 
 #### Acceptance Criteria
 
-1. WHEN a Player joins a Room for the first time with no Player_ID matching a Seat in that Room, THE App SHALL persist a Player_ID via the Player's Supabase anonymous sign-in session.
+1. WHEN a Player joins a Room for the first time with no Player_ID matching a Seat in that Room, THE App SHALL persist a Player_ID via the Player's Firebase Anonymous Auth session.
 2. WHEN a Player reopens the Invite_Link with a Player_ID that matches an occupied Seat in the Room, THE App SHALL restore the Player to that same Seat with the identical set of Cards held in that Seat's Hand at the time of restoration.
 3. WHILE a Player is disconnected from a Room in which the game has started and has not ended, THE App SHALL retain that Player's Seat and Hand for reconnection with no expiry time limit.
 4. IF a Player opens the Invite_Link with a Player_ID that matches no Seat in the Room and the game has already started, THEN THE App SHALL deny entry, leave all existing Seats and Hands unchanged, and display a message indicating that the game is in progress.
@@ -204,9 +204,9 @@ The application must be built strictly to the provided design assets in the `des
 
 #### Acceptance Criteria
 
-1. THE App SHALL always display the "LAST CARD!" button, per the Design_Spec, and SHALL enable it only on the Player's turn while they hold exactly 2 Cards.
-2. WHEN a Player presses "LAST CARD!", THE App SHALL record the Last_Card_Call for that turn.
-3. IF a Player's turn ends with 1 Card and no Last_Card_Call recorded, THEN THE App SHALL make that Player draw 2 Cards and show a Toast to everyone (for example, "Leo forgot to call last card, +2").
+1. THE App SHALL display the "UNO" button, per the Design_Spec, only while the Player holds 2 or fewer Cards, and SHALL enable it only while the Player has no Last_Card_Call recorded and either (a) it is the Player's turn and they hold exactly 2 Cards, or (b) they hold exactly 1 Card, on any Player's turn.
+2. WHEN a Player presses "UNO", THE App SHALL record the Last_Card_Call for that Player.
+3. WHILE a Player holds exactly 1 Card with no Last_Card_Call recorded, THE App SHALL show a "Catch <name>!" button to each of that Player's opponents (excluding their partner in Team_Mode); WHEN an opponent presses it first, THE App SHALL make that Player draw 2 Cards, without a Toast and without changing the Active_Player, and SHALL remove the button for everyone. THE App SHALL NOT apply any last-card penalty automatically.
 4. WHEN a Player's Hand grows above 1 Card, THE App SHALL clear their Last_Card_Call.
 
 ### Requirement 12: Win Conditions
@@ -244,13 +244,13 @@ The application must be built strictly to the provided design assets in the `des
 
 #### Acceptance Criteria
 
-1. WHEN any Player plays or draws a Card, or a pause or resume event occurs, THE Realtime_Service SHALL propagate the resulting public game state, including pause and resume events, to all connected Players in the Room within 2 seconds.
+1. WHEN any Player plays or draws a Card, or a pause or resume event occurs, THE Realtime_Service (Cloud Firestore listeners) SHALL propagate the resulting public game state, including pause and resume events, to all connected Players in the Room within 2 seconds.
 2. WHEN a Player joins or leaves the Lobby, THE Realtime_Service SHALL update the Player list for all connected Players in the Room within 2 seconds.
 3. THE Realtime_Service SHALL propagate Game_Mode, team, and Host changes in the Lobby to all connected Players in the Room within 2 seconds.
-4. THE App SHALL persist Room state, Seat assignments, and Hands in Supabase before confirming each state change, so that the authoritative state survives individual Player disconnects.
-5. THE server SHALL validate every play and draw, and each action SHALL carry the game-state version it was based on, and THE server SHALL reject actions from non-Active Players and actions based on an outdated version.
-6. THE App SHALL restrict each Player's read access in Supabase so that a Player can read only their own Hand and the public game state, and cannot read any other Player's Hand, except a Partner's Hand in Team_Mode.
-7. WHEN a Player reconnects to a Room after a disconnect, THE Realtime_Service SHALL send that Player the current authoritative public game state and their own Hand within 5 seconds of reconnection.
+4. THE App SHALL persist Room state, Seat assignments, and Hands in Cloud Firestore before confirming each state change, so that the authoritative state survives individual Player disconnects.
+5. THE server (a Cloud Function) SHALL validate every play and draw, and each action SHALL carry the game-state version it was based on, and THE server SHALL reject actions from non-Active Players and actions based on an outdated version.
+6. THE App SHALL restrict each Player's read access via Firestore Security Rules so that a Player can read only their own Hand and the public game state, and cannot read any other Player's Hand, except a Partner's Hand in Team_Mode.
+7. WHEN a Player reconnects to a Room after a disconnect, THE Realtime_Service (Cloud Firestore listeners) SHALL send that Player the current authoritative public game state and their own Hand within 5 seconds of reconnection.
 
 ### Requirement 15: Disconnect and Reconnect
 
@@ -341,7 +341,7 @@ All boards are 390×844 and use the "Paper Café" color theme (the name of the p
 | 9   | Homemade Uno · Lobby · 2v2 ready             | `Lobby.dc.html`           | `02d-lobby-2v2-ready`      | Host view with exactly 4 players in 2v2. Two full teams, a six-dot drag handle on every row, the hint "Drag to change teams", and "Start game" enabled.                                                                                                                                                              | 4.5, 21.1                      |
 | 10  | Homemade Uno · Lobby · dragging a player     | `LobbyDragging.dc.html`   | `02e-lobby-dragging`       | The moment the host drags Leo from Team B onto Maya in Team A. Leo's row is lifted and tilted, Maya's row shows a dashed "Swap" target, Leo's old slot is a dashed placeholder, and the hint reads "Drop on a player to swap".                                                                                       | 21.2–21.5, 17.8                |
 | 11  | Homemade Uno · Lobby · guest view            | `LobbyGuest.dc.html`      | `02f-lobby-guest`          | What non-host players see (here, Maya). The mode is read-only ("chosen by the host"), there are no drag handles, and "Waiting for Alex to start the game" with a "Leave room" button replaces "Start game".                                                                                                          | 4.3, 4.10, 21.7                |
-| 12  | Homemade Uno · 2v2 table                     | `Game2v2_Paper.dc.html`   | `03-game-2v2`              | 2v2 game in progress on your turn. Partner's hand face-up and tilted at the top, opponents' card backs angled on the sides, draw and discard piles with the direction ring, the turn pill, your avatar with the "LAST CARD!" button, and your fanned hand with unplayable cards dimmed and the selected card raised. | 6.4, 6.5, 7.5, 11.1, 13.1–13.4 |
+| 12  | Homemade Uno · 2v2 table                     | `Game2v2_Paper.dc.html`   | `03-game-2v2`              | 2v2 game in progress on your turn. Partner's hand face-up and tilted at the top, opponents' card backs angled on the sides, draw and discard piles with the direction ring, the turn pill, your avatar with the "UNO" button, and your fanned hand with unplayable cards dimmed and the selected card raised. | 6.4, 6.5, 7.5, 11.1, 13.1–13.4 |
 | 13  | Homemade Uno · Normal table                  | `GameNormal.dc.html`      | `04-game-normal`           | Normal game with 5 players on someone else's turn. Four opponents with card backs (two tilted at the top, two angled at the sides), the active player's avatar glowing, and the turn pill naming them and the current color.                                                                                         | 5.6, 6.4, 6.5, 13.3            |
 | 14  | Homemade Uno · In-game menu                  | `Menu.dc.html`            | `05-menu`                  | Drawer that slides in from the right when the menu button is tapped. Room code with "Copy link", cards left per player (grouped by team in 2v2), the three setting switches, a "Pause game" button above "How to play", "How to play", and "Leave game".                                                             | 1.3, 22.1, 25.1                |
 | 15  | Homemade Uno · Wild · choose a color         | `WildPicker.dc.html`      | `06a-wild-color-picker`    | Bottom sheet over the table right after playing a Wild or Wild +4. Shows the card played, "Choose a color", who draws next, and four large color buttons, each with its shape and name. There is no cancel option.                                                                                                   | 8.1, 8.2, 9.6                  |
@@ -406,8 +406,8 @@ These states are required but have no board yet. Each can reuse existing compone
 #### Acceptance Criteria
 
 1. THE App SHALL never send a Player the contents of another Player's Hand, except their Partner's in Team_Mode.
-2. THE App SHALL never send any Player the order of the Draw_Pile.
-3. THE server SHALL deal, shuffle, and apply every game rule, and THE App SHALL only display state and send requested actions.
+2. THE App SHALL never expose the order of the Draw_Pile to any client, and THE App SHALL store the Draw_Pile order where only Cloud Functions can read it.
+3. THE server (Cloud Functions) SHALL deal, shuffle, and apply every game rule, and THE App SHALL only display state and send requested actions.
 
 ### Requirement 24: Room Lifecycle and Limits
 
@@ -430,7 +430,7 @@ These states are required but have no board yet. Each can reuse existing compone
 3. WHEN a Player pauses the game, THE App SHALL enter the Paused state for all Players within 2 seconds, show a Toast "[name] paused the game", and show the paused overlay over the game table.
 4. WHILE the game is Paused and no Player is disconnected, THE App SHALL show "Game paused", the name of the Player who paused, the time paused so far, and a "Resume game" button, per the `08a-paused` reference.
 5. WHILE the game is Paused and one or more Players are disconnected, THE App SHALL show "Waiting for [name]", their offline avatar, the time paused so far, and a "Continue without [name]" button, per the `08b-paused-waiting` reference.
-6. WHILE the game is Paused, THE server SHALL reject every play, draw, "LAST CARD!" call, color choice, and turn skip, and SHALL stop the Grace_Period countdown.
+6. WHILE the game is Paused, THE server SHALL reject every play, draw, "UNO" call, color choice, and turn skip, and SHALL stop the Grace_Period countdown.
 7. WHEN any connected Player selects "Resume game", THE App SHALL leave the Paused state for all Players and show a Toast "[name] resumed the game".
 8. WHEN the game was paused while waiting and every disconnected Player has reconnected, THE App SHALL resume automatically and show a Toast "[name] is back".
 9. WHEN any connected Player selects "Continue without [name]", THE App SHALL resume the game, skip the disconnected Player's current turn if it is theirs and draw any pending Penalty_Count for them, and skip their later turns immediately until they reconnect.

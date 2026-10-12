@@ -1,0 +1,986 @@
+/**
+ * GameTable — the shared game-table frame for both `03-game-2v2` and
+ * `04-game-normal` (design.md §7.5–§7.7, §6).
+ *
+ * The table is a `relative` full-screen container with absolutely-positioned
+ * layers, exactly as the design specifies: the felt oval, the top bar (room
+ * chip · mode chip "Round N" · menu), the direction ring (SVG dashed circle in
+ * the active suit color), the draw + discard piles, opponent seats (face-down
+ * `CardBack`s with the 3D recipe from §6), the partner seat (2v2, face-up
+ * hand), the turn pill (§5.5), your row (avatar + "LAST CARD!"), and your
+ * fanned hand (§7.7). Everything is DERIVED from a `GameView` — no backend.
+ *
+ * Interactions (tap-to-play, draw, wild picker, last-card) are task 9; this
+ * screen renders statically. The animation wrappers from task 7 (`MotionCard`
+ * for the hand) are reused where the card can travel, but the table is stable
+ * at rest so a Playwright capture matches the reference PNGs.
+ *
+ * REUSES: PlayingCard (hand/pile/partner), CardBack (draw-pile/side-seat/
+ * top-seat), Avatar (ring + badge + `activeTurn` pulse), Chip (mode chip),
+ * TurnPill, Button, IconButton, MotionCard. Tokens only (token-policy.md).
+ */
+import type { AvatarRing } from "@/components/Avatar";
+import { Avatar } from "@/components/Avatar";
+import { Button } from "@/components/Button";
+import { CardBack, type CardBackVariant } from "@/components/CardBack";
+import { Chip } from "@/components/Chip";
+import { IconButton } from "@/components/IconButton";
+import {
+  LiveAnnouncer,
+  useGameAnnouncements,
+} from "@/components/LiveAnnouncer";
+import { MotionCard } from "@/components/MotionCard";
+import { OfflineAvatar } from "@/components/OfflineAvatar";
+import { PlayingCard } from "@/components/PlayingCard";
+import {
+  TableFlights,
+  useTableFlights,
+  type FlightGeometry,
+  type Point,
+  type TableSnapshot,
+} from "@/components/TableFlights";
+import { TurnPill, type TurnPillTone } from "@/components/TurnPill";
+import { cardAriaLabel, type Suit } from "@/design/suits";
+import {
+  dealDelay,
+  drawSlideTransition,
+  motionTransition,
+  playSpring,
+} from "@/design/motion";
+import type {
+  CardView,
+  Direction,
+  GameView,
+  OpponentSeatView,
+  PartnerSeatView,
+} from "@/game/view/types";
+import { cn } from "@/lib/cn";
+import { AnimatePresence, motion, type MotionProps } from "motion/react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+
+// ---------------------------------------------------------------------------
+// Static token maps (styling.md — the compiler must see whole class names).
+// ---------------------------------------------------------------------------
+
+/** Active-color → dashed ring / turn-pill dot tone. */
+const SUIT_TONE: Record<Suit, TurnPillTone> = {
+  red: "red",
+  yellow: "yellow",
+  green: "green",
+  blue: "blue",
+};
+
+/** Active-color → SVG stroke color var (direction ring, §7.5). */
+const SUIT_STROKE: Record<Suit, string> = {
+  red: "var(--color-suit-red)",
+  yellow: "var(--color-suit-yellow)",
+  green: "var(--color-suit-green)",
+  blue: "var(--color-suit-blue)",
+};
+
+/** Team id → avatar ring token (2v2). */
+const TEAM_RING: Record<"A" | "B", AvatarRing> = {
+  A: "team-a",
+  B: "team-b",
+};
+
+// ---------------------------------------------------------------------------
+// Hand fan math (design.md §7.7).
+// ---------------------------------------------------------------------------
+
+const CARD_W = 70; // hand card width (§5.1)
+const FAN_MARGIN = 34; // side margin used in the step clamp (§7.7)
+const MAX_STEP = 42; // max horizontal spacing between cards (small hands)
+/**
+ * Minimum horizontal step for a LARGE hand (§7.7 tuned for ~7 cards; big hands
+ * need a floor so cards don't collapse into an unreadable clump). Keeps at
+ * least this much of each card's left edge visible. 18px leaves the suit index
+ * / numeral column peeking out.
+ */
+const MIN_STEP = 18;
+/** Half of the total angular spread of the fan, in degrees (constant arc). */
+const FAN_HALF_ANGLE = 16;
+/** Resting top offset of the center card (px) within the hand band. */
+const FAN_BASE_TOP = 10;
+/** How far the OUTERMOST cards rise above center (px) — a fixed, bounded arc. */
+const FAN_ARC_RISE = 30;
+
+/**
+ * Spread-safe `{ suit, value }` for a card: with `exactOptionalPropertyTypes`,
+ * a wild card's `suit === undefined` can't be passed to `suit?: Suit`, so we
+ * omit the key entirely when there is no suit.
+ */
+function faceProps(card: { suit?: Suit; value: CardView["value"] }): {
+  suit?: Suit;
+  value: CardView["value"];
+} {
+  return card.suit
+    ? { suit: card.suit, value: card.value }
+    : { value: card.value };
+}
+
+interface FanSlot {
+  left: number;
+  rotate: number;
+  top: number;
+}
+
+/**
+ * Position of card `i` of `n` in the fan, for a container of width `w`
+ * (design.md §7.7). A selected card overrides to `top: 0, rotate: 0` at the
+ * call site. Returned in px / degrees.
+ */
+export function fanSlot(i: number, n: number, w: number): FanSlot {
+  // Horizontal step. Target the design spacing (fill the available width up to
+  // MAX_STEP), with a readable floor (MIN_STEP) so medium hands don't collapse.
+  // But the floor is SOFT: if MIN_STEP would push the run past the full width
+  // (very large hands), fall back to whatever step fits edge-to-edge so no card
+  // is clipped off-screen. Result: small hands fan wide, medium hands overlap
+  // to a legible band, and huge hands pack tightly but stay fully visible.
+  const available = w - FAN_MARGIN * 2 - CARD_W; // room for inter-card steps
+  const fitStep = n <= 1 ? 0 : available / (n - 1); // exact fit within margins
+  const step =
+    n <= 1
+      ? 0
+      : fitStep >= MIN_STEP
+        ? Math.min(MAX_STEP, fitStep) // comfortable: clamp to the design max
+        : Math.max(fitStep, (w - CARD_W) / (n - 1)); // tight: fit full width
+  // Center the whole run within the container.
+  const left = (w - (CARD_W + step * (n - 1))) / 2 + i * step;
+
+  // Normalize the card's offset from center to u ∈ [-1, 1] so the fan's SHAPE
+  // (angle + arc) is independent of card count — the extremes always sit at the
+  // same angle and height whether the hand has 3 cards or 25 (fixes the
+  // exploding parabola / vertical spill on big hands).
+  const tMax = Math.max((n - 1) / 2, 1);
+  const u = (i - (n - 1) / 2) / tMax;
+  const rotate = u * FAN_HALF_ANGLE;
+  const top = FAN_BASE_TOP + FAN_ARC_RISE * u * u;
+  return { left, rotate, top };
+}
+
+// ---------------------------------------------------------------------------
+// 3D-recipe face-down back rows (design.md §6).
+// ---------------------------------------------------------------------------
+
+/** At most 7 backs are drawn per seat regardless of the real count (§6). */
+const MAX_BACKS = 7;
+
+type SeatKind = "top" | "left" | "right";
+
+/** Per-seat 3D transform + back variant + overlap offset (§6). */
+const SEAT_RECIPE: Record<
+  SeatKind,
+  {
+    perspective: string;
+    transform: string;
+    origin: string;
+    column: boolean;
+    variant: CardBackVariant;
+    overlap: string;
+  }
+> = {
+  top: {
+    perspective: "360px",
+    transform: "rotateX(48deg)",
+    origin: "50% 0",
+    column: false,
+    variant: "top-seat",
+    overlap: "-22px",
+  },
+  left: {
+    perspective: "360px",
+    transform: "rotateY(52deg)",
+    origin: "0 50%",
+    column: true,
+    variant: "side-seat",
+    overlap: "-42px",
+  },
+  right: {
+    perspective: "360px",
+    transform: "rotateY(-52deg)",
+    origin: "100% 50%",
+    column: true,
+    variant: "side-seat",
+    overlap: "-42px",
+  },
+};
+
+/**
+ * A face-down back row/column with the seat's 3D recipe (§6). The perspective
+ * lives on the parent and the rotation on the row/column of cards.
+ */
+function BackStack({ kind, count }: { kind: SeatKind; count: number }) {
+  const recipe = SEAT_RECIPE[kind];
+  const shown = Math.min(count, MAX_BACKS);
+  return (
+    <div style={{ perspective: recipe.perspective }}>
+      <div
+        className={cn(
+          "flex",
+          recipe.column ? "flex-col items-center" : "items-center",
+        )}
+        style={{ transform: recipe.transform, transformOrigin: recipe.origin }}
+        aria-hidden="true"
+      >
+        {Array.from({ length: shown }).map((_, i) => (
+          <CardBack
+            key={i}
+            variant={recipe.variant}
+            {...(i === 0
+              ? {}
+              : {
+                  style: recipe.column
+                    ? { marginTop: recipe.overlap }
+                    : { marginLeft: recipe.overlap },
+                })}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Seats.
+// ---------------------------------------------------------------------------
+
+/**
+ * One opponent seat — avatar (ring + real-count badge) + name + face-down
+ * backs. When the seat is disconnected (`seat.connection === "offline"`, Req
+ * 15.1) it renders the faded `OfflineAvatar` instead, with the grace
+ * `CountdownRing` when a `countdown` is supplied (its turn, §5.20); the name
+ * line reads "· offline" and the seat is the `06c-player-disconnected` state.
+ */
+function OpponentSeat({
+  seat,
+  kind,
+  ring,
+  activeTurn,
+  countdown,
+  style,
+}: {
+  seat: OpponentSeatView;
+  kind: SeatKind;
+  ring: AvatarRing;
+  activeTurn: boolean;
+  countdown?: { progress: number; secondsLeft: number };
+  style: CSSProperties;
+}) {
+  const offline = seat.connection === "offline";
+  return (
+    <div className="absolute flex flex-col items-center gap-1" style={style}>
+      {offline ? (
+        <OfflineAvatar
+          name={seat.name}
+          cardCount={seat.cardCount}
+          {...(countdown ? { countdown } : {})}
+        />
+      ) : (
+        <Avatar
+          name={seat.name}
+          size={44}
+          ring={ring}
+          cardCount={seat.cardCount}
+          activeTurn={activeTurn}
+        />
+      )}
+      <span className="text-caption font-bold text-ink">
+        {offline ? `${seat.name} · offline` : seat.name}
+      </span>
+      <div className={kind === "top" ? undefined : "mt-1.5"}>
+        <BackStack kind={kind} count={seat.cardCount} />
+      </div>
+    </div>
+  );
+}
+
+/** The partner seat (2v2, top) — face-up hand with the partner 3D recipe (§6). */
+function PartnerSeat({ partner }: { partner: PartnerSeatView }) {
+  return (
+    <div className="absolute left-0 top-[70px] flex w-full flex-col items-center gap-1">
+      <div className="flex items-center gap-2.5">
+        <Avatar name={partner.name} size={40} ring={TEAM_RING[partner.team]} />
+        <div className="flex flex-col">
+          <span className="text-body text-ink">{partner.name}</span>
+          <span
+            className={cn(
+              "text-micro font-semibold",
+              partner.team === "A" ? "text-team-a" : "text-team-b",
+            )}
+          >
+            Partner · {partner.hand.length} cards
+          </span>
+        </div>
+      </div>
+      {/* Partner recipe: perspective on the parent, rotateX on the card row. */}
+      <div style={{ perspective: "420px", paddingTop: 2 }}>
+        <div
+          className="flex"
+          style={{ transform: "rotateX(42deg)", transformOrigin: "50% 100%" }}
+        >
+          {partner.hand.map((card, i) => (
+            <div key={card.id} style={i === 0 ? undefined : { marginLeft: -8 }}>
+              <PlayingCard variant="partner" {...faceProps(card)} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Piles + direction ring.
+// ---------------------------------------------------------------------------
+
+/** SVG dashed direction ring in the active color; arrowheads flip when reversed. */
+function DirectionRing({
+  color,
+  direction,
+}: {
+  color: Suit;
+  direction: Direction;
+}) {
+  const stroke = SUIT_STROKE[color];
+  return (
+    <svg
+      className="absolute left-[90px] top-[290px]"
+      width="210"
+      height="210"
+      viewBox="0 0 210 210"
+      fill="none"
+      aria-hidden="true"
+      style={
+        direction === -1
+          ? { transform: "scaleX(-1)", transformOrigin: "center" }
+          : undefined
+      }
+    >
+      <circle
+        cx="105"
+        cy="105"
+        r="96"
+        stroke={stroke}
+        strokeOpacity="0.45"
+        strokeWidth="2"
+        strokeDasharray="10 12"
+      />
+      <path
+        d="M190 70 l6 14 l-15 -2"
+        stroke={stroke}
+        strokeOpacity="0.8"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 140 l-6 -14 l15 2"
+        stroke={stroke}
+        strokeOpacity="0.8"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Draw pile (tappable back stack) + discard pile (prev at −12°, top at +8° with a suit glow). */
+function Piles({
+  discardTop: latestTop,
+  discardPrev: latestPrev,
+  holdTopId = null,
+  onDraw,
+  reduced = false,
+}: {
+  discardTop: CardView;
+  discardPrev?: CardView;
+  /**
+   * While an opponent's played card is still flying in, keep showing the card
+   * it lands on; the new top appears when the flight completes.
+   */
+  holdTopId?: string | null;
+  onDraw?: () => void;
+  /** Honor reduced motion (Req 17.6) — drops the throw flight when true. */
+  reduced?: boolean;
+}) {
+  const holding = holdTopId === latestTop.id && latestPrev !== undefined;
+  const discardTop = holding ? latestPrev : latestTop;
+  const discardPrev = holding ? undefined : latestPrev;
+  return (
+    <div className="absolute left-[105px] top-[340px] flex h-[116px] w-[180px] items-center justify-center gap-[22px]">
+      <CardBack variant="draw-pile" {...(onDraw ? { onClick: onDraw } : {})} />
+      <div className="relative h-[108px] w-[74px]">
+        {discardPrev && (
+          <div
+            className="absolute inset-0"
+            style={{ transform: "rotate(-12deg)" }}
+          >
+            <PlayingCard variant="pile" {...faceProps(discardPrev)} />
+          </div>
+        )}
+        {/*
+         * The discard TOP is the landing target for a played card's shared-
+         * layout flight (Req 17.1): it carries `layoutId={card.id}`, matching
+         * the hand `MotionCard` that was just played, so Motion springs the
+         * card from the hand to here. `AnimatePresence` keys on the card id so
+         * each newly-played card animates in. Reduced motion drops the shared
+         * layoutId (the card simply appears). This is a presentational
+         * `motion.div` wrapper — the pile card itself stays non-interactive.
+         */}
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.div
+            key={discardTop.id}
+            {...(reduced ? {} : { layoutId: discardTop.id, layout: true })}
+            className="absolute inset-0"
+            style={{
+              transform: "rotate(8deg)",
+              filter: "drop-shadow(0 0 16px var(--pile-glow))",
+            }}
+            transition={motionTransition(reduced, playSpring)}
+          >
+            <PlayingCard variant="pile" {...faceProps(discardTop)} tabIndex={-1} />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Your hand fan (§7.7).
+// ---------------------------------------------------------------------------
+
+/**
+ * Track which hand-card ids are NEW since the previous render, and how many
+ * arrived together, so freshly drawn cards can animate in from the draw pile
+ * (Req 10.6) and a multi-card penalty draw (+2/+4/forgot-UNO) fans in with a
+ * stagger (reusing the deal timing). Returns, per current card id, the 0-based
+ * index among the cards that arrived in the latest batch (or `null` if the card
+ * is not new). Cards that were already present do not re-animate.
+ */
+export function useDrawInOrder(handIds: string[]): Map<string, number> {
+  // Diff the current ids against the ids committed on the previous render. Any
+  // id not present before is "new" and gets its 0-based position among the
+  // additions (the stagger order). A render with no additions (a play, or an
+  // incidental re-render) yields an empty map, so cards animate in exactly once
+  // and never re-animate. The commit happens in an effect AFTER the render that
+  // exposed the batch, so the newly-drawn cards' motion wrappers mount with
+  // their `initial` and the batch is consumed by that same render.
+  // Lazily seed the committed ids with the OPENING hand so the first render
+  // (and the dealt hand) is not mistaken for a draw — only later additions are.
+  const committedRef = useRef<string[] | null>(null);
+  if (committedRef.current === null) committedRef.current = handIds;
+  const prev = new Set(committedRef.current);
+  const added = handIds.filter((id) => !prev.has(id));
+  const order = new Map(added.map((id, i) => [id, i] as const));
+
+  useEffect(() => {
+    committedRef.current = handIds;
+    // The id list is a fresh array each render; join to a stable string so the
+    // effect only re-commits when the actual id SEQUENCE changes.
+  }, [handIds.join("\u0001")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return order;
+}
+
+/** A hand card at rest in its fan slot (the draw-in flight's end state). */
+const DRAW_IN_REST = { opacity: 1, y: 0, x: 0, rotateY: 0 } as const;
+/** Where a drawn card starts: up/left toward the draw pile, face-down. */
+const DRAW_IN_FROM = { opacity: 0.6, y: -320, x: 40, rotateY: 180 } as const;
+
+/**
+ * Motion props for a hand card's draw-in wrapper (Req 10.6). `animate` and
+ * `transition` stay the same on EVERY render; only `initial` (read once, at
+ * mount) depends on whether the card just arrived. Dropping `animate` on the
+ * re-render after the batch is consumed would make Motion animate the removed
+ * keys back to their `initial` values, leaving the card stuck at the draw pile.
+ */
+export function drawInMotionProps(
+  batchIndex: number | undefined,
+  reduced: boolean,
+): Pick<MotionProps, "initial" | "animate" | "transition"> {
+  const isDrawnIn = batchIndex !== undefined && !reduced;
+  return {
+    initial: isDrawnIn ? DRAW_IN_FROM : false,
+    animate: DRAW_IN_REST,
+    transition: { ...drawSlideTransition, delay: dealDelay(batchIndex ?? 0) },
+  };
+}
+
+/**
+ * The caller's fanned hand (§7.7). Each card is a `MotionCard` positioned
+ * absolutely by the fan math. A played card flies to the discard via its shared
+ * `layoutId` (Req 17.1); a freshly drawn card slides/flips in from the draw
+ * pile (Req 10.6), and a multi-card penalty draw fans in with a 60ms stagger.
+ * Unplayable cards are dimmed only when `highlight` is on (Req 7.5/7.6); the
+ * selected card is raised to `top: 0, rotate: 0` with the team-colored lift
+ * ring. Reduced motion (Req 17.6) makes every move instant.
+ */
+function HandFan({
+  view,
+  highlight,
+  width,
+  onPlayCard,
+  shakeCardId,
+  reduced = false,
+}: {
+  view: GameView;
+  highlight: boolean;
+  width: number;
+  /** Tap a hand card → attempt to play it (Task 9.4). */
+  onPlayCard?: (cardId: string) => void;
+  /** The card id currently shaking after an illegal-tap rejection (Req 7.3). */
+  shakeCardId?: string | null;
+  /** Honor reduced motion (Req 17.6). */
+  reduced?: boolean;
+}) {
+  const n = view.hand.length;
+  const liftRing =
+    view.selfTeam === "B" ? "var(--color-team-b)" : "var(--color-team-a)";
+  const drawInOrder = useDrawInOrder(view.hand.map((c) => c.id));
+
+  return (
+    <div className="absolute left-0 top-[664px] h-[180px] w-full">
+      {view.hand.map((card, i) => {
+        const slot = fanSlot(i, n, width);
+        const selected = !!card.selected;
+        const style: CSSProperties = {
+          position: "absolute",
+          left: slot.left,
+          top: selected ? 0 : slot.top,
+          transform: `rotate(${selected ? 0 : slot.rotate}deg)`,
+          zIndex: selected ? 20 : i,
+          ...(selected
+            ? {
+                boxShadow: `0 0 0 3px ${liftRing}, 0 14px 24px rgba(40,30,40,0.25)`,
+                borderRadius: 12,
+              }
+            : {}),
+        };
+
+        // Draw-in flight (Req 10.6): a newly arrived card slides up/in from the
+        // draw-pile direction and flips face-up. For a multi-card penalty draw,
+        // each card is delayed by its batch index (deal stagger).
+        const drawInProps = drawInMotionProps(drawInOrder.get(card.id), reduced);
+
+        // The outer div owns the fan POSITION/rotation (plain CSS transform);
+        // the inner motion wrapper owns only the draw-in flight (opacity / y /
+        // x / rotateY) so the two transforms never fight.
+        return (
+          <div key={card.id} style={style}>
+            <motion.div {...drawInProps}>
+              <MotionCard
+                cardId={card.id}
+                {...faceProps(card)}
+                variant="hand"
+                selected={selected}
+                dim={highlight && !card.playable}
+                shake={shakeCardId === card.id}
+                reduced={reduced}
+                {...(onPlayCard ? { onClick: () => onPlayCard(card.id) } : {})}
+              />
+            </motion.div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GameTable.
+// ---------------------------------------------------------------------------
+
+export interface GameTableProps {
+  /** The projected game state to render (2v2 vs. normal via `room.mode`). */
+  view: GameView;
+  /**
+   * Whether the "Highlight playable cards" setting is on — dims unplayable
+   * hand cards (Req 7.5/7.6). Defaults to on (matches the reference).
+   */
+  highlight?: boolean;
+  /** Container width in px for the fan math (§7.7). Defaults to 390 (design). */
+  width?: number;
+  /** Open the in-game menu (task 8.5 renders the drawer). */
+  onMenu?: () => void;
+  /** Draw a card (task 9 wires the flow). */
+  onDraw?: () => void;
+  /** Call "UNO" — the last-card call (task 9 wires the flow). */
+  onCallLastCard?: () => void;
+  /** Catch an opponent on 1 card who has not called (they draw 2, Req 11.3). */
+  onCatch?: (targetPlayerId: string) => void;
+  /** Tap a hand card → attempt to play it (Task 9.4). */
+  onPlayCard?: (cardId: string) => void;
+  /** The card id currently shaking after an illegal-tap rejection (Req 7.3). */
+  shakeCardId?: string | null;
+  /**
+   * Grace countdown for a disconnected opponent whose turn it is (§5.20, Req
+   * 15.3): maps the seat id to `{ progress, secondsLeft }` so its
+   * `OfflineAvatar` drains a `CountdownRing`. Additive seam used by the
+   * `06c-player-disconnected` overlay (task 8.5); the live value is task 5.
+   */
+  seatCountdown?: Record<string, { progress: number; secondsLeft: number }>;
+  /**
+   * Overlay slot rendered OVER the table (task 8.5 menu/sheets, 8.7 paused).
+   * Left as a clean seam here; 8.4 does not implement any overlay.
+   */
+  overlay?: ReactNode;
+  /**
+   * Honor reduced motion (Req 17.6) — pass from `usePrefersReducedMotion()`.
+   * When true, the throw flight and draw-in become instant moves. Defaults to
+   * `true` so static renders (Playwright captures, fixtures) stay at rest and
+   * match the design reference PNGs; `GameRoute` passes the live preference.
+   */
+  reduced?: boolean;
+}
+
+export function GameTable({
+  view,
+  highlight = true,
+  width = 390,
+  onMenu,
+  onDraw,
+  onCallLastCard,
+  onCatch,
+  onPlayCard,
+  shakeCardId,
+  seatCountdown,
+  overlay,
+  reduced = true,
+}: GameTableProps) {
+  const isTeam = view.room.mode === "team";
+  const tone = SUIT_TONE[view.activeColor];
+  const isYourTurn = view.activeSeatId === view.selfId;
+
+  // Screen-reader announcements (Req 18.4/18.7): mirror the visible turn pill
+  // and the current card in play into a polite live region. The discard top is
+  // the "card just played" surface, phrased via the shared card label
+  // ("Red 7", "Wild draw four"). Composed so a card play landing with a turn
+  // change keeps the newest of each.
+  const announcement = useGameAnnouncements({
+    turnText: view.turnText,
+    lastPlay: `Top card ${cardAriaLabel(view.discardTop.value, view.discardTop.suit)}`,
+  });
+
+  // Opponent draw / play flights (Req 10.6 / 17.2).
+  const placedSeats = seatLayout(view);
+  const flights = useTableFlights(tableSnapshot(view), reduced);
+
+  // Mode chip text (Req 12.6): "2v2 · Round N" or "Normal · N players".
+  const modeChip = isTeam
+    ? `2v2 · Round ${view.room.roundNumber}`
+    : `Normal · ${view.room.players.length} players`;
+
+  // Your row ring: team color in 2v2, else `ink` for you; pulse on your turn.
+  const selfRing: AvatarRing = isTeam ? TEAM_RING[view.selfTeam ?? "A"] : "ink";
+  const selfCount = view.hand.length;
+  const selfMeta =
+    view.selfMeta ??
+    (isTeam
+      ? `Team ${view.selfTeam ?? "A"} · ${selfCount} cards`
+      : `${selfCount} cards`);
+
+  return (
+    <div
+      className="relative h-dvh w-full select-none overflow-hidden bg-paper"
+      style={{ touchAction: "manipulation" }}
+    >
+      {/* Polite live region — turn changes + the card in play (Req 18.4/18.7). */}
+      <LiveAnnouncer message={announcement} />
+
+      {/* Felt table oval. */}
+      <div className="absolute left-5 top-[150px] h-[470px] w-[350px] rounded-[50%] border-2 border-felt-edge bg-felt inset-shadow-felt" />
+
+      {/* Top bar — room chip · mode chip ("Round N") · menu. */}
+      <div className="absolute inset-x-4 top-4 flex h-11 items-center justify-between">
+        <Chip variant="info">ROOM · {view.room.code}</Chip>
+        <Chip variant="outline">{modeChip}</Chip>
+        <IconButton aria-label="Menu" onClick={onMenu}>
+          <MenuIcon />
+        </IconButton>
+      </div>
+
+      {/* Partner seat (2v2 only) — face-up hand at the top. */}
+      {isTeam && view.partner && (
+        <PartnerSeat
+          partner={{
+            ...view.partner,
+            // Drawn cards still in the air are shown once they land.
+            hand: view.partner.hand.slice(
+              0,
+              view.partner.hand.length - (flights.inFlightTo[view.partner.id] ?? 0),
+            ),
+          }}
+        />
+      )}
+
+      {/* Opponent seats — face-down backs with the 3D recipe (§6). */}
+      {placedSeats.map(({ seat: latestSeat, kind, style }) => {
+        // Cards still flying in are added to the seat only as they land.
+        const seat = {
+          ...latestSeat,
+          cardCount: latestSeat.cardCount - (flights.inFlightTo[latestSeat.id] ?? 0),
+        };
+        const seatActive = view.activeSeatId === seat.id;
+        const countdown = seatCountdown?.[seat.id];
+        return (
+          <OpponentSeat
+            key={seat.id}
+            seat={seat}
+            kind={kind}
+            ring={ringForOpponent(seat, isTeam, seatActive)}
+            activeTurn={seatActive}
+            {...(countdown ? { countdown } : {})}
+            style={style}
+          />
+        );
+      })}
+
+      {/* Direction ring — dashed circle in the active color; arrows flip when reversed. */}
+      <DirectionRing color={view.activeColor} direction={view.direction} />
+
+      {/* Piles — draw (left) + discard (right). Glow var drives the top-card glow. */}
+      <div
+        style={{ "--pile-glow": glowFor(view.activeColor) } as CSSProperties}
+      >
+        <Piles
+          discardTop={view.discardTop}
+          {...(view.discardPrev ? { discardPrev: view.discardPrev } : {})}
+          holdTopId={flights.holdTopId}
+          {...(onDraw ? { onDraw } : {})}
+          reduced={reduced}
+        />
+      </div>
+
+      {/* Turn pill (§5.5). */}
+      <div className="absolute left-0 top-[512px] flex w-full justify-center">
+        <TurnPill tone={isYourTurn ? tone : "turn"}>{view.turnText}</TurnPill>
+      </div>
+
+      {/* Catch strip — one button per opponent sitting on 1 card without calling
+          (Req 11.3). It disappears once they call, draw, or someone catches them. */}
+      {view.catchTargets.length > 0 && (
+        <div className="absolute inset-x-4 top-[552px] flex justify-center gap-2">
+          {view.catchTargets.map((target) => (
+            <Button
+              key={target.id}
+              variant="danger"
+              className="h-10 bg-surface font-display uppercase tracking-[0.04em]"
+              onClick={() => onCatch?.(target.id)}
+            >
+              Catch {target.name}!
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* Your row — avatar (team/turn ring + pulse), "You", meta, round "UNO" button. */}
+      <div className="absolute inset-x-4 top-[596px] flex h-12 items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Avatar
+            name={view.selfName}
+            size={44}
+            ring={isYourTurn && !isTeam ? "turn" : selfRing}
+            activeTurn={isYourTurn}
+          />
+          <div className="flex flex-col">
+            <span className="text-body text-ink">You</span>
+            <span
+              className={cn(
+                "text-micro font-semibold",
+                isTeam
+                  ? view.selfTeam === "B"
+                    ? "text-team-b"
+                    : "text-team-a"
+                  : "text-ink-muted",
+              )}
+            >
+              {selfMeta}
+            </span>
+          </div>
+        </div>
+        {/* Only relevant near the end of a hand: hidden above 2 cards. */}
+        {view.hand.length <= 2 && (
+          <Button
+            variant="outline"
+            className={cn(
+              "mr-4 size-14 px-0 font-display text-cta uppercase transition-colors",
+              view.canCallLastCard
+                ? "border-suit-red bg-suit-red text-surface shadow-cta"
+                : "border-line bg-surface text-ink-faint",
+            )}
+            disabled={!view.canCallLastCard}
+            onClick={onCallLastCard}
+          >
+            <span className="-rotate-6">UNO</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Your hand fan (§7.7). */}
+      <HandFan
+        view={view}
+        highlight={highlight}
+        width={width}
+        reduced={reduced}
+        {...(onPlayCard ? { onPlayCard } : {})}
+        {...(shakeCardId !== undefined ? { shakeCardId } : {})}
+      />
+
+      {/* Cards flying between the piles and the other players' seats. */}
+      <TableFlights
+        flights={flights.flights}
+        geometry={flightGeometry(view, placedSeats, width)}
+        onDone={flights.done}
+      />
+
+      {/* Overlay slot — task 8.5 / 8.7 render here over the table. */}
+      {overlay}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Seat layout + ring helpers.
+// ---------------------------------------------------------------------------
+
+interface PlacedSeat {
+  seat: OpponentSeatView;
+  kind: SeatKind;
+  style: CSSProperties;
+}
+
+/**
+ * Where flying cards land at a seat: the middle of its face-down back stack,
+ * below the avatar and name (§7.5/§7.6 positions).
+ */
+function seatLanding({ kind, style }: PlacedSeat, width: number): Point {
+  const w = Number(style.width);
+  const x =
+    style.left !== undefined
+      ? Number(style.left) + w / 2
+      : width - Number(style.right) - w / 2;
+  return { x, y: Number(style.top) + (kind === "top" ? 88 : 100) };
+}
+
+/** Draw pile / discard positions inside the piles row (left 105, top 340, §7.5). */
+const DRAW_PILE_CENTER: Point = { x: 147, y: 398 };
+const DISCARD_SLOT: Point = { x: 204, y: 344 };
+const DISCARD_CENTER: Point = { x: 241, y: 398 };
+/** Where cards land at the 2v2 partner's face-up hand (top center). */
+const PARTNER_LANDING_Y = 150;
+
+/** Table coordinates for the opponent draw / play flights. */
+function flightGeometry(view: GameView, placed: PlacedSeat[], width: number): FlightGeometry {
+  const seats: Record<string, Point> = {};
+  for (const p of placed) seats[p.seat.id] = seatLanding(p, width);
+  if (view.partner) seats[view.partner.id] = { x: width / 2, y: PARTNER_LANDING_Y };
+  return {
+    drawPile: DRAW_PILE_CENTER,
+    discardSlot: DISCARD_SLOT,
+    discardCenter: DISCARD_CENTER,
+    seats,
+  };
+}
+
+/** The pieces of the view the flights diff between renders. */
+function tableSnapshot(view: GameView): TableSnapshot {
+  const counts: Record<string, number> = {};
+  for (const o of view.opponents) counts[o.id] = o.cardCount;
+  if (view.partner) counts[view.partner.id] = view.partner.hand.length;
+  return {
+    selfId: view.selfId,
+    activeSeatId: view.activeSeatId,
+    counts,
+    discardTop: view.discardTop,
+  };
+}
+
+/**
+ * Place opponent seats around the table. In 2v2 both opponents sit on the sides
+ * (left / right, §7.5). In Normal, seats fill clockwise from the viewer's left:
+ * left, top-left, top-right, right, then the far side (§7.6). Positions come
+ * straight from the design layout table.
+ */
+function seatLayout(view: GameView): PlacedSeat[] {
+  const isTeam = view.room.mode === "team";
+  if (isTeam) {
+    // Team mode: partner is separate; the two opponents are the side seats.
+    const [left, right] = view.opponents;
+    const placed: PlacedSeat[] = [];
+    if (left)
+      placed.push({
+        seat: left,
+        kind: "left",
+        style: { left: 8, top: 272, width: 76 },
+      });
+    if (right)
+      placed.push({
+        seat: right,
+        kind: "right",
+        style: { right: 8, top: 272, width: 76 },
+      });
+    return placed;
+  }
+
+  // Normal: clockwise from your left — left, top-left, top-right, right.
+  const slots: { kind: SeatKind; style: CSSProperties }[] = [
+    { kind: "left", style: { left: 8, top: 272, width: 76 } },
+    { kind: "top", style: { left: 56, top: 72, width: 120 } },
+    { kind: "top", style: { left: 214, top: 72, width: 120 } },
+    { kind: "right", style: { right: 8, top: 272, width: 76 } },
+  ];
+  return view.opponents.slice(0, slots.length).map((seat, i) => ({
+    seat,
+    kind: slots[i].kind,
+    style: slots[i].style,
+  }));
+}
+
+/**
+ * Opponent avatar ring. In 2v2 it's the team color (§7.5 — rings carry team
+ * identity, Req 6.6). In Normal every ring is `ink-muted` EXCEPT the active
+ * player, who gets the `turn` ring (§7.6 / Req 6.4/6.5).
+ */
+function ringForOpponent(
+  seat: OpponentSeatView,
+  isTeam: boolean,
+  active: boolean,
+): AvatarRing {
+  if (isTeam) return seat.team ? TEAM_RING[seat.team] : "ink-muted";
+  return active ? "turn" : "ink-muted";
+}
+
+/** Suit → discard-top glow color (rgba around the played card, §7.5). */
+function glowFor(color: Suit): string {
+  switch (color) {
+    case "red":
+      return "rgba(212, 83, 59, 0.45)";
+    case "yellow":
+      return "rgba(224, 164, 35, 0.45)";
+    case "green":
+      return "rgba(91, 143, 78, 0.45)";
+    case "blue":
+      return "rgba(54, 89, 143, 0.45)";
+  }
+}
+
+/** 20px menu glyph (design.md §5.4 icon button). */
+function MenuIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}

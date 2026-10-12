@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "outDir": "lib",
+    "rootDir": "..",
+    "sourceMap": true,
+    "declaration": false,
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*.ts", "../src/game/engine/**/*.ts"],
+  "exclude": [
+    "../src/game/engine/**/*.test.ts",
+    "../src/game/engine/testkit.ts",
+    "lib",
+    "node_modules"
+  ]
+}

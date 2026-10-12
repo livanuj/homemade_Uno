@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: "{src/game/engine/**,supabase/functions/**}/*.{ts,tsx}"
+fileMatchPattern: "{src/game/engine/**,functions/**}/*.{ts,tsx}"
 ---
 
 # Game Engine Conventions
@@ -13,14 +13,14 @@ The rules engine in `src/game/engine/` is the correctness surface. It is a **pur
   ```ts
   Math.random();            // nondeterministic
   Date.now();               // nondeterministic
-  await supabase.from(...);  // I/O in the engine
+  await getDoc(...) / db access;  // I/O in the engine
   ```
 - REQUIRED — inject randomness and clock:
   ```ts
   export function shuffle<T>(cards: T[], rng: Rng): T[] { /* Fisher–Yates using rng */ }
   export function reducer(state: GameState, action: Action, ctx: { rng: Rng; now: number }): Result;
   ```
-Edge Functions supply a seeded `rng` and `now`; tests supply a fixed seed for reproducibility.
+Cloud Functions supply a seeded `rng` and `now`; tests supply a fixed seed for reproducibility.
 
 ## Pure transitions — return new state, never mutate
 
@@ -29,7 +29,7 @@ Edge Functions supply a seeded `rng` and `now`; tests supply a fixed seed for re
 
 ## Rejections are values, not throws
 
-- REQUIRED: return `{ ok: false, reason: "not_active" | "illegal_card" | "stale_version" | ... }`. The Edge Function maps reasons to responses; the engine does not throw for expected rule violations.
+- REQUIRED: return `{ ok: false, reason: "not_active" | "illegal_card" | "stale_version" | ... }`. The Cloud Function maps reasons to responses; the engine does not throw for expected rule violations.
 
 ## Invariants must always hold (property-tested)
 

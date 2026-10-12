@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Editor directories and files
 .vscode/*
@@ -31,3 +32,10 @@ dist-ssr
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Firebase
+.env.local
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/

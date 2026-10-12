@@ -91,6 +91,249 @@
         "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
         "timestamp": 1790687232091
       }
+    ],
+    "3.1 Define engine types, deck build, and shuffle": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790688359230
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689138077
+      }
+    ],
+    "3.2 Property test — deck composition": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790688360032
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689138879
+      }
+    ],
+    "3.3 Implement deal, initial discard, seat/team assignment, and first player": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689140327
+      }
+    ],
+    "3.4 Property tests — team seat alternation and card conservation on deal": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689141231
+      }
+    ],
+    "3.5 Implement turn advancement with reverse and skip (incl. 2-player)": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689142788
+      }
+    ],
+    "3.6 Property tests — active player, reverse/skip order, forbidden-context no-ops": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689144186
+      }
+    ],
+    "3.7 Implement match validity and non-wild play resolution": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689144992
+      }
+    ],
+    "3.8 Implement wild play and color selection": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689145932
+      }
+    ],
+    "3.9 Property tests — match legality and wild color": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689147344
+      }
+    ],
+    "3.10 Implement +2 / +4 asymmetric stacking and penalty resolution": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689148398
+      }
+    ],
+    "3.11 Property tests — stacking eligibility and penalty clearing": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689154642
+      }
+    ],
+    "3.12 Implement draw-one, reshuffle-on-empty, and end-turn-without-draw": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689155638
+      }
+    ],
+    "3.13 Implement last-card call, penalty, and flag hygiene": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689157139
+      }
+    ],
+    "3.14 Property tests — last-card penalty and flag hygiene": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689157936
+      }
+    ],
+    "3.15 Implement win detection and auto-pause predicate": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689159358
+      }
+    ],
+    "3. Implement the pure, server-side rules engine (TypeScript module)": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689159433
+      }
+    ],
+    "3.16 Property tests — win detection and auto-pause predicate": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689160289
+      }
+    ],
+    "3.17 Unit tests — engine examples and edge cases": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790689161246
+      }
+    ],
+    "6.1 Implement card and avatar primitives": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693281155
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790694365274
+      }
+    ],
+    "6.2 Implement buttons, chips, inputs, and switch": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693281399
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790694367845
+      }
+    ],
+    "6.3 Implement lobby structural components": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693282299
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790694367755
+      }
+    ],
+    "6.4 Implement overlay and result components": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790693283074
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790694368193
+      }
+    ],
+    "6. Build shared UI components grounded in Design_Spec tokens": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790694368286
+      }
+    ],
+    "7.1 Implement card-flight and turn animations": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790694392056
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790695657479
+      }
+    ],
+    "7.2 Implement overlay/drag/pause animations and reduced-motion handling": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790694892781
+      },
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790695657575
+      }
+    ],
+    "2.1 Configure the Supabase client and anonymous auth": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790695683933
+      }
+    ],
+    "2.2 Write the Postgres schema migrations": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790695684825
+      }
+    ],
+    "2.3 Write the RLS policies": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790695686493
+      }
+    ],
+    "2.4 Write RLS integration tests": [
+      {
+        "executionId": "d0515fc9-252a-4f1c-98a3-898a94efcea3",
+        "chatSessionId": "sess_a6337508-ecae-46dd-a37d-d53dd88b89f1",
+        "timestamp": 1790695687032
+      }
     ]
   }
 }
