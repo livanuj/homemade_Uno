@@ -147,7 +147,7 @@ export function MenuDrawer({
             exit="exit"
             {...(reduced ? { transition: instant } : {})}
             className={cn(
-              "absolute inset-y-0 right-0 flex w-[82.5%] max-w-[340px] flex-col gap-[18px]",
+              "absolute inset-y-0 right-0 flex w-[82.5%] max-w-[340px] flex-col gap-[18px] overflow-y-auto",
               "bg-surface rounded-l-drawer shadow-drawer px-5 pb-safe pt-safe",
               className,
             )}

@@ -32,6 +32,7 @@ import {
 import { MotionCard } from "@/components/MotionCard";
 import { OfflineAvatar } from "@/components/OfflineAvatar";
 import { PlayingCard } from "@/components/PlayingCard";
+import { TableStageContext } from "@/components/TableLayer";
 import {
   TableFlights,
   useTableFlights,
@@ -39,11 +40,14 @@ import {
   type Point,
   type TableSnapshot,
 } from "@/components/TableFlights";
-import { TurnPill, type TurnPillTone } from "@/components/TurnPill";
+import { TurnPill } from "@/components/TurnPill";
+import { TurnTag } from "@/components/TurnTag";
 import { cardAriaLabel, type Suit } from "@/design/suits";
 import {
   dealDelay,
   drawSlideTransition,
+  handTurnState,
+  handTurnTransition,
   motionTransition,
   playSpring,
 } from "@/design/motion";
@@ -51,24 +55,31 @@ import type {
   CardView,
   Direction,
   GameView,
+  HandCardView,
   OpponentSeatView,
   PartnerSeatView,
 } from "@/game/view/types";
 import { cn } from "@/lib/cn";
-import { AnimatePresence, motion, type MotionProps } from "motion/react";
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useCompactLandscape, useLandscape } from "@/lib/useLandscape";
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useDragControls,
+  useMotionValue,
+  type MotionProps,
+} from "motion/react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 // ---------------------------------------------------------------------------
 // Static token maps (styling.md — the compiler must see whole class names).
 // ---------------------------------------------------------------------------
-
-/** Active-color → dashed ring / turn-pill dot tone. */
-const SUIT_TONE: Record<Suit, TurnPillTone> = {
-  red: "red",
-  yellow: "yellow",
-  green: "green",
-  blue: "blue",
-};
 
 /** Active-color → SVG stroke color var (direction ring, §7.5). */
 const SUIT_STROKE: Record<Suit, string> = {
@@ -130,7 +141,12 @@ interface FanSlot {
  * (design.md §7.7). A selected card overrides to `top: 0, rotate: 0` at the
  * call site. Returned in px / degrees.
  */
-export function fanSlot(i: number, n: number, w: number): FanSlot {
+export function fanSlot(
+  i: number,
+  n: number,
+  w: number,
+  maxStep: number = MAX_STEP,
+): FanSlot {
   // Horizontal step. Target the design spacing (fill the available width up to
   // MAX_STEP), with a readable floor (MIN_STEP) so medium hands don't collapse.
   // But the floor is SOFT: if MIN_STEP would push the run past the full width
@@ -143,7 +159,7 @@ export function fanSlot(i: number, n: number, w: number): FanSlot {
     n <= 1
       ? 0
       : fitStep >= MIN_STEP
-        ? Math.min(MAX_STEP, fitStep) // comfortable: clamp to the design max
+        ? Math.min(maxStep, fitStep) // comfortable: clamp to the design max
         : Math.max(fitStep, (w - CARD_W) / (n - 1)); // tight: fit full width
   // Center the whole run within the container.
   const left = (w - (CARD_W + step * (n - 1))) / 2 + i * step;
@@ -160,13 +176,194 @@ export function fanSlot(i: number, n: number, w: number): FanSlot {
 }
 
 // ---------------------------------------------------------------------------
+// Table geometry — portrait (390×844 design) and landscape (1280×800 stage).
+// ---------------------------------------------------------------------------
+
+type SeatKind = "top" | "left" | "right";
+
+interface SeatSlot {
+  kind: SeatKind;
+  style: CSSProperties;
+}
+
+/**
+ * Every position on the table, per layout. Portrait is the phone design
+ * (§7.5–§7.7); landscape is the wide-screen layout drawn on a fixed 1280×800
+ * stage, and compact the phone-on-its-side layout on a 900×440 stage, each
+ * scaled by `GameTable` to fit the window. Class strings are whole static
+ * literals (styling.md); px points feed the flight math.
+ */
+interface TableGeometry {
+  /** Stage width in px — right-anchored seats measure from it. */
+  width: number;
+  /** Stage height in px (landscape stages only). */
+  height: number;
+  /** Stage classes: fixed size (landscape stages only). */
+  stage: string;
+  /** Width of the hand band the fan lays out in (px). */
+  handWidth: number;
+  /** Partner seat (2v2) top offset. */
+  partner: string;
+  /** Max horizontal step between hand cards (§7.7). */
+  maxStep: number;
+  oval: string;
+  topBar: string;
+  ring: string;
+  piles: string;
+  turnPill: string;
+  catchStrip: string;
+  selfRow: string;
+  hand: string;
+  drawPileCenter: Point;
+  discardSlot: Point;
+  discardCenter: Point;
+  partnerLandingY: number;
+  /** 2v2: the two opponents' side seats. */
+  teamSeats: [SeatSlot, SeatSlot];
+  /** Normal: clockwise from your left — left, top-left, top-right, right. */
+  normalSeats: SeatSlot[];
+}
+
+const SIDE_LEFT: SeatSlot = { kind: "left", style: { left: 8, top: 272, width: 76 } };
+const SIDE_RIGHT: SeatSlot = { kind: "right", style: { right: 8, top: 272, width: 76 } };
+const WIDE_LEFT: SeatSlot = { kind: "left", style: { left: 80, top: 236, width: 100 } };
+const WIDE_RIGHT: SeatSlot = { kind: "right", style: { right: 80, top: 236, width: 100 } };
+
+const TABLE_GEOMETRY: Record<"portrait" | "landscape" | "compact", TableGeometry> = {
+  portrait: {
+    width: 390,
+    height: 844,
+    stage: "",
+    handWidth: 390,
+    partner: "top-[70px]",
+    maxStep: MAX_STEP,
+    oval: "left-5 top-[150px] h-[470px] w-[350px]",
+    topBar: "inset-x-4 top-4",
+    ring: "left-[90px] top-[290px]",
+    piles: "left-[105px] top-[340px]",
+    turnPill: "top-[512px]",
+    catchStrip: "inset-x-4 top-[552px]",
+    selfRow: "inset-x-4 top-[596px]",
+    hand: "left-0 w-full top-[664px] h-[180px]",
+    drawPileCenter: { x: 147, y: 398 },
+    discardSlot: { x: 204, y: 344 },
+    discardCenter: { x: 241, y: 398 },
+    partnerLandingY: 150,
+    teamSeats: [SIDE_LEFT, SIDE_RIGHT],
+    normalSeats: [
+      SIDE_LEFT,
+      { kind: "top", style: { left: 56, top: 72, width: 120 } },
+      { kind: "top", style: { left: 214, top: 72, width: 120 } },
+      SIDE_RIGHT,
+    ],
+  },
+  landscape: {
+    width: 1280,
+    height: 800,
+    stage: "h-[800px] w-[1280px]",
+    handWidth: 1280,
+    partner: "top-[70px]",
+    maxStep: 64,
+    oval: "left-[220px] top-[112px] h-[420px] w-[840px]",
+    topBar: "inset-x-6 top-5",
+    ring: "left-[535px] top-[217px]",
+    piles: "left-[550px] top-[264px]",
+    turnPill: "top-[470px]",
+    catchStrip: "inset-x-10 top-[510px]",
+    selfRow: "inset-x-10 top-[566px]",
+    hand: "left-0 w-full top-[610px] h-[190px]",
+    drawPileCenter: { x: 592, y: 322 },
+    discardSlot: { x: 649, y: 268 },
+    discardCenter: { x: 686, y: 322 },
+    partnerLandingY: 140,
+    teamSeats: [WIDE_LEFT, WIDE_RIGHT],
+    normalSeats: [
+      WIDE_LEFT,
+      { kind: "top", style: { left: 400, top: 76, width: 160 } },
+      { kind: "top", style: { left: 720, top: 76, width: 160 } },
+      WIDE_RIGHT,
+    ],
+  },
+  // A phone on its side: one short band. Opponents hug the left/right edges,
+  // the partner (or top seats) sit just under the top bar, and the hand fans
+  // in a 640px band between your avatar and the UNO button.
+  compact: {
+    width: 900,
+    height: 440,
+    stage: "h-[440px] w-[900px]",
+    handWidth: 640,
+    // Avatar + name beside the face-up cards, so the seat stays clear of the piles.
+    partner: "top-[50px] flex-row justify-center gap-3",
+    maxStep: 64,
+    oval: "left-[150px] top-[64px] h-[260px] w-[600px]",
+    topBar: "inset-x-4 top-3",
+    ring: "left-[345px] top-[109px]",
+    piles: "left-[360px] top-[156px]",
+    turnPill: "top-[280px]",
+    // Right end of the turn-pill row, clear of the seats and the hand.
+    catchStrip: "right-4 top-[286px] justify-end",
+    selfRow: "inset-x-4 top-[352px]",
+    hand: "left-[130px] w-[640px] top-[320px] h-[120px]",
+    drawPileCenter: { x: 402, y: 214 },
+    discardSlot: { x: 459, y: 160 },
+    discardCenter: { x: 496, y: 214 },
+    partnerLandingY: 120,
+    teamSeats: [
+      { kind: "left", style: { left: 12, top: 60, width: 76 } },
+      { kind: "right", style: { right: 12, top: 60, width: 76 } },
+    ],
+    normalSeats: [
+      { kind: "left", style: { left: 12, top: 60, width: 76 } },
+      { kind: "top", style: { left: 200, top: 56, width: 120 } },
+      { kind: "top", style: { left: 580, top: 56, width: 120 } },
+      { kind: "right", style: { right: 12, top: 60, width: 76 } },
+    ],
+  },
+};
+
+/**
+ * Uniform scale that fits a `w`×`h` stage inside `container` (the table's own
+ * box, so shell safe-area padding is respected). Falls back to the window
+ * where `ResizeObserver` is unavailable (jsdom).
+ */
+function useStageScale(
+  container: HTMLElement | null,
+  enabled: boolean,
+  w: number,
+  h: number,
+): number {
+  const [scale, setScale] = useState(() =>
+    Math.min(window.innerWidth / w, window.innerHeight / h),
+  );
+  useEffect(() => {
+    if (!enabled) return;
+    const update = () => {
+      const box = container?.getBoundingClientRect();
+      const cw = box?.width || window.innerWidth;
+      const ch = box?.height || window.innerHeight;
+      setScale(Math.min(cw / w, ch / h));
+    };
+    update();
+    window.addEventListener("resize", update);
+    const observer =
+      container && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(update)
+        : null;
+    if (container) observer?.observe(container);
+    return () => {
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, [container, enabled, w, h]);
+  return scale;
+}
+
+// ---------------------------------------------------------------------------
 // 3D-recipe face-down back rows (design.md §6).
 // ---------------------------------------------------------------------------
 
 /** At most 7 backs are drawn per seat regardless of the real count (§6). */
 const MAX_BACKS = 7;
-
-type SeatKind = "top" | "left" | "right";
 
 /** Per-seat 3D transform + back variant + overlap offset (§6). */
 const SEAT_RECIPE: Record<
@@ -269,7 +466,14 @@ function OpponentSeat({
 }) {
   const offline = seat.connection === "offline";
   return (
-    <div className="absolute flex flex-col items-center gap-1" style={style}>
+    // Seats that aren't playing fade back so the active one stands out.
+    <div
+      className={cn(
+        "absolute flex flex-col items-center gap-1",
+        !activeTurn && "opacity-60",
+      )}
+      style={style}
+    >
       {offline ? (
         <OfflineAvatar
           name={seat.name}
@@ -288,6 +492,9 @@ function OpponentSeat({
       <span className="text-caption font-bold text-ink">
         {offline ? `${seat.name} · offline` : seat.name}
       </span>
+      {/* Whose turn: a "Playing" tag under the active player (an offline
+          active player shows its grace countdown instead). */}
+      {activeTurn && !offline && <TurnTag>Playing</TurnTag>}
       <div className={kind === "top" ? undefined : "mt-1.5"}>
         <BackStack kind={kind} count={seat.cardCount} />
       </div>
@@ -296,11 +503,32 @@ function OpponentSeat({
 }
 
 /** The partner seat (2v2, top) — face-up hand with the partner 3D recipe (§6). */
-function PartnerSeat({ partner }: { partner: PartnerSeatView }) {
+function PartnerSeat({
+  partner,
+  activeTurn,
+  className,
+}: {
+  partner: PartnerSeatView;
+  /** Whether it is the partner's turn — pulse + "Playing" tag; else faded. */
+  activeTurn: boolean;
+  /** Top offset (per table layout). */
+  className: string;
+}) {
   return (
-    <div className="absolute left-0 top-[70px] flex w-full flex-col items-center gap-1">
+    <div
+      className={cn(
+        "absolute left-0 flex w-full flex-col items-center gap-1",
+        !activeTurn && "opacity-60",
+        className,
+      )}
+    >
       <div className="flex items-center gap-2.5">
-        <Avatar name={partner.name} size={40} ring={TEAM_RING[partner.team]} />
+        <Avatar
+          name={partner.name}
+          size={40}
+          ring={TEAM_RING[partner.team]}
+          activeTurn={activeTurn}
+        />
         <div className="flex flex-col">
           <span className="text-body text-ink">{partner.name}</span>
           <span
@@ -312,6 +540,7 @@ function PartnerSeat({ partner }: { partner: PartnerSeatView }) {
             Partner · {partner.hand.length} cards
           </span>
         </div>
+        {activeTurn && <TurnTag>Playing</TurnTag>}
       </div>
       {/* Partner recipe: perspective on the parent, rotateX on the card row. */}
       <div style={{ perspective: "420px", paddingTop: 2 }}>
@@ -338,14 +567,17 @@ function PartnerSeat({ partner }: { partner: PartnerSeatView }) {
 function DirectionRing({
   color,
   direction,
+  className,
 }: {
   color: Suit;
   direction: Direction;
+  /** Position classes (per table layout). */
+  className: string;
 }) {
   const stroke = SUIT_STROKE[color];
   return (
     <svg
-      className="absolute left-[90px] top-[290px]"
+      className={cn("absolute", className)}
       width="210"
       height="210"
       viewBox="0 0 210 210"
@@ -393,7 +625,10 @@ function Piles({
   holdTopId = null,
   onDraw,
   reduced = false,
+  className,
 }: {
+  /** Position classes (per table layout). */
+  className: string;
   discardTop: CardView;
   discardPrev?: CardView;
   /**
@@ -409,7 +644,12 @@ function Piles({
   const discardTop = holding ? latestPrev : latestTop;
   const discardPrev = holding ? undefined : latestPrev;
   return (
-    <div className="absolute left-[105px] top-[340px] flex h-[116px] w-[180px] items-center justify-center gap-[22px]">
+    <div
+      className={cn(
+        "absolute flex h-[116px] w-[180px] items-center justify-center gap-[22px]",
+        className,
+      )}
+    >
       <CardBack variant="draw-pile" {...(onDraw ? { onClick: onDraw } : {})} />
       <div className="relative h-[108px] w-[74px]">
         {discardPrev && (
@@ -509,6 +749,29 @@ export function drawInMotionProps(
   };
 }
 
+/** Drag a card at least this far up (px) and release to throw it. */
+const THROW_DISTANCE = 90;
+/** …or flick it up this fast (px/s), past a small minimum distance. */
+const THROW_FLICK_VELOCITY = 600;
+const THROW_FLICK_MIN_DISTANCE = 24;
+
+/**
+ * Whether a touch drag of a hand card, released with this offset / velocity,
+ * throws the card (up is negative): far enough up, or a quick upward flick.
+ */
+export function isThrowGesture({
+  offsetY,
+  velocityY,
+}: {
+  offsetY: number;
+  velocityY: number;
+}): boolean {
+  if (offsetY <= -THROW_DISTANCE) return true;
+  return (
+    offsetY <= -THROW_FLICK_MIN_DISTANCE && velocityY <= -THROW_FLICK_VELOCITY
+  );
+}
+
 /**
  * The caller's fanned hand (§7.7). Each card is a `MotionCard` positioned
  * absolutely by the fan math. A played card flies to the discard via its shared
@@ -517,18 +780,31 @@ export function drawInMotionProps(
  * Unplayable cards are dimmed only when `highlight` is on (Req 7.5/7.6); the
  * selected card is raised to `top: 0, rotate: 0` with the team-colored lift
  * ring. Reduced motion (Req 17.6) makes every move instant.
+ *
+ * Playing is guarded against stray taps: a tap or click LIFTS a card, and a
+ * second tap on the lifted card throws it (tapping anywhere else drops it).
+ * On touch, a card can also be dragged up and released to throw it.
  */
 function HandFan({
   view,
   highlight,
+  isYourTurn,
   width,
+  maxStep,
+  className,
   onPlayCard,
   shakeCardId,
   reduced = false,
 }: {
   view: GameView;
   highlight: boolean;
+  /** Your turn: the hand rises to full strength; otherwise it sinks and fades. */
+  isYourTurn: boolean;
   width: number;
+  /** Max horizontal step between cards (§7.7; wider in landscape). */
+  maxStep: number;
+  /** Position + height classes for the hand band (per table layout). */
+  className: string;
   /** Tap a hand card → attempt to play it (Task 9.4). */
   onPlayCard?: (cardId: string) => void;
   /** The card id currently shaking after an illegal-tap rejection (Req 7.3). */
@@ -541,11 +817,37 @@ function HandFan({
     view.selfTeam === "B" ? "var(--color-team-b)" : "var(--color-team-a)";
   const drawInOrder = useDrawInOrder(view.hand.map((c) => c.id));
 
+  // The card lifted by a first tap. Ignored once it leaves the hand.
+  const [liftedId, setLiftedId] = useState<string | null>(null);
+  const lifted = view.hand.some((c) => c.id === liftedId) ? liftedId : null;
+
+  // A press anywhere other than the lifted card drops it back into the fan.
+  useEffect(() => {
+    if (!lifted) return;
+    const drop = (e: PointerEvent) => {
+      const target = e.target as Element | null;
+      if (!target?.closest(`[data-hand-card="${lifted}"]`)) setLiftedId(null);
+    };
+    document.addEventListener("pointerdown", drop, true);
+    return () => document.removeEventListener("pointerdown", drop, true);
+  }, [lifted]);
+
+  const throwCard = (cardId: string) => {
+    setLiftedId(null);
+    onPlayCard?.(cardId);
+  };
+
   return (
-    <div className="absolute left-0 top-[664px] h-[180px] w-full">
+    <motion.div
+      className={cn("absolute", className)}
+      variants={handTurnState}
+      initial={false}
+      animate={isYourTurn ? "active" : "waiting"}
+      transition={motionTransition(reduced, handTurnTransition)}
+    >
       {view.hand.map((card, i) => {
-        const slot = fanSlot(i, n, width);
-        const selected = !!card.selected;
+        const slot = fanSlot(i, n, width, maxStep);
+        const selected = !!card.selected || card.id === lifted;
         const style: CSSProperties = {
           position: "absolute",
           left: slot.left,
@@ -560,31 +862,142 @@ function HandFan({
             : {}),
         };
 
-        // Draw-in flight (Req 10.6): a newly arrived card slides up/in from the
-        // draw-pile direction and flips face-up. For a multi-card penalty draw,
-        // each card is delayed by its batch index (deal stagger).
-        const drawInProps = drawInMotionProps(drawInOrder.get(card.id), reduced);
-
-        // The outer div owns the fan POSITION/rotation (plain CSS transform);
-        // the inner motion wrapper owns only the draw-in flight (opacity / y /
-        // x / rotateY) so the two transforms never fight.
         return (
-          <div key={card.id} style={style}>
-            <motion.div {...drawInProps}>
-              <MotionCard
-                cardId={card.id}
-                {...faceProps(card)}
-                variant="hand"
-                selected={selected}
-                dim={highlight && !card.playable}
-                shake={shakeCardId === card.id}
-                reduced={reduced}
-                {...(onPlayCard ? { onClick: () => onPlayCard(card.id) } : {})}
-              />
-            </motion.div>
-          </div>
+          <HandCardSlot
+            key={card.id}
+            card={card}
+            style={style}
+            selected={selected}
+            dim={highlight && isYourTurn && !card.playable}
+            shake={shakeCardId === card.id}
+            reduced={reduced}
+            // Draw-in flight (Req 10.6): a newly arrived card slides up/in from
+            // the draw-pile direction and flips face-up. For a multi-card
+            // penalty draw, each card is delayed by its batch index.
+            drawInProps={drawInMotionProps(drawInOrder.get(card.id), reduced)}
+            {...(onPlayCard
+              ? {
+                  onTap: () =>
+                    card.id === lifted
+                      ? throwCard(card.id)
+                      : setLiftedId(card.id),
+                  onThrow: () => throwCard(card.id),
+                }
+              : {})}
+          />
         );
       })}
+    </motion.div>
+  );
+}
+
+/**
+ * One card in the hand fan. The outer div owns the fan POSITION/rotation
+ * (plain CSS transform); the drag wrapper owns the touch drag offset; the inner
+ * motion wrapper owns only the draw-in flight (opacity / y / x / rotateY), so
+ * the transforms never fight.
+ *
+ * Touch drag (pointerType "touch" only — a mouse keeps click-to-lift): the
+ * card follows the finger; released per `isThrowGesture` it is thrown and
+ * stays where it was let go until the play resolves (the shared-layout flight
+ * carries it to the discard). A short drag, or a rejected play (shake / the
+ * optimistic raise clearing), springs it back into the fan.
+ */
+function HandCardSlot({
+  card,
+  style,
+  selected,
+  dim,
+  shake,
+  reduced,
+  drawInProps,
+  onTap,
+  onThrow,
+}: {
+  card: HandCardView;
+  style: CSSProperties;
+  selected: boolean;
+  dim: boolean;
+  shake: boolean;
+  reduced: boolean;
+  drawInProps: Pick<MotionProps, "initial" | "animate" | "transition">;
+  /** Tap / click / Enter: lift, or throw when already lifted. */
+  onTap?: () => void;
+  /** A touch drag released as a throw. */
+  onThrow?: () => void;
+}) {
+  const dragControls = useDragControls();
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const thrown = useRef(false);
+  const dragging = useRef(false);
+  const wasSelected = useRef(selected);
+  const canDrag = !!onThrow;
+
+  const springBack = () => {
+    thrown.current = false;
+    const transition = motionTransition(reduced, playSpring);
+    animate(x, 0, transition);
+    animate(y, 0, transition);
+  };
+
+  // A thrown card that is rejected (shake) or whose optimistic raise clears
+  // while it is still in the hand goes back to its slot.
+  useEffect(() => {
+    if (shake && thrown.current) springBack();
+  }, [shake]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (thrown.current && wasSelected.current && !selected) springBack();
+    wasSelected.current = selected;
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div style={style} data-hand-card={card.id}>
+      <motion.div
+        style={{ x, y }}
+        drag={canDrag}
+        dragListener={false}
+        dragControls={dragControls}
+        dragMomentum={false}
+        className={canDrag ? "touch-none" : undefined}
+        onPointerDown={(e) => {
+          if (canDrag && e.pointerType === "touch") dragControls.start(e);
+        }}
+        onDragStart={() => {
+          dragging.current = true;
+        }}
+        onDragEnd={(_, info) => {
+          if (isThrowGesture({ offsetY: info.offset.y, velocityY: info.velocity.y })) {
+            thrown.current = true;
+            onThrow?.();
+          } else {
+            springBack();
+          }
+          // The click that follows a drag release is part of the drag.
+          window.setTimeout(() => {
+            dragging.current = false;
+          }, 0);
+        }}
+      >
+        <motion.div {...drawInProps}>
+          <MotionCard
+            cardId={card.id}
+            {...faceProps(card)}
+            variant="hand"
+            selected={selected}
+            dim={dim}
+            shake={shake}
+            reduced={reduced}
+            {...(onTap
+              ? {
+                  onClick: () => {
+                    if (!dragging.current) onTap();
+                  },
+                }
+              : {})}
+          />
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
@@ -651,7 +1064,16 @@ export function GameTable({
   reduced = true,
 }: GameTableProps) {
   const isTeam = view.room.mode === "team";
-  const tone = SUIT_TONE[view.activeColor];
+  const landscape = useLandscape();
+  const compact = useCompactLandscape();
+  const geo =
+    TABLE_GEOMETRY[compact ? "compact" : landscape ? "landscape" : "portrait"];
+  const [tableEl, setTableEl] = useState<HTMLDivElement | null>(null);
+  const [stageEl, setStageEl] = useState<HTMLDivElement | null>(null);
+  const stageScale = useStageScale(tableEl, landscape, geo.width, geo.height);
+  // Landscape lays out on a fixed stage, so the fan and seats measure that.
+  const tableWidth = landscape ? geo.width : width;
+  const handWidth = landscape ? geo.handWidth : width;
   const isYourTurn = view.activeSeatId === view.selfId;
 
   // Screen-reader announcements (Req 18.4/18.7): mirror the visible turn pill
@@ -665,7 +1087,7 @@ export function GameTable({
   });
 
   // Opponent draw / play flights (Req 10.6 / 17.2).
-  const placedSeats = seatLayout(view);
+  const placedSeats = seatLayout(view, geo);
   const flights = useTableFlights(tableSnapshot(view), reduced);
 
   // Mode chip text (Req 12.6): "2v2 · Round N" or "Normal · N players".
@@ -682,19 +1104,23 @@ export function GameTable({
       ? `Team ${view.selfTeam ?? "A"} · ${selfCount} cards`
       : `${selfCount} cards`);
 
-  return (
-    <div
-      className="relative h-dvh w-full select-none overflow-hidden bg-paper"
-      style={{ touchAction: "manipulation" }}
-    >
-      {/* Polite live region — turn changes + the card in play (Req 18.4/18.7). */}
-      <LiveAnnouncer message={announcement} />
-
+  const table = (
+    <>
       {/* Felt table oval. */}
-      <div className="absolute left-5 top-[150px] h-[470px] w-[350px] rounded-[50%] border-2 border-felt-edge bg-felt inset-shadow-felt" />
+      <div
+        className={cn(
+          "absolute rounded-[50%] border-2 border-felt-edge bg-felt inset-shadow-felt",
+          geo.oval,
+        )}
+      />
 
       {/* Top bar — room chip · mode chip ("Round N") · menu. */}
-      <div className="absolute inset-x-4 top-4 flex h-11 items-center justify-between">
+      <div
+        className={cn(
+          "absolute flex h-11 items-center justify-between",
+          geo.topBar,
+        )}
+      >
         <Chip variant="info">ROOM · {view.room.code}</Chip>
         <Chip variant="outline">{modeChip}</Chip>
         <IconButton aria-label="Menu" onClick={onMenu}>
@@ -705,6 +1131,8 @@ export function GameTable({
       {/* Partner seat (2v2 only) — face-up hand at the top. */}
       {isTeam && view.partner && (
         <PartnerSeat
+          className={geo.partner}
+          activeTurn={view.activeSeatId === view.partner.id}
           partner={{
             ...view.partner,
             // Drawn cards still in the air are shown once they land.
@@ -739,13 +1167,18 @@ export function GameTable({
       })}
 
       {/* Direction ring — dashed circle in the active color; arrows flip when reversed. */}
-      <DirectionRing color={view.activeColor} direction={view.direction} />
+      <DirectionRing
+        color={view.activeColor}
+        direction={view.direction}
+        className={geo.ring}
+      />
 
       {/* Piles — draw (left) + discard (right). Glow var drives the top-card glow. */}
       <div
         style={{ "--pile-glow": glowFor(view.activeColor) } as CSSProperties}
       >
         <Piles
+          className={geo.piles}
           discardTop={view.discardTop}
           {...(view.discardPrev ? { discardPrev: view.discardPrev } : {})}
           holdTopId={flights.holdTopId}
@@ -754,15 +1187,22 @@ export function GameTable({
         />
       </div>
 
-      {/* Turn pill (§5.5). */}
-      <div className="absolute left-0 top-[512px] flex w-full justify-center">
-        <TurnPill tone={isYourTurn ? tone : "turn"}>{view.turnText}</TurnPill>
-      </div>
+      {/* Turn pill (§5.5) — on other players' turns only. On your turn the
+          prompt moves to your own row, by your hand, instead of the felt. */}
+      {!isYourTurn && (
+        <div
+          className={cn("absolute left-0 flex w-full justify-center", geo.turnPill)}
+        >
+          <TurnPill tone="turn">{view.turnText}</TurnPill>
+        </div>
+      )}
 
       {/* Catch strip — one button per opponent sitting on 1 card without calling
           (Req 11.3). It disappears once they call, draw, or someone catches them. */}
       {view.catchTargets.length > 0 && (
-        <div className="absolute inset-x-4 top-[552px] flex justify-center gap-2">
+        <div
+          className={cn("absolute flex justify-center gap-2", geo.catchStrip)}
+        >
           {view.catchTargets.map((target) => (
             <Button
               key={target.id}
@@ -777,7 +1217,12 @@ export function GameTable({
       )}
 
       {/* Your row — avatar (team/turn ring + pulse), "You", meta, round "UNO" button. */}
-      <div className="absolute inset-x-4 top-[596px] flex h-12 items-center justify-between">
+      <div
+        className={cn(
+          "absolute flex h-12 items-center justify-between",
+          geo.selfRow,
+        )}
+      >
         <div className="flex items-center gap-2.5">
           <Avatar
             name={view.selfName}
@@ -786,7 +1231,12 @@ export function GameTable({
             activeTurn={isYourTurn}
           />
           <div className="flex flex-col">
-            <span className="text-body text-ink">You</span>
+            <span className="flex items-center gap-1.5 text-body text-ink">
+              You
+              {isYourTurn && (
+                <TurnTag className="text-label">Your turn</TurnTag>
+              )}
+            </span>
             <span
               className={cn(
                 "text-micro font-semibold",
@@ -823,7 +1273,10 @@ export function GameTable({
       <HandFan
         view={view}
         highlight={highlight}
-        width={width}
+        isYourTurn={isYourTurn}
+        width={handWidth}
+        maxStep={geo.maxStep}
+        className={geo.hand}
         reduced={reduced}
         {...(onPlayCard ? { onPlayCard } : {})}
         {...(shakeCardId !== undefined ? { shakeCardId } : {})}
@@ -832,12 +1285,49 @@ export function GameTable({
       {/* Cards flying between the piles and the other players' seats. */}
       <TableFlights
         flights={flights.flights}
-        geometry={flightGeometry(view, placedSeats, width)}
+        geometry={flightGeometry(view, placedSeats, tableWidth, geo)}
         onDone={flights.done}
       />
+    </>
+  );
 
-      {/* Overlay slot — task 8.5 / 8.7 render here over the table. */}
-      {overlay}
+  return (
+    <div
+      ref={setTableEl}
+      // Landscape fills the shell's padded box (safe areas included) so the
+      // scaled stage never runs under a notch or past the bottom edge.
+      className={cn(
+        "relative w-full select-none overflow-hidden bg-paper",
+        landscape ? "h-full" : "h-dvh",
+      )}
+      style={{ touchAction: "manipulation" }}
+    >
+      {/* Polite live region — turn changes + the card in play (Req 18.4/18.7). */}
+      <LiveAnnouncer message={announcement} />
+
+      {landscape ? (
+        // Landscape: the table is laid out on a fixed stage (1280×800, or
+        // 900×440 compact), centered and scaled uniformly to fit the window.
+        <div
+          ref={setStageEl}
+          className={cn(
+            "absolute top-1/2 left-1/2 origin-center -translate-x-1/2 -translate-y-1/2 scale-(--stage-scale)",
+            geo.stage,
+          )}
+          style={{ "--stage-scale": stageScale } as CSSProperties}
+        >
+          {table}
+        </div>
+      ) : (
+        table
+      )}
+
+      {/* Overlay slot — task 8.5 / 8.7 render here over the table (outside
+          the landscape stage, so they cover the whole window unscaled;
+          table-anchored pieces portal into the stage via `TableLayer`). */}
+      <TableStageContext.Provider value={landscape ? stageEl : null}>
+        {overlay}
+      </TableStageContext.Provider>
     </div>
   );
 }
@@ -865,22 +1355,20 @@ function seatLanding({ kind, style }: PlacedSeat, width: number): Point {
   return { x, y: Number(style.top) + (kind === "top" ? 88 : 100) };
 }
 
-/** Draw pile / discard positions inside the piles row (left 105, top 340, §7.5). */
-const DRAW_PILE_CENTER: Point = { x: 147, y: 398 };
-const DISCARD_SLOT: Point = { x: 204, y: 344 };
-const DISCARD_CENTER: Point = { x: 241, y: 398 };
-/** Where cards land at the 2v2 partner's face-up hand (top center). */
-const PARTNER_LANDING_Y = 150;
-
 /** Table coordinates for the opponent draw / play flights. */
-function flightGeometry(view: GameView, placed: PlacedSeat[], width: number): FlightGeometry {
+function flightGeometry(
+  view: GameView,
+  placed: PlacedSeat[],
+  width: number,
+  geo: TableGeometry,
+): FlightGeometry {
   const seats: Record<string, Point> = {};
   for (const p of placed) seats[p.seat.id] = seatLanding(p, width);
-  if (view.partner) seats[view.partner.id] = { x: width / 2, y: PARTNER_LANDING_Y };
+  if (view.partner) seats[view.partner.id] = { x: width / 2, y: geo.partnerLandingY };
   return {
-    drawPile: DRAW_PILE_CENTER,
-    discardSlot: DISCARD_SLOT,
-    discardCenter: DISCARD_CENTER,
+    drawPile: geo.drawPileCenter,
+    discardSlot: geo.discardSlot,
+    discardCenter: geo.discardCenter,
     seats,
   };
 }
@@ -902,36 +1390,21 @@ function tableSnapshot(view: GameView): TableSnapshot {
  * Place opponent seats around the table. In 2v2 both opponents sit on the sides
  * (left / right, §7.5). In Normal, seats fill clockwise from the viewer's left:
  * left, top-left, top-right, right, then the far side (§7.6). Positions come
- * straight from the design layout table.
+ * from the layout's table geometry.
  */
-function seatLayout(view: GameView): PlacedSeat[] {
+function seatLayout(view: GameView, geo: TableGeometry): PlacedSeat[] {
   const isTeam = view.room.mode === "team";
   if (isTeam) {
     // Team mode: partner is separate; the two opponents are the side seats.
     const [left, right] = view.opponents;
     const placed: PlacedSeat[] = [];
-    if (left)
-      placed.push({
-        seat: left,
-        kind: "left",
-        style: { left: 8, top: 272, width: 76 },
-      });
-    if (right)
-      placed.push({
-        seat: right,
-        kind: "right",
-        style: { right: 8, top: 272, width: 76 },
-      });
+    if (left) placed.push({ seat: left, ...geo.teamSeats[0] });
+    if (right) placed.push({ seat: right, ...geo.teamSeats[1] });
     return placed;
   }
 
   // Normal: clockwise from your left — left, top-left, top-right, right.
-  const slots: { kind: SeatKind; style: CSSProperties }[] = [
-    { kind: "left", style: { left: 8, top: 272, width: 76 } },
-    { kind: "top", style: { left: 56, top: 72, width: 120 } },
-    { kind: "top", style: { left: 214, top: 72, width: 120 } },
-    { kind: "right", style: { right: 8, top: 272, width: 76 } },
-  ];
+  const slots = geo.normalSeats;
   return view.opponents.slice(0, slots.length).map((seat, i) => ({
     seat,
     kind: slots[i].kind,

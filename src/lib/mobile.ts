@@ -13,9 +13,11 @@
 /**
  * Full-viewport app root. Uses `h-dvh` (dynamic viewport height, not `100vh`)
  * so the layout tracks the mobile URL bar, plus safe-area padding so nothing
- * renders under the notch or home bar on devices with non-zero insets.
+ * renders under the notch or home bar on devices with non-zero insets (left /
+ * right too, for a phone on its side).
  */
-export const APP_SHELL_CLASS = "h-dvh w-full overflow-hidden pt-safe pb-safe";
+export const APP_SHELL_CLASS =
+  "h-dvh w-full overflow-hidden pt-safe pb-safe px-safe";
 
 /**
  * Game table context: disable double-tap / pinch zoom so gestures on the table

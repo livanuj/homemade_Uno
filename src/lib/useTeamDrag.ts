@@ -2,7 +2,7 @@
  * Pointer drag-and-drop for the 2v2 lobby rows (design.md §5.13, Req 21.2–21.5).
  *
  * The host presses a row's `DragHandle`; once the pointer travels past a small
- * threshold the row lifts and follows the finger vertically, and whatever drop
+ * threshold the row lifts and follows the finger, and whatever drop
  * target is under the pointer is reported as `over`. Releasing calls `onDrop`
  * with that target (or null). A press that never crosses the threshold stays a
  * tap, so the handle's click still runs its tap/keyboard swap (Req 21.6).
@@ -32,10 +32,14 @@ export interface TeamDragState {
   over: TeamDropTarget | null;
   /** Lifted row's top edge, in px from the top of the drag container. */
   liftY: number;
+  /** Lifted row's left edge, in px from the left of the drag container. */
+  liftX: number;
 }
 
 /** Data attributes that make an element a drop target for hit-testing. */
-export function dropTargetAttrs(target: TeamDropTarget): Record<string, string> {
+export function dropTargetAttrs(
+  target: TeamDropTarget,
+): Record<string, string> {
   return target.kind === "player"
     ? { "data-drop-player": target.id }
     : { "data-drop-team": target.team };
@@ -48,7 +52,8 @@ function targetAt(x: number, y: number): TeamDropTarget | null {
   if (!el) return null;
   const { dropPlayer, dropTeam } = el.dataset;
   if (dropPlayer) return { kind: "player", id: dropPlayer };
-  if (dropTeam === "A" || dropTeam === "B") return { kind: "slot", team: dropTeam };
+  if (dropTeam === "A" || dropTeam === "B")
+    return { kind: "slot", team: dropTeam };
   return null;
 }
 
@@ -77,8 +82,9 @@ export function useTeamDrag({
 
       const { pointerId, clientX: startX, clientY: startY } = event;
       const row = event.currentTarget.closest("[data-drop-player]");
-      const grabOffset =
-        startY - (row ?? event.currentTarget).getBoundingClientRect().top;
+      const rowRect = (row ?? event.currentTarget).getBoundingClientRect();
+      const grabOffset = startY - rowRect.top;
+      const grabOffsetX = startX - rowRect.left;
       let active = false;
 
       const overAt = (x: number, y: number) => {
@@ -86,7 +92,13 @@ export function useTeamDrag({
         return over?.kind === "player" && over.id === id ? null : over;
       };
       const liftYAt = (y: number) =>
-        y - grabOffset - (containerRef.current?.getBoundingClientRect().top ?? 0);
+        y -
+        grabOffset -
+        (containerRef.current?.getBoundingClientRect().top ?? 0);
+      const liftXAt = (x: number) =>
+        x -
+        grabOffsetX -
+        (containerRef.current?.getBoundingClientRect().left ?? 0);
 
       const move = (e: PointerEvent) => {
         if (e.pointerId !== pointerId) return;
@@ -100,6 +112,7 @@ export function useTeamDrag({
           draggingId: id,
           over: overAt(e.clientX, e.clientY),
           liftY: liftYAt(e.clientY),
+          liftX: liftXAt(e.clientX),
         });
       };
       const up = (e: PointerEvent) => {

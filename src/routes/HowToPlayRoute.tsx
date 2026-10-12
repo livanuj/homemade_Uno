@@ -18,171 +18,188 @@
 import { PlayingCard } from "@/components/PlayingCard";
 import type { CardValue, Suit } from "@/design/suits";
 import { cn } from "@/lib/cn";
+import { useLandscape } from "@/lib/useLandscape";
 import { ScreenHeader } from "@/routes/SettingsRoute";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 export function HowToPlayRoute() {
   const navigate = useNavigate();
+  const landscape = useLandscape();
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="flex min-h-full flex-col gap-4 px-5 pt-safe pb-8">
         <ScreenHeader title="How to play" onBack={() => navigate(-1)} />
 
-        {/* Goal intro (design.md §7.9). */}
-        <div className="flex flex-col gap-2 px-1 pb-2 pt-1">
-          <p className="font-display text-sheet text-ink">
-            Be the first to play every card in your hand.
-          </p>
-          <p className="text-paragraph text-ink-muted">
-            Everyone starts with 7 cards. In 2v2, your team wins as soon as
-            either of you runs out.
-          </p>
-        </div>
+        {/* Landscape: a centered 1040px column; the sections below flow into
+            two balanced columns (each Section avoids breaking across them). */}
+        <div
+          className={cn(
+            landscape
+              ? "w-full max-w-260 columns-2 gap-5 self-center"
+              : "flex flex-col gap-4",
+          )}
+        >
+          {/* Goal intro (design.md §7.9). */}
+          <div
+            className={cn(
+              "flex flex-col gap-2 px-1 pb-2 pt-1",
+              landscape && "mb-5 break-inside-avoid",
+            )}
+          >
+            <p className="font-display text-sheet text-ink">
+              Be the first to play every card in your hand.
+            </p>
+            <p className="text-paragraph text-ink-muted">
+              Everyone starts with 7 cards. In 2v2, your team wins as soon as
+              either of you runs out.
+            </p>
+          </div>
 
-        {/* On your turn — with ✓/✗ matching examples. */}
-        <Section title="On your turn">
-          <p className="text-paragraph text-ink">
-            Play one card that matches the color on the pile, or has the same
-            number or symbol. If you can't play, or would rather not, tap the
-            draw pile to take one card. If it fits, you can play it straight
-            away.
-          </p>
-          <div className="flex items-end justify-between px-1 pb-1 pt-3">
-            <ExampleCard suit="red" value={7} caption="On the pile" />
-            <span
-              className="self-stretch w-px bg-felt-edge"
-              aria-hidden="true"
-            />
-            <ExampleCard
+          {/* On your turn — with ✓/✗ matching examples. */}
+          <Section title="On your turn">
+            <p className="text-paragraph text-ink">
+              Play one card that matches the color on the pile, or has the same
+              number or symbol. If you can't play, or would rather not, tap the
+              draw pile to take one card. If it fits, you can play it straight
+              away.
+            </p>
+            <div className="flex items-end justify-between px-1 pb-1 pt-3">
+              <ExampleCard suit="red" value={7} caption="On the pile" />
+              <span
+                className="self-stretch w-px bg-felt-edge"
+                aria-hidden="true"
+              />
+              <ExampleCard
+                suit="red"
+                value={3}
+                caption="Same color"
+                verdict="ok"
+              />
+              <ExampleCard
+                suit="blue"
+                value={7}
+                caption="Same number"
+                verdict="ok"
+              />
+              <ExampleCard
+                suit="yellow"
+                value={2}
+                caption="No match"
+                verdict="no"
+              />
+            </div>
+          </Section>
+
+          {/* Action cards. */}
+          <Section title="Action cards">
+            <ActionRow
               suit="red"
-              value={3}
-              caption="Same color"
-              verdict="ok"
+              value="+2"
+              name="Draw two"
+              description="The next player draws 2 cards and misses their turn."
             />
-            <ExampleCard
-              suit="blue"
-              value={7}
-              caption="Same number"
-              verdict="ok"
-            />
-            <ExampleCard
+            <RowDivider />
+            <ActionRow
               suit="yellow"
-              value={2}
-              caption="No match"
-              verdict="no"
+              value="skip"
+              name="Skip"
+              description="The next player misses their turn."
             />
-          </div>
-        </Section>
-
-        {/* Action cards. */}
-        <Section title="Action cards">
-          <ActionRow
-            suit="red"
-            value="+2"
-            name="Draw two"
-            description="The next player draws 2 cards and misses their turn."
-          />
-          <RowDivider />
-          <ActionRow
-            suit="yellow"
-            value="skip"
-            name="Skip"
-            description="The next player misses their turn."
-          />
-          <RowDivider />
-          <ActionRow
-            suit="green"
-            value="reverse"
-            name="Reverse"
-            description="Play changes direction. With 2 players, it works like a skip."
-          />
-          <RowDivider />
-          <ActionRow
-            value="wild"
-            name="Wild"
-            description="Play it on anything, then choose the next color."
-          />
-          <RowDivider />
-          <ActionRow
-            value="wild4"
-            name="Wild draw four"
-            description="Choose the next color. The next player draws 4 and misses their turn."
-          />
-        </Section>
-
-        {/* Stacking. */}
-        <Section title="Stacking">
-          <p className="text-paragraph text-ink">
-            When a +2 or +4 is played on you, you can pass it on by playing your
-            own. A +2 goes on a +2, and a +4 goes on either one. A +2 can't go
-            on a +4. The total keeps growing until someone can't stack and draws
-            all of it.
-          </p>
-          <div className="flex items-center gap-2.5 px-1 pb-0.5 pt-2">
-            <PlayingCard
-              suit="blue"
-              value="+2"
-              variant="partner"
-              tabIndex={-1}
-            />
-            <PlusSign />
-            <PlayingCard
+            <RowDivider />
+            <ActionRow
               suit="green"
-              value="+2"
-              variant="partner"
-              tabIndex={-1}
+              value="reverse"
+              name="Reverse"
+              description="Play changes direction. With 2 players, it works like a skip."
             />
-            <PlusSign />
-            <PlayingCard value="wild4" variant="partner" tabIndex={-1} />
-            <span className="ml-auto rounded-full bg-ink px-3 py-2 text-label font-extrabold text-surface">
-              Draw 8
+            <RowDivider />
+            <ActionRow
+              value="wild"
+              name="Wild"
+              description="Play it on anything, then choose the next color."
+            />
+            <RowDivider />
+            <ActionRow
+              value="wild4"
+              name="Wild draw four"
+              description="Choose the next color. The next player draws 4 and misses their turn."
+            />
+          </Section>
+
+          {/* Stacking. */}
+          <Section title="Stacking">
+            <p className="text-paragraph text-ink">
+              When a +2 or +4 is played on you, you can pass it on by playing
+              your own. A +2 goes on a +2, and a +4 goes on either one. A +2
+              can't go on a +4. The total keeps growing until someone can't
+              stack and draws all of it.
+            </p>
+            <div className="flex items-center gap-2.5 px-1 pb-0.5 pt-2">
+              <PlayingCard
+                suit="blue"
+                value="+2"
+                variant="partner"
+                tabIndex={-1}
+              />
+              <PlusSign />
+              <PlayingCard
+                suit="green"
+                value="+2"
+                variant="partner"
+                tabIndex={-1}
+              />
+              <PlusSign />
+              <PlayingCard value="wild4" variant="partner" tabIndex={-1} />
+              <span className="ml-auto rounded-full bg-ink px-3 py-2 text-label font-extrabold text-surface">
+                Draw 8
+              </span>
+            </div>
+          </Section>
+
+          {/* Uno! */}
+          <Section title="Uno!">
+            <p className="text-paragraph text-ink">
+              When you have 2 cards on your turn, tap UNO before you play.
+              Forgot? Tap it as soon as you can: if another player catches you
+              first, you draw 2 cards.
+            </p>
+            <span className="mt-1 grid size-14 place-items-center self-start rounded-full border-2 border-suit-red bg-suit-red font-display text-cta uppercase text-surface shadow-cta">
+              <span className="-rotate-6">UNO</span>
             </span>
-          </div>
-        </Section>
+          </Section>
 
-        {/* Uno! */}
-        <Section title="Uno!">
-          <p className="text-paragraph text-ink">
-            When you have 2 cards on your turn, tap UNO before you play.
-            Forgot? Tap it as soon as you can: if another player catches you
-            first, you draw 2 cards.
-          </p>
-          <span className="mt-1 grid size-14 place-items-center self-start rounded-full border-2 border-suit-red bg-suit-red font-display text-cta uppercase text-surface shadow-cta">
-            <span className="-rotate-6">UNO</span>
-          </span>
-        </Section>
+          {/* 2v2 teams. */}
+          <Section title="2v2 teams">
+            <p className="text-paragraph text-ink">
+              With exactly 4 players, you play in two teams. Your partner sits
+              across from you, and you can see each other's cards. Your team
+              wins when either of you plays your last card.
+            </p>
+            <div className="flex gap-4 pt-1">
+              <TeamDot
+                label="Team A"
+                dotClass="bg-team-a"
+                textClass="text-team-a"
+              />
+              <TeamDot
+                label="Team B"
+                dotClass="bg-team-b"
+                textClass="text-team-b"
+              />
+            </div>
+          </Section>
 
-        {/* 2v2 teams. */}
-        <Section title="2v2 teams">
-          <p className="text-paragraph text-ink">
-            With exactly 4 players, you play in two teams. Your partner sits
-            across from you, and you can see each other's cards. Your team wins
-            when either of you plays your last card.
-          </p>
-          <div className="flex gap-4 pt-1">
-            <TeamDot
-              label="Team A"
-              dotClass="bg-team-a"
-              textClass="text-team-a"
-            />
-            <TeamDot
-              label="Team B"
-              dotClass="bg-team-b"
-              textClass="text-team-b"
-            />
-          </div>
-        </Section>
-
-        {/* If someone drops out. */}
-        <Section title="If someone drops out">
-          <p className="text-paragraph text-ink">
-            There's no turn timer. If a player loses connection during their
-            turn, they get 60 seconds to come back. After that their turn is
-            skipped, and any cards they owe are drawn for them.
-          </p>
-        </Section>
+          {/* If someone drops out. */}
+          <Section title="If someone drops out">
+            <p className="text-paragraph text-ink">
+              There's no turn timer. If a player loses connection during their
+              turn, they get 60 seconds to come back. After that their turn is
+              skipped, and any cards they owe are drawn for them.
+            </p>
+          </Section>
+        </div>
       </div>
     </div>
   );
@@ -190,8 +207,14 @@ export function HowToPlayRoute() {
 
 /** A rules panel: `bg-surface rounded-section shadow-panel p-[18px]` (§5.24). */
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const landscape = useLandscape();
   return (
-    <section className="flex flex-col gap-2.5 rounded-section bg-surface p-[18px] shadow-panel">
+    <section
+      className={cn(
+        "flex flex-col gap-2.5 rounded-section bg-surface p-[18px] shadow-panel",
+        landscape && "mb-5 break-inside-avoid",
+      )}
+    >
       <h2 className="font-display text-title text-ink">{title}</h2>
       {children}
     </section>

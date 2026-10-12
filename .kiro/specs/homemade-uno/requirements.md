@@ -273,14 +273,15 @@ The application must be built strictly to the provided design assets in the `des
 
 #### Acceptance Criteria
 
-1. THE App SHALL provide a web manifest with `display` set to "standalone", `orientation` set to "portrait", and `background_color` and `theme_color` set per the Design_Spec.
+1. THE App SHALL provide a web manifest with `display` set to "standalone", `orientation` set to "any" (portrait phones, phones on their side, and wide screens each have a layout), and `background_color` and `theme_color` set per the Design_Spec.
 2. THE App SHALL set the viewport meta to `width=device-width, initial-scale=1, viewport-fit=cover` and the theme-color meta per the Design_Spec.
 3. THE App SHALL size the root using `h-dvh` and apply the safe-area padding per the Design_Spec so that no interactive control or text is rendered within the device safe-area insets on devices reporting non-zero safe-area inset values.
 4. THE App SHALL fit phone screens 360–430px wide and 667–932px tall without scrolling on game screens, scaling the table layout proportionally.
 5. WHILE the Lobby or How to play is displayed AND the total content height exceeds the viewport height, THE App SHALL allow vertical scrolling with no horizontal scrolling.
 6. THE App SHALL disable text selection on Cards and apply `touch-action: manipulation` to the game table such that double-tap and pinch gestures produce no zoom change on the game table.
 7. THE App SHALL hide the Vibration setting on devices that do not support vibration, including iPhones.
-8. IF the App is opened at a viewport width below 360px or above 430px, or in landscape orientation, THEN THE App SHALL display a message instructing the Player to use a supported portrait phone width between 360px and 430px, and SHALL suppress rendering of the game and lobby screens while the unsupported condition persists.
+8. IF the App is opened at a portrait viewport width below 360px, or at a viewport height below 300px, THEN THE App SHALL display a message instructing the Player to use a supported portrait phone width between 360px and 430px, and SHALL suppress rendering of the game and lobby screens while the unsupported condition persists.
+9. WHEN the App is opened at a viewport wider than 430px and at least as wide as it is tall, THE App SHALL render each screen in its landscape layout (the same components rearranged for a wide screen), compacted with a scrolling page and a tighter game table when the viewport is under 600px tall (a phone on its side); WHEN it is wider than 430px, at least 600px tall, and taller than it is wide (an upright tablet), THE App SHALL render the portrait layout unchanged in a centered column at most 430px wide.
 
 ### Requirement 17: Animations
 

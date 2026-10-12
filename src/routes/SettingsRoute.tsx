@@ -23,6 +23,7 @@ import {
   supportsVibration,
   useSettings,
 } from "@/lib/settings";
+import { useLandscape } from "@/lib/useLandscape";
 import { useId, useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -36,72 +37,102 @@ export function SettingsRoute() {
   // Feature-detect once: whether to show the Vibration row (Req 16.7). Computed
   // on mount so it can't flip between renders within a session.
   const showVibration = useMemo(() => supportsVibration(), []);
+  const landscape = useLandscape();
+
+  const you = (
+    <section className="flex flex-col gap-2">
+      <SectionLabel>YOU</SectionLabel>
+      <div className="flex flex-col gap-2 rounded-section bg-surface px-4 py-3.5 shadow-panel">
+        <Input
+          label="Your name"
+          value={settings.name}
+          maxLength={NAME_MAX_LENGTH}
+          autoCapitalize="words"
+          autoComplete="off"
+          onChange={(e) => set({ name: e.target.value })}
+          onBlur={(e) => set({ name: e.target.value.trim() })}
+        />
+        <span className="text-caption text-ink-muted">
+          Other players see this name at the table
+        </span>
+      </div>
+    </section>
+  );
+
+  const game = (
+    <section className="flex flex-col gap-2">
+      <SectionLabel>GAME</SectionLabel>
+      <div className="flex flex-col rounded-section bg-surface px-4 py-1.5 shadow-panel">
+        <SwitchRow
+          title="Sound effects"
+          description="Card flips, shuffles, the last-card call"
+          checked={settings.sound}
+          onChange={(v) => set({ sound: v })}
+        />
+        {showVibration && (
+          <>
+            <RowDivider />
+            <SwitchRow
+              title="Vibration"
+              description="Buzz on your turn. Not available on iPhone."
+              checked={settings.vibration}
+              onChange={(v) => set({ vibration: v })}
+            />
+          </>
+        )}
+        <RowDivider />
+        <SwitchRow
+          title="Highlight playable cards"
+          description="Dim the cards you cannot play"
+          checked={settings.highlight}
+          onChange={(v) => set({ highlight: v })}
+        />
+      </div>
+    </section>
+  );
+
+  const howToPlay = (
+    <div className="flex flex-col rounded-section bg-surface px-4 py-1 shadow-panel">
+      <button
+        type="button"
+        onClick={() => navigate("/how-to-play")}
+        className="flex min-h-[52px] items-center justify-between text-body text-ink"
+      >
+        How to play
+        <ChevronRightIcon />
+      </button>
+    </div>
+  );
 
   return (
-    <div className="flex h-full flex-col gap-[18px] px-5 pt-safe pb-safe">
+    <div
+      className={cn(
+        "flex h-full flex-col px-5 pt-safe pb-safe",
+        // Landscape scrolls when the window is short (a phone on its side).
+        landscape ? "gap-6 overflow-y-auto" : "gap-[18px]",
+      )}
+    >
       <ScreenHeader title="Settings" onBack={() => navigate(-1)} />
 
-      {/* YOU — editable display name (1–16 chars, stored on device). */}
-      <section className="flex flex-col gap-2">
-        <SectionLabel>YOU</SectionLabel>
-        <div className="flex flex-col gap-2 rounded-section bg-surface px-4 py-3.5 shadow-panel">
-          <Input
-            label="Your name"
-            value={settings.name}
-            maxLength={NAME_MAX_LENGTH}
-            autoCapitalize="words"
-            autoComplete="off"
-            onChange={(e) => set({ name: e.target.value })}
-            onBlur={(e) => set({ name: e.target.value.trim() })}
-          />
-          <span className="text-caption text-ink-muted">
-            Other players see this name at the table
-          </span>
+      {landscape ? (
+        // Landscape: YOU + How to play on the left, GAME on the right.
+        <div className="grid w-full max-w-240 grid-cols-2 items-start gap-6 self-center">
+          <div className="flex flex-col gap-6">
+            {you}
+            {howToPlay}
+          </div>
+          {game}
         </div>
-      </section>
-
-      {/* GAME — the three toggles. */}
-      <section className="flex flex-col gap-2">
-        <SectionLabel>GAME</SectionLabel>
-        <div className="flex flex-col rounded-section bg-surface px-4 py-1.5 shadow-panel">
-          <SwitchRow
-            title="Sound effects"
-            description="Card flips, shuffles, the last-card call"
-            checked={settings.sound}
-            onChange={(v) => set({ sound: v })}
-          />
-          {showVibration && (
-            <>
-              <RowDivider />
-              <SwitchRow
-                title="Vibration"
-                description="Buzz on your turn. Not available on iPhone."
-                checked={settings.vibration}
-                onChange={(v) => set({ vibration: v })}
-              />
-            </>
-          )}
-          <RowDivider />
-          <SwitchRow
-            title="Highlight playable cards"
-            description="Dim the cards you cannot play"
-            checked={settings.highlight}
-            onChange={(v) => set({ highlight: v })}
-          />
-        </div>
-      </section>
-
-      {/* How to play — link row (design.md §5.23). */}
-      <div className="flex flex-col rounded-section bg-surface px-4 py-1 shadow-panel">
-        <button
-          type="button"
-          onClick={() => navigate("/how-to-play")}
-          className="flex min-h-[52px] items-center justify-between text-body text-ink"
-        >
-          How to play
-          <ChevronRightIcon />
-        </button>
-      </div>
+      ) : (
+        <>
+          {/* YOU — editable display name (1–16 chars, stored on device). */}
+          {you}
+          {/* GAME — the three toggles. */}
+          {game}
+          {/* How to play — link row (design.md §5.23). */}
+          {howToPlay}
+        </>
+      )}
 
       <div className="flex-1" />
       <span className="self-center text-caption text-ink-muted">

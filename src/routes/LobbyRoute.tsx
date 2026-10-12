@@ -42,6 +42,7 @@ import type {
 } from "@/game/view/types";
 import { cn } from "@/lib/cn";
 import { copyToClipboard, shareInvite } from "@/lib/share";
+import { useCompactLandscape, useLandscape } from "@/lib/useLandscape";
 import { dropTargetAttrs, useTeamDrag } from "@/lib/useTeamDrag";
 import { useRoomChannel } from "@/realtime/useRoomChannel";
 import {
@@ -261,6 +262,8 @@ function LobbyScreen({
   const isHost = host?.id === view.selfId;
   const { code, mode, players } = view.room;
   const [copied, setCopied] = useState(false);
+  const landscape = useLandscape();
+  const compact = useCompactLandscape();
 
   const teamDisabled = players.length > TEAM_MAX_PLAYERS;
 
@@ -283,6 +286,7 @@ function LobbyScreen({
     ? {
         draggingId: liveDrag.draggingId,
         liftY: liveDrag.liftY,
+        liftX: liveDrag.liftX,
         ...(validOver?.kind === "player" ? { overId: validOver.id } : {}),
         ...(validOver?.kind === "slot" ? { overTeam: validOver.team } : {}),
       }
@@ -299,109 +303,168 @@ function LobbyScreen({
     window.setTimeout(() => setCopied(false), 1500);
   }
 
+  const header = (
+    // Header — back, "Game room" title, 44px right spacer for symmetry.
+    <header className="flex h-11 shrink-0 items-center justify-between">
+      <IconButton aria-label="Back" onClick={handlers.onBack}>
+        <BackIcon />
+      </IconButton>
+      <h1 className="font-display text-title text-ink">Game room</h1>
+      <span className="w-11" aria-hidden="true" />
+    </header>
+  );
+
+  const roomPanel = (
+    // Room-code panel — code + Copy link (outline) / Share invite (primary).
+    <section className="flex flex-col items-center gap-2 rounded-panel bg-surface px-5 pt-3 pb-3.5 shadow-panel">
+      <span className="text-label font-bold tracking-[0.1em] text-ink-muted">
+        ROOM CODE
+      </span>
+      <span className="font-display text-code text-ink">{code}</span>
+      <div className="flex w-full gap-2.5">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={handleCopyLink}
+          aria-live="polite"
+        >
+          {copied ? "Link copied" : "Copy link"}
+        </Button>
+        <Button
+          variant="primary-small"
+          className="flex-1"
+          onClick={handlers.onShare}
+        >
+          Share invite
+        </Button>
+      </div>
+    </section>
+  );
+
+  const modeControl = (
+    // Mode control — host editable / guest read-only "chosen by the host".
+    <ModeControl
+      mode={mode}
+      canEdit={isHost}
+      teamDisabled={teamDisabled}
+      onModeChange={handlers.onModeChange}
+    />
+  );
+
+  const playersHeader = (
+    // Players header — count + right-side hint (drag in 2v2, "Up to 8" else).
+    <div className="flex min-h-5 items-center justify-between px-1">
+      <span className="text-body font-extrabold text-ink">
+        Players · {players.length}
+      </span>
+      {isHost && <PlayersHint mode={mode} drag={!!drag} />}
+    </div>
+  );
+
+  const playerArea =
+    // Player area — single list (Normal) or Team A / Team B cards (2v2); the
+    // team cards sit side by side in landscape.
+    mode === "team" ? (
+      <div
+        ref={teamAreaRef}
+        className={cn(
+          "relative",
+          // Side by side in landscape; stacked on a phone on its side.
+          landscape && !compact
+            ? "grid grid-cols-2 items-start gap-5"
+            : "flex flex-col gap-3",
+          drag && "select-none",
+        )}
+      >
+        <TeamArea
+          view={dragView}
+          isHost={isHost}
+          onMovePlayer={moveByTap}
+          onHandlePointerDown={teamDrag.startDrag}
+        />
+        {drag &&
+          (() => {
+            const dragged = players.find((p) => p.id === drag.draggingId);
+            if (!dragged) return null;
+            return (
+              <LiftedRow
+                name={displayName(dragged, view.selfId)}
+                ring={ringFor(dragged, mode)}
+                liftY={drag.liftY}
+                liftX={drag.liftX}
+                landscape={landscape && !compact}
+              />
+            );
+          })()}
+      </div>
+    ) : (
+      <NormalList view={view} />
+    );
+
+  const footer =
+    // Start control — host CTA + reason, or guest "waiting" + Leave room.
+    isHost ? (
+      <StartControl
+        caption={caption}
+        disabled={startDisabled || !!handlers.busy}
+        onStart={handlers.onStart}
+      />
+    ) : (
+      <GuestFooter
+        hostName={host?.name ?? "the host"}
+        onLeave={handlers.onLeave}
+      />
+    );
+
+  const toast = handlers.toast && (
+    // Transient toast (copy confirmation, clipboard fallback, auto-switch).
+    <div className="pointer-events-none absolute inset-x-0 top-20 flex justify-center">
+      <Toast>{handlers.toast}</Toast>
+    </div>
+  );
+
+  // Landscape: room code, mode and Start in a left column; players fill the
+  // right.
+  if (landscape) {
+    return (
+      // The whole page scrolls when the window is short (a phone on its side);
+      // otherwise Start sits at the bottom of the left column.
+      <div className="relative h-full overflow-y-auto">
+        <div className="flex min-h-full flex-col gap-4 px-6 pt-safe pb-safe">
+          {header}
+          <div className="flex flex-1 gap-8">
+            <div
+              className={cn(
+                "flex shrink-0 flex-col gap-4",
+                compact ? "w-80" : "w-105",
+              )}
+            >
+              {roomPanel}
+              {modeControl}
+              <div className="flex-1" />
+              {footer}
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              {playersHeader}
+              {playerArea}
+            </div>
+          </div>
+        </div>
+        {toast}
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex h-full flex-col gap-3 px-5 pt-4 pb-6 pt-safe pb-safe">
-      {/* Header — back, "Game room" title, 44px right spacer for symmetry. */}
-      <header className="flex h-11 shrink-0 items-center justify-between">
-        <IconButton aria-label="Back" onClick={handlers.onBack}>
-          <BackIcon />
-        </IconButton>
-        <h1 className="font-display text-title text-ink">Game room</h1>
-        <span className="w-11" aria-hidden="true" />
-      </header>
-
-      {/* Room-code panel — code + Copy link (outline) / Share invite (primary). */}
-      <section className="flex flex-col items-center gap-2 rounded-panel bg-surface px-5 pt-3 pb-3.5 shadow-panel">
-        <span className="text-label font-bold tracking-[0.1em] text-ink-muted">
-          ROOM CODE
-        </span>
-        <span className="font-display text-code text-ink">{code}</span>
-        <div className="flex w-full gap-2.5">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={handleCopyLink}
-            aria-live="polite"
-          >
-            {copied ? "Link copied" : "Copy link"}
-          </Button>
-          <Button
-            variant="primary-small"
-            className="flex-1"
-            onClick={handlers.onShare}
-          >
-            Share invite
-          </Button>
-        </div>
-      </section>
-
-      {/* Mode control — host editable / guest read-only "chosen by the host". */}
-      <ModeControl
-        mode={mode}
-        canEdit={isHost}
-        teamDisabled={teamDisabled}
-        onModeChange={handlers.onModeChange}
-      />
-
-      {/* Players header — count + right-side hint (drag in 2v2, "Up to 8" else). */}
-      <div className="flex min-h-5 items-center justify-between px-1">
-        <span className="text-body font-extrabold text-ink">
-          Players · {players.length}
-        </span>
-        {isHost && <PlayersHint mode={mode} drag={!!drag} />}
-      </div>
-
-      {/* Player area — single list (Normal) or Team A / Team B cards (2v2). */}
-      {mode === "team" ? (
-        <div
-          ref={teamAreaRef}
-          className={cn("relative flex flex-col gap-3", drag && "select-none")}
-        >
-          <TeamArea
-            view={dragView}
-            isHost={isHost}
-            onMovePlayer={moveByTap}
-            onHandlePointerDown={teamDrag.startDrag}
-          />
-          {drag &&
-            (() => {
-              const dragged = players.find((p) => p.id === drag.draggingId);
-              if (!dragged) return null;
-              return (
-                <LiftedRow
-                  name={displayName(dragged, view.selfId)}
-                  ring={ringFor(dragged, mode)}
-                  liftY={drag.liftY}
-                />
-              );
-            })()}
-        </div>
-      ) : (
-        <NormalList view={view} />
-      )}
-
+      {header}
+      {roomPanel}
+      {modeControl}
+      {playersHeader}
+      {playerArea}
       <div className="flex-1" />
-
-      {/* Start control — host CTA + reason, or guest "waiting" + Leave room. */}
-      {isHost ? (
-        <StartControl
-          caption={caption}
-          disabled={startDisabled || !!handlers.busy}
-          onStart={handlers.onStart}
-        />
-      ) : (
-        <GuestFooter
-          hostName={host?.name ?? "the host"}
-          onLeave={handlers.onLeave}
-        />
-      )}
-
-      {/* Transient toast (copy confirmation, clipboard fallback, auto-switch). */}
-      {handlers.toast && (
-        <div className="pointer-events-none absolute inset-x-0 top-20 flex justify-center">
-          <Toast>{handlers.toast}</Toast>
-        </div>
-      )}
+      {footer}
+      {toast}
     </div>
   );
 }
@@ -424,8 +487,16 @@ function PlayersHint({ mode, drag }: { mode: GameMode; drag: boolean }) {
 /** Normal-mode player list — one panel listing every player (screen 02b). */
 function NormalList({ view }: { view: LobbyView }) {
   const { players, mode } = view.room;
+  const landscape = useLandscape();
   return (
-    <section className="flex flex-col gap-1 rounded-panel bg-surface px-3 py-2 shadow-panel">
+    <section
+      className={cn(
+        "rounded-panel bg-surface shadow-panel",
+        landscape
+          ? "grid grid-cols-2 gap-2 px-3.5 py-3"
+          : "flex flex-col gap-1 px-3 py-2",
+      )}
+    >
       {players.map((p) => (
         <PlayerRow
           key={p.id}
@@ -610,23 +681,39 @@ const AVATAR_RING_CLASS: Record<AvatarRing, string> = {
 /**
  * The lifted/tilted row following the finger (design.md §5.13 / screen 02e).
  * `liftY` positions it at the pointer during a live drag; without it the row
- * sits where the `02e` reference shows it.
+ * sits where the `02e` reference shows it. In landscape, where the teams sit
+ * side by side, it is half the width and `liftX` follows the pointer
+ * horizontally too.
  */
 function LiftedRow({
   name,
   ring,
   liftY,
+  liftX,
+  landscape,
 }: {
   name: string;
   ring: AvatarRing;
   liftY?: number | undefined;
+  liftX?: number | undefined;
+  landscape: boolean;
 }) {
   return (
     <div
-      style={
-        liftY === undefined ? undefined : { ["--lift-y" as string]: `${liftY}px` }
-      }
-      className="pointer-events-none absolute left-2 right-24 top-[var(--lift-y,104px)] z-10"
+      style={{
+        ...(liftY === undefined
+          ? {}
+          : { ["--lift-y" as string]: `${liftY}px` }),
+        ...(liftX === undefined
+          ? {}
+          : { ["--lift-x" as string]: `${liftX}px` }),
+      }}
+      className={cn(
+        "pointer-events-none absolute top-[var(--lift-y,104px)] z-10",
+        landscape
+          ? "left-[var(--lift-x,8px)] w-[calc(50%-10px)]"
+          : "left-2 right-24",
+      )}
     >
       <MotionDragRow lifted>
         <div className="flex min-h-[46px] items-center gap-2.5 rounded-row bg-surface px-2.5 py-1.5">

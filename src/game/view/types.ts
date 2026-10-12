@@ -82,6 +82,8 @@ export interface LobbyDrag {
   overTeam?: TeamId;
   /** Lifted row's top, px from the team area; unset uses the `02e` position. */
   liftY?: number;
+  /** Lifted row's left, px from the team area (landscape, where teams sit side by side). */
+  liftX?: number;
 }
 
 /** Lobby-facing projection (task 8.3 consumes this). */

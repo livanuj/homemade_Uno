@@ -32,6 +32,7 @@ import type {
   TeamId,
 } from "@/game/view/types";
 import { cn } from "@/lib/cn";
+import { useCompactLandscape, useLandscape } from "@/lib/useLandscape";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 import { useRoomChannel } from "@/realtime/useRoomChannel";
 import { useEffect, useMemo } from "react";
@@ -205,63 +206,102 @@ function GameOverScreen({
   handlers: ResultHandlers;
 }) {
   const reduced = usePrefersReducedMotion();
+  const landscape = useLandscape();
+  const compact = useCompactLandscape();
   const hasWinner = view.kind !== "none";
+
+  const winners = (
+    // Winners + title
+    <div
+      className={cn(
+        "relative flex flex-col items-center gap-3.5",
+        !landscape && "pt-24",
+      )}
+    >
+      {view.winners.length > 0 && (
+        <div className="flex">
+          {view.winners.map((w, i) => (
+            <Avatar
+              key={w.id}
+              name={w.name}
+              size={44}
+              ring={ringFor(w)}
+              className={cn("shadow-cta", i > 0 && "-ml-4")}
+            />
+          ))}
+        </div>
+      )}
+      <div className="flex flex-col items-center gap-1.5 text-center">
+        <h1 className="font-display text-hero">{view.title}</h1>
+        {view.subtitle && (
+          <p className="text-paragraph text-ink-muted">{view.subtitle}</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const controls = (
+    // Primary control: host "Play again" vs. guest waiting; "Back to home".
+    <div className="relative flex flex-col items-center gap-2.5">
+      {view.selfIsHost ? (
+        <>
+          <Button variant="primary" onClick={handlers.onPlayAgain}>
+            Play again
+          </Button>
+          <span className="text-label font-semibold text-ink-muted">
+            Everyone stays in room {view.room.code}
+          </span>
+        </>
+      ) : (
+        <span
+          className="flex h-14 w-full items-center justify-center rounded-full bg-line text-cta font-display text-ink-muted"
+          role="status"
+        >
+          Waiting for the host
+        </span>
+      )}
+      <Button variant="soft" className="w-full" onClick={handlers.onBackHome}>
+        Back to home
+      </Button>
+    </div>
+  );
+
+  // Landscape: winners on the left; results and controls on the right.
+  if (landscape) {
+    return (
+      // Scrolls when the window is short (a phone on its side).
+      <main className="relative h-full overflow-y-auto bg-paper">
+        {/* Confetti bursts only when there IS a winner (Req 25.13). */}
+        {hasWinner && <Confetti reduced={reduced} />}
+        <div
+          className={cn(
+            "flex min-h-full items-center",
+            compact ? "gap-10 px-10 py-4" : "gap-24 px-24 pt-safe pb-safe",
+          )}
+        >
+          <div className="flex flex-1 justify-center">{winners}</div>
+          <div
+            className={cn(
+              "relative flex w-110 shrink-0 flex-col",
+              compact ? "gap-3" : "gap-[18px]",
+            )}
+          >
+            <ResultsCard view={view} />
+            {controls}
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="relative flex h-dvh flex-col gap-[18px] overflow-hidden bg-paper px-5 pt-4 pb-7 pt-safe pb-safe">
       {/* Confetti bursts only when there IS a winner (Req 25.13). */}
       {hasWinner && <Confetti reduced={reduced} />}
-
-      {/* Winners + title */}
-      <div className="relative flex flex-col items-center gap-3.5 pt-24">
-        {view.winners.length > 0 && (
-          <div className="flex">
-            {view.winners.map((w, i) => (
-              <Avatar
-                key={w.id}
-                name={w.name}
-                size={44}
-                ring={ringFor(w)}
-                className={cn("shadow-cta", i > 0 && "-ml-4")}
-              />
-            ))}
-          </div>
-        )}
-        <div className="flex flex-col items-center gap-1.5 text-center">
-          <h1 className="font-display text-hero">{view.title}</h1>
-          {view.subtitle && (
-            <p className="text-paragraph text-ink-muted">{view.subtitle}</p>
-          )}
-        </div>
-      </div>
-
+      {winners}
       <ResultsCard view={view} />
-
       <div className="grow" />
-
-      {/* Primary control: host "Play again" vs. guest waiting; "Back to home". */}
-      <div className="relative flex flex-col items-center gap-2.5">
-        {view.selfIsHost ? (
-          <>
-            <Button variant="primary" onClick={handlers.onPlayAgain}>
-              Play again
-            </Button>
-            <span className="text-label font-semibold text-ink-muted">
-              Everyone stays in room {view.room.code}
-            </span>
-          </>
-        ) : (
-          <span
-            className="flex h-14 w-full items-center justify-center rounded-full bg-line text-cta font-display text-ink-muted"
-            role="status"
-          >
-            Waiting for the host
-          </span>
-        )}
-        <Button variant="soft" className="w-full" onClick={handlers.onBackHome}>
-          Back to home
-        </Button>
-      </div>
+      {controls}
     </main>
   );
 }

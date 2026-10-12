@@ -61,4 +61,14 @@ describe("fanSlot", () => {
       expect(slots[i].left).toBeGreaterThan(slots[i - 1].left);
     }
   });
+
+  it("spreads a hand wider when given a larger max step (landscape table)", () => {
+    const narrow = Array.from({ length: 7 }, (_, i) => fanSlot(i, 7, 1280));
+    const wide = Array.from({ length: 7 }, (_, i) => fanSlot(i, 7, 1280, 64));
+    const span = (s: typeof narrow) => s[6].left - s[0].left;
+    expect(span(narrow)).toBeCloseTo(6 * 42, 5);
+    expect(span(wide)).toBeCloseTo(6 * 64, 5);
+    // Still centered on the stage.
+    expect((wide[0].left + wide[6].left + CARD_W) / 2).toBeCloseTo(640, 5);
+  });
 });

@@ -32,12 +32,8 @@ test("03-game-2v2 renders and captures", async ({ page }) => {
   // Partner hand is face-up (Req 13.1/13.2).
   await expect(page.getByRole("button", { name: "Yellow 5" })).toBeVisible();
   await expect(page.getByText("Partner · 5 cards")).toBeVisible();
-  // Turn pill (visible) — exclude the sr-only live region.
-  await expect(
-    page.locator(':not([role="status"])', {
-      hasText: "Your turn · match red or play a wild",
-    }).last(),
-  ).toBeVisible();
+  // Your turn: a "Your turn" tag in your own row, not a pill on the felt.
+  await expect(page.getByText("Your turn", { exact: true })).toBeVisible();
   // The polite live region mirrors the same turn text (Req 18.4/18.7).
   await expect(page.getByRole("status")).toContainText(
     "Your turn · match red or play a wild",

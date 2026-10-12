@@ -64,3 +64,74 @@ export function useViewportSupported(): boolean {
 
   return supported;
 }
+
+/**
+ * Shortest viewport (px) for the full landscape layout. Laptop browsers sit
+ * around 650–800px tall once browser chrome is subtracted; a phone on its side
+ * (≤ ~430px tall) is below this and gets the compact landscape layout.
+ */
+export const MIN_WIDE_HEIGHT = 600;
+
+/**
+ * Shortest viewport (px) for the compact landscape layout (a phone on its
+ * side, including Safari with its toolbars showing). Anything shorter keeps the
+ * guard.
+ */
+export const MIN_COMPACT_HEIGHT = 300;
+
+/**
+ * How the app should render for a viewport:
+ *  - `phone`: the existing portrait-phone rule ({@link isViewportSupported})
+ *    holds — render full-bleed, exactly as before.
+ *  - `landscape`: wider than a phone, at least {@link MIN_WIDE_HEIGHT} tall,
+ *    and at least as wide as it is tall (desktop, laptop, tablet on its side).
+ *  - `compact`: wider than tall but under {@link MIN_WIDE_HEIGHT} (a phone on
+ *    its side) — the landscape layouts, compacted to the short height.
+ *  - `column`: wider than a phone but taller than wide (an upright tablet) —
+ *    the portrait layouts in a centered phone-width column.
+ *  - `unsupported`: too narrow, or shorter than {@link MIN_COMPACT_HEIGHT} —
+ *    show the guard.
+ */
+export type ViewportMode =
+  | "phone"
+  | "landscape"
+  | "compact"
+  | "column"
+  | "unsupported";
+
+export function viewportMode(viewport: Viewport): ViewportMode {
+  const { width, height } = viewport;
+  if (isViewportSupported(viewport)) return "phone";
+  if (width <= MAX_SUPPORTED_WIDTH) return "unsupported";
+  if (width >= height) {
+    if (height >= MIN_WIDE_HEIGHT) return "landscape";
+    if (height >= MIN_COMPACT_HEIGHT) return "compact";
+    return "unsupported";
+  }
+  return height >= MIN_WIDE_HEIGHT ? "column" : "unsupported";
+}
+
+/**
+ * React hook: the current {@link ViewportMode}, re-evaluated on `resize` and
+ * `orientationchange` like {@link useViewportSupported}.
+ */
+export function useViewportMode(): ViewportMode {
+  const [mode, setMode] = useState(() => viewportMode(readViewport()));
+
+  useEffect(() => {
+    function update() {
+      setMode(viewportMode(readViewport()));
+    }
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return mode;
+}

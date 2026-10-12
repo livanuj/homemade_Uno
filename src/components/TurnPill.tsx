@@ -29,7 +29,7 @@ interface TurnPillProps {
 
 /**
  * Turn pill (design.md §5.5) — a `bg-surface` pill with a 12px suit-colored dot
- * and a status message such as "Your turn · match red or play a wild".
+ * and a status message such as "Nora's turn · color is green".
  */
 export function TurnPill({ tone, children, className }: TurnPillProps) {
   return (

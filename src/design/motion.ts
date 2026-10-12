@@ -44,6 +44,8 @@ export const DURATION = {
   wildCrossFade: 0.3,
   /** Deal per-card stagger (Req 5.4). */
   dealStagger: 0.06,
+  /** Hand rising for your turn / sinking while you wait. */
+  handTurn: 0.25,
 } as const;
 
 /**
@@ -164,6 +166,22 @@ export const turnCrossFade: Variants = {
     opacity: 0,
     transition: { duration: DURATION.turnCrossFade, ease: EASE_CARD },
   },
+};
+
+/**
+ * Your hand rests a little lower and faded while someone else plays, and rises
+ * to full strength when your turn starts, so you can tell at a glance whether
+ * to act.
+ */
+export const handTurnState: Variants = {
+  active: { y: 0, opacity: 1 },
+  waiting: { y: 16, opacity: 0.6 },
+};
+
+/** Transition for {@link handTurnState}. */
+export const handTurnTransition: Transition = {
+  duration: DURATION.handTurn,
+  ease: EASE_CARD,
 };
 
 /**
