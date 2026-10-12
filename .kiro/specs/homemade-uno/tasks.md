@@ -146,80 +146,80 @@ graph TD
     - As player A, assert a SELECT on player B's hand returns no rows (Normal); in Team mode assert a partner's hand is readable and an opponent's is not; assert no client role can read `draw_pile`
     - _Requirements: 14.6, 23.1, 23.2_
 
-- [ ] 3. Implement the pure, server-side rules engine (TypeScript module)
-  - [ ] 3.1 Define engine types, deck build, and shuffle
+- [x] 3. Implement the pure, server-side rules engine (TypeScript module)
+  - [x] 3.1 Define engine types, deck build, and shuffle
     - Add `game/engine/` types for `Card { id, suit?, value }`, authoritative `GameState`, actions, and results; implement `buildDeck()` (108 cards) and a Fisher–Yates `shuffle(rng)` taking an injected seeded RNG
     - _Requirements: 5.1_
 
-  - [ ]\* 3.2 Property test — deck composition
+  - [x]\* 3.2 Property test — deck composition
     - **Property 1: Deck composition** — a freshly built deck is exactly the 108-card multiset
     - fast-check, ≥100 iterations, tagged `Feature: homemade-uno, Property 1`
     - _Requirements: 5.1_ _Properties: 1_
 
-  - [ ] 3.3 Implement deal, initial discard, seat/team assignment, and first player
+  - [x] 3.3 Implement deal, initial discard, seat/team assignment, and first player
     - Deal 7 cards each round-robin by seat; flip the top card as the initial discard, reshuffling until a number card is on top; set `active_color`; host is first active; `direction = +1`; Team mode alternates seats A/B so partners sit opposite
     - _Requirements: 5.2, 5.3, 5.5, 5.6, 5.7_
 
-  - [ ]\* 3.4 Property tests — team seat alternation and card conservation on deal
+  - [x]\* 3.4 Property tests — team seat alternation and card conservation on deal
     - **Property 3: Team seat alternation**; **Property 2: Card conservation** (union of hands + draw + discard = 108, unique ids) checked after dealing
     - fast-check, ≥100 iterations each, tagged `Feature: homemade-uno, Property 3` / `Property 2`
     - _Requirements: 5.2, 5.7_ _Properties: 2, 3_
 
-  - [ ] 3.5 Implement turn advancement with reverse and skip (incl. 2-player)
+  - [x] 3.5 Implement turn advancement with reverse and skip (incl. 2-player)
     - Advance `active_seat` by `direction` to the next occupied seat; reverse inverts direction with 3+ players and re-plays the same player with exactly 2; skip advances past the next player with 3+ and re-plays the same player with exactly 2
     - Reject any play/draw from a non-active player leaving state unchanged
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.9_
 
-  - [ ]\* 3.6 Property tests — active player, reverse/skip order, forbidden-context no-ops
+  - [x]\* 3.6 Property tests — active player, reverse/skip order, forbidden-context no-ops
     - **Property 4: Exactly one active player**; **Property 5: Reverse turn order**; **Property 6: Skip turn order**; **Property 7: Forbidden-context actions are no-ops**
     - fast-check, ≥100 iterations each, tagged `Feature: homemade-uno, Property 4/5/6/7`
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.9, 8.5, 10.3, 12.4, 25.6_ _Properties: 4, 5, 6, 7_
 
-  - [ ] 3.7 Implement match validity and non-wild play resolution
+  - [x] 3.7 Implement match validity and non-wild play resolution
     - Accept a non-wild card iff suit equals `active_color` or value/symbol equals the discard top; on legal play move it to discard top and set `active_color`; reject illegal plays leaving hand/discard/color/seat unchanged (illegal-tap signal surfaced to client)
     - _Requirements: 7.1, 7.3, 7.4_
 
-  - [ ] 3.8 Implement wild play and color selection
+  - [x] 3.8 Implement wild play and color selection
     - Playing a wild (no penalty pending) is legal and enters `wild_pending`; a chosen suit sets `active_color`; while pending, keep active player and reject all non-color-choice actions and any dismissal; a winning wild requires the color before the win resolves
     - _Requirements: 7.2, 7.5, 8.1, 8.2, 8.5, 8.6_
 
-  - [ ]\* 3.9 Property tests — match legality and wild color
+  - [x]\* 3.9 Property tests — match legality and wild color
     - **Property 8: Match legality**; **Property 9: Wild selection sets the active color**
     - fast-check, ≥100 iterations each, tagged `Feature: homemade-uno, Property 8/9`
     - _Requirements: 7.1, 7.2, 7.3, 8.2_ _Properties: 8, 9_
 
-  - [ ] 3.10 Implement +2 / +4 asymmetric stacking and penalty resolution
+  - [x] 3.10 Implement +2 / +4 asymmetric stacking and penalty resolution
     - `+2` adds 2, `wild4` adds 4, each targets the next player; a `+2` stacks only onto a pending `+2`, a `wild4` stacks onto pending `+2` or `+4`, a `+2` onto pending `+4` is rejected (`pending_penalty_kind` tracks the top); a non-stacking response draws `penalty_count`, resets to 0, and advances; a stacked `wild4` lets its player choose the last-applied color after the draw
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-  - [ ]\* 3.11 Property tests — stacking eligibility and penalty clearing
+  - [x]\* 3.11 Property tests — stacking eligibility and penalty clearing
     - **Property 10: Penalty accumulation and asymmetric stacking**; **Property 11: Penalty clears only by drawing**
     - fast-check, ≥100 iterations each, tagged `Feature: homemade-uno, Property 10/11`
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_ _Properties: 10, 11_
 
-  - [ ] 3.12 Implement draw-one, reshuffle-on-empty, and end-turn-without-draw
+  - [x] 3.12 Implement draw-one, reshuffle-on-empty, and end-turn-without-draw
     - With no penalty and nothing drawn, draw exactly one card and set `drew_this_turn`; return a play/keep decision if playable, else keep and advance; reject a second draw; reshuffle discards (except top) into the draw pile when empty and ≥2 discards exist; if only the top remains, complete the turn without drawing and advance
     - _Requirements: 10.1, 10.3, 10.4, 10.5, 10.7, 10.8_
 
-  - [ ] 3.13 Implement last-card call, penalty, and flag hygiene
+  - [x] 3.13 Implement last-card call, penalty, and flag hygiene
     - Enable "LAST CARD!" only on the player's turn holding exactly 2 cards; record the call for the turn; if a turn ends holding 1 card with no call, draw 2; clear the call when a hand grows above 1 card
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-  - [ ]\* 3.14 Property tests — last-card penalty and flag hygiene
+  - [x]\* 3.14 Property tests — last-card penalty and flag hygiene
     - **Property 12: Last-card penalty**; **Property 13: Last-card flag hygiene**
     - fast-check, ≥100 iterations each, tagged `Feature: homemade-uno, Property 12/13`
     - _Requirements: 11.3, 11.4_ _Properties: 12, 13_
 
-  - [ ] 3.15 Implement win detection and auto-pause predicate
+  - [x] 3.15 Implement win detection and auto-pause predicate
     - End the game when an in-game hand reaches 0 via a legal final play (Normal → that player; Team → that team); reject actions after end; compute the auto-pause predicate (fewer than 2 connected, or a whole team disconnected in Team mode)
     - _Requirements: 12.1, 12.2, 12.4, 15.7, 25.10_
 
-  - [ ]\* 3.16 Property tests — win detection and auto-pause predicate
+  - [x]\* 3.16 Property tests — win detection and auto-pause predicate
     - **Property 14: Win detection**; **Property 15: Auto-pause predicate**
     - fast-check, ≥100 iterations each, tagged `Feature: homemade-uno, Property 14/15`
     - _Requirements: 12.1, 12.2, 15.7, 25.10_ _Properties: 14, 15_
 
-  - [ ]\* 3.17 Unit tests — engine examples and edge cases
+  - [x]\* 3.17 Unit tests — engine examples and edge cases
     - Reverse and skip in the exact-2-player case; initial-discard reshuffle when the flipped card is an action card; `+2` onto pending `+4` rejected and `wild4` onto `+2` accepted; reshuffle-on-empty vs. no-draw (only top); last-card penalty on ending a turn at 1 card without calling; winning wild requires color before the win resolves
     - _Requirements: 5.5, 6.3, 6.5, 8.6, 9.5, 10.7, 10.8, 11.3_
 
