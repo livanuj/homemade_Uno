@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { LobbyRoute } from "./LobbyRoute";
 
 /**
@@ -114,5 +114,42 @@ describe("LobbyRoute — dragging (02e)", () => {
     renderLobby("02e");
     expect(screen.getByText("Drop on a player to swap")).toBeInTheDocument();
     expect(screen.getByText("Swap")).toBeInTheDocument();
+  });
+});
+
+describe("LobbyRoute — pointer drag (Req 21.2)", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("lifts the row on drag, marks the hovered player as a swap target, and settles on drop", () => {
+    renderLobby("02d");
+    const handle = screen.getByRole("button", {
+      name: "Move Leo to the other team",
+    });
+    const maya = screen.getByText("Maya");
+    document.elementFromPoint = () => maya;
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 10, clientY: 10 });
+    expect(screen.getByText("Drag to change teams")).toBeInTheDocument();
+
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 10, clientY: 60 });
+    expect(screen.getByText("Drop on a player to swap")).toBeInTheDocument();
+    expect(screen.getByText("Swap")).toBeInTheDocument();
+
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 10, clientY: 60 });
+    expect(screen.getByText("Drag to change teams")).toBeInTheDocument();
+    expect(screen.queryByText("Swap")).not.toBeInTheDocument();
+  });
+
+  it("treats a press without movement as a tap, not a drag", () => {
+    renderLobby("02d");
+    const handle = screen.getByRole("button", {
+      name: "Move Leo to the other team",
+    });
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 12, clientY: 11 });
+    expect(screen.getByText("Drag to change teams")).toBeInTheDocument();
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 12, clientY: 11 });
   });
 });

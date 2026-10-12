@@ -78,6 +78,10 @@ export interface LobbyDrag {
   draggingId: string;
   /** Player id of the occupied row currently under the finger (swap target). */
   overId?: string;
+  /** Team whose empty seat is under the finger (move target, Req 21.4). */
+  overTeam?: TeamId;
+  /** Lifted row's top, px from the team area; unset uses the `02e` position. */
+  liftY?: number;
 }
 
 /** Lobby-facing projection (task 8.3 consumes this). */
