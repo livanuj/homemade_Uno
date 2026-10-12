@@ -19,19 +19,41 @@ describe("Dialog (§5.18)", () => {
       />,
     );
 
-    const dialog = screen.getByRole("alertdialog", { name: "Leave this game?" });
+    const dialog = screen.getByRole("alertdialog", {
+      name: "Leave this game?",
+    });
     expect(dialog).toBeInTheDocument();
+    expect(screen.getByText(/rejoin from the same link/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/rejoin from the same link/i),
+      screen.getByRole("button", { name: "Stay in the game" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Stay in the game" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Leave game" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Leave game" }),
+    ).toBeInTheDocument();
   });
 
   it("fires onClose when the backdrop is activated", async () => {
     const onClose = vi.fn();
-    render(<Dialog title="Leave this game?" actions={null} onClose={onClose} />);
+    render(
+      <Dialog title="Leave this game?" actions={null} onClose={onClose} />,
+    );
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("still renders its title and actions under reduced motion (Req 17.6)", () => {
+    render(
+      <Dialog
+        title="Leave this game?"
+        reduced
+        actions={<Button variant="danger">Leave game</Button>}
+      />,
+    );
+    expect(
+      screen.getByRole("alertdialog", { name: "Leave this game?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Leave game" }),
+    ).toBeInTheDocument();
   });
 });

@@ -3,10 +3,13 @@
  * screen `07-game-over`).
  *
  * About 12 suit glyphs (●▲■◆) at 19–28px in the four suit colors, scattered
- * over the top ~300px at random rotations. Per the design they burst in once
- * when the screen opens and are static under reduced motion; the burst
- * animation is added in task 7, so here they render statically at their final
- * scattered positions.
+ * over the top ~300px at random rotations.
+ *
+ * Motion (Task 7.2, §5.25): the pieces burst in once when the screen opens —
+ * each scales 0 → 1 from a small upward offset over 900ms (`confettiBurst`),
+ * lightly staggered. Reduced motion (Req 17.6): the burst is skipped entirely
+ * and the pieces render statically at their final scattered positions (no
+ * animation) — the reduced path is the plain static markup.
  *
  * The scatter is a fixed, deterministic layout table (no runtime randomness, so
  * it renders identically for the Playwright baseline). Shapes cycle through the
@@ -14,8 +17,10 @@
  * (styling.md — static class strings; token-policy.md — tokens only). The whole
  * layer is `aria-hidden` since it is purely decorative (Requirement 18).
  */
-import { cn } from "@/lib/cn";
+import { confettiBurst } from "@/design/motion";
 import { SUITS, SUIT_SHAPE } from "@/design/suits";
+import { cn } from "@/lib/cn";
+import { motion } from "motion/react";
 
 /** Suit → glyph text color (tokens only). */
 const SUIT_TEXT: Record<(typeof SUITS)[number], string> = {
@@ -26,7 +31,12 @@ const SUIT_TEXT: Record<(typeof SUITS)[number], string> = {
 };
 
 /** Deterministic scatter: left %, top px, font-size px, rotation deg. */
-const PIECES: readonly { left: number; top: number; size: number; rot: number }[] = [
+const PIECES: readonly {
+  left: number;
+  top: number;
+  size: number;
+  rot: number;
+}[] = [
   { left: 8, top: 24, size: 24, rot: -18 },
   { left: 22, top: 60, size: 20, rot: 12 },
   { left: 38, top: 18, size: 28, rot: -8 },
@@ -42,30 +52,60 @@ const PIECES: readonly { left: number; top: number; size: number; rot: number }[
 ];
 
 export interface ConfettiProps {
+  /**
+   * Render statically with no burst under reduced motion (Req 17.6) — pass from
+   * `usePrefersReducedMotion()`.
+   */
+  reduced?: boolean;
   className?: string;
 }
 
-export function Confetti({ className }: ConfettiProps) {
+export function Confetti({ reduced = false, className }: ConfettiProps) {
   return (
     <div
       aria-hidden="true"
-      className={cn("pointer-events-none absolute inset-x-0 top-0 h-[300px]", className)}
+      className={cn(
+        "pointer-events-none absolute inset-x-0 top-0 h-[300px]",
+        className,
+      )}
     >
       {PIECES.map((piece, i) => {
         const suit = SUITS[i % SUITS.length];
+        const position = {
+          left: `${piece.left}%`,
+          top: `${piece.top}px`,
+          fontSize: `${piece.size}px`,
+        } as const;
+
+        // Reduced motion: static glyph at its final position, no burst
+        // (Req 17.6 / §5.25).
+        if (reduced) {
+          return (
+            <span
+              key={i}
+              className={cn("absolute leading-none", SUIT_TEXT[suit])}
+              style={{ ...position, transform: `rotate(${piece.rot}deg)` }}
+            >
+              {SUIT_SHAPE[suit]}
+            </span>
+          );
+        }
+
         return (
-          <span
+          <motion.span
             key={i}
             className={cn("absolute leading-none", SUIT_TEXT[suit])}
-            style={{
-              left: `${piece.left}%`,
-              top: `${piece.top}px`,
-              fontSize: `${piece.size}px`,
-              transform: `rotate(${piece.rot}deg)`,
-            }}
+            // Motion drives scale/y for the burst; the settled scatter angle is
+            // kept via `rotate` in the style so pieces land at their design angle.
+            style={{ ...position, rotate: `${piece.rot}deg` }}
+            variants={confettiBurst}
+            initial="hidden"
+            animate="burst"
+            // Light per-piece stagger for one cohesive burst (§5.25).
+            transition={{ delay: i * 0.03 }}
           >
             {SUIT_SHAPE[suit]}
-          </span>
+          </motion.span>
         );
       })}
     </div>
