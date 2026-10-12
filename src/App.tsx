@@ -1,7 +1,9 @@
 import { Layout } from "@/components/Layout";
 import { UnsupportedViewport } from "@/components/UnsupportedViewport";
+import { WideViewportFrame } from "@/components/WideViewportFrame";
 import { RoomStoreProvider } from "@/game/view/store";
-import { useViewportSupported } from "@/lib/useViewportSupported";
+import { LandscapeContext } from "@/lib/useLandscape";
+import { useViewportMode } from "@/lib/useViewportSupported";
 import { GameOverRoute } from "@/routes/GameOverRoute";
 import { GameRoute } from "@/routes/GameRoute";
 import { HomeRoute } from "@/routes/HomeRoute";
@@ -20,9 +22,12 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
  * components rendered over the table, not routes.
  *
  * `Layout` is the single full-viewport shell (`h-dvh` + safe-area padding).
- * The unsupported-viewport guard (task 1.4) renders inside this shell: when
- * the viewport is out of range or landscape it shows `UnsupportedViewport`
- * and suppresses the routed game/lobby content; otherwise it renders `Routes`.
+ * The unsupported-viewport guard (task 1.4) renders inside this shell: a
+ * portrait phone renders `Routes` in their portrait layout; a landscape wide
+ * screen (desktop, laptop, tablet on its side) renders them in their landscape
+ * layout (compacted for a phone on its side); an upright tablet renders the
+ * portrait layout in a centered column; a too-narrow or very short screen
+ * shows `UnsupportedViewport`.
  */
 export function App() {
   return (
@@ -37,17 +42,36 @@ export function App() {
 }
 
 /**
- * Renders the routed content only when the viewport is a supported portrait
- * phone size; otherwise renders the guard message (Requirement 16.4 / 16.8).
- * Lives inside `Layout` so the shell/safe-area still frames the message.
+ * Renders the routed content for a portrait phone, a landscape wide screen
+ * (with `LandscapeContext` set), or an upright tablet (phone-width column);
+ * otherwise renders the guard message
+ * (Requirement 16.4 / 16.8). Lives inside `Layout` so the shell/safe-area
+ * still frames the message.
  */
 function ViewportGuard() {
-  const supported = useViewportSupported();
+  const mode = useViewportMode();
 
-  if (!supported) {
+  if (mode === "unsupported") {
     return <UnsupportedViewport />;
   }
+  if (mode === "landscape" || mode === "compact") {
+    return (
+      <LandscapeContext.Provider value={mode === "landscape" ? "wide" : "compact"}>
+        <AppRoutes />
+      </LandscapeContext.Provider>
+    );
+  }
+  if (mode === "column") {
+    return (
+      <WideViewportFrame>
+        <AppRoutes />
+      </WideViewportFrame>
+    );
+  }
+  return <AppRoutes />;
+}
 
+function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomeRoute />} />

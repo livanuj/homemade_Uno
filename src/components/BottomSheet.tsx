@@ -24,6 +24,7 @@ import { cn } from "@/lib/cn";
 import { AnimatePresence, motion } from "motion/react";
 import { useId, useRef, type ReactNode } from "react";
 import { MotionBackdrop } from "./MotionBackdrop";
+import { useLandscape } from "@/lib/useLandscape";
 import { useModalA11y } from "@/lib/useModalA11y";
 
 export interface BottomSheetProps {
@@ -74,6 +75,8 @@ export function BottomSheet({
     escapeCloses: onClose != null,
   });
 
+  const landscape = useLandscape();
+
   return (
     <AnimatePresence>
       {open && (
@@ -95,6 +98,8 @@ export function BottomSheet({
             className={cn(
               "relative flex flex-col bg-surface rounded-t-drawer shadow-sheet px-5 pt-6 pb-safe",
               spacious ? "gap-5" : "gap-4",
+              // Landscape: a 640px sheet centered along the bottom edge.
+              landscape && "mx-auto max-h-full w-full max-w-160 overflow-y-auto",
               className,
             )}
           >

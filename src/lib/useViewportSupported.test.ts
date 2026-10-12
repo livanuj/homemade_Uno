@@ -3,7 +3,10 @@ import fc from "fast-check";
 import {
   MAX_SUPPORTED_WIDTH,
   MIN_SUPPORTED_WIDTH,
+  MIN_COMPACT_HEIGHT,
+  MIN_WIDE_HEIGHT,
   isViewportSupported,
+  viewportMode,
 } from "./useViewportSupported";
 
 // Requirement 16.4 / 16.8: supported ⇔ width in [360, 430] inclusive AND
@@ -44,5 +47,49 @@ describe("isViewportSupported", () => {
       ),
       { numRuns: 100 },
     );
+  });
+});
+
+// Wide screens: landscape ones (desktop, laptop, tablet on its side) get the
+// landscape layout, phones on their side the compact landscape layout; upright
+// tablets get the portrait app in a centered column.
+describe("viewportMode", () => {
+  it("is 'phone' whenever the existing portrait-phone rule is met", () => {
+    expect(viewportMode({ width: 390, height: 844 })).toBe("phone");
+    expect(viewportMode({ width: 360, height: 667 })).toBe("phone");
+  });
+
+  it("is 'landscape' for wide screens at least as wide as they are tall", () => {
+    expect(viewportMode({ width: 1440, height: 900 })).toBe("landscape");
+    expect(viewportMode({ width: 1180, height: 820 })).toBe("landscape");
+    expect(viewportMode({ width: 700, height: MIN_WIDE_HEIGHT })).toBe(
+      "landscape",
+    );
+  });
+
+  it("is 'column' for wide screens taller than they are wide (upright tablets)", () => {
+    expect(viewportMode({ width: 820, height: 1180 })).toBe("column");
+    expect(viewportMode({ width: 431, height: MIN_WIDE_HEIGHT })).toBe(
+      "column",
+    );
+  });
+
+  it("is 'compact' for phones held sideways (wide but under 600px tall)", () => {
+    expect(viewportMode({ width: 844, height: 390 })).toBe("compact");
+    expect(viewportMode({ width: 932, height: 430 })).toBe("compact");
+    expect(viewportMode({ width: 667, height: 375 })).toBe("compact");
+    expect(viewportMode({ width: 844, height: MIN_COMPACT_HEIGHT })).toBe(
+      "compact",
+    );
+    expect(viewportMode({ width: 1440, height: MIN_WIDE_HEIGHT - 1 })).toBe(
+      "compact",
+    );
+  });
+
+  it("stays 'unsupported' for very short or too-narrow screens", () => {
+    expect(viewportMode({ width: 844, height: MIN_COMPACT_HEIGHT - 1 })).toBe(
+      "unsupported",
+    );
+    expect(viewportMode({ width: 320, height: 568 })).toBe("unsupported");
   });
 });

@@ -26,6 +26,7 @@ import type { CardValue, Suit } from "@/design/suits";
 import { useRoomStore } from "@/game/view/store";
 import type { JoinFailureReason } from "@/game/view/types";
 import { cn } from "@/lib/cn";
+import { useCompactLandscape, useLandscape } from "@/lib/useLandscape";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -62,6 +63,8 @@ export function HomeRoute() {
   const [params] = useSearchParams();
   const store = useRoomStore();
   const navigate = useNavigate();
+  const landscape = useLandscape();
+  const compact = useCompactLandscape();
 
   const prefillCode = sanitizeCode(params.get("code") ?? "");
   const blockedState = params.get("state");
@@ -126,29 +129,26 @@ export function HomeRoute() {
     setCodeError(joinFailureMessage(result.reason, code));
   }
 
-  return (
-    <div className="flex h-full flex-col gap-[22px] px-6 pt-safe pb-safe">
-      {/* 1 — settings icon, aligned right */}
-      <div className="flex h-11 justify-end">
-        <IconButton aria-label="Settings" onClick={() => navigate("/settings")}>
-          <SettingsIcon />
-        </IconButton>
-      </div>
+  const settingsButton = (
+    <IconButton aria-label="Settings" onClick={() => navigate("/settings")}>
+      <SettingsIcon />
+    </IconButton>
+  );
 
-      {/* 2 — hero card fan */}
-      <HeroFan />
+  const title = (
+    <div className="flex flex-col items-center gap-1.5">
+      <h1 className="text-center font-display text-hero text-ink">
+        Homemade Uno
+      </h1>
+      <p className="text-paragraph text-ink-muted">
+        Card nights with friends, right from your phone
+      </p>
+    </div>
+  );
 
-      {/* 3 — title + tagline */}
-      <div className="flex flex-col items-center gap-1.5">
-        <h1 className="text-center font-display text-hero text-ink">
-          Homemade Uno
-        </h1>
-        <p className="text-paragraph text-ink-muted">
-          Card nights with friends, right from your phone
-        </p>
-      </div>
-
-      {/* 4/5 — name + Create a room (one form so Enter submits create) */}
+  const forms = (
+    <>
+      {/* name + Create a room (one form so Enter submits create) */}
       <form
         className="flex flex-col gap-[22px]"
         onSubmit={handleCreate}
@@ -170,14 +170,14 @@ export function HomeRoute() {
         </Button>
       </form>
 
-      {/* 6 — "or join a friend" divider */}
+      {/* "or join a friend" divider */}
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-line" />
         <span className="text-label text-ink-muted">or join a friend</span>
         <span className="h-px flex-1 bg-line" />
       </div>
 
-      {/* 7 — room code + Join */}
+      {/* room code + Join */}
       <form className="flex flex-col gap-2" onSubmit={handleJoin} noValidate>
         <div className="flex items-end gap-2.5">
           <Input
@@ -206,15 +206,80 @@ export function HomeRoute() {
           </Button>
         </div>
       </form>
+    </>
+  );
+
+  const howToPlay = (
+    <Link
+      to="/how-to-play"
+      className="self-center p-3 text-body text-ink underline"
+    >
+      How to play
+    </Link>
+  );
+
+  // Landscape (wide screens): hero fan + title on the left, the forms in a
+  // surface panel on the right, settings pinned top-right. The page scrolls
+  // when it is taller than the window (a phone on its side).
+  if (landscape) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div
+          className={cn(
+            "relative flex min-h-full items-center",
+            compact ? "gap-10 px-10 py-4" : "gap-24 px-24 pt-safe pb-safe",
+          )}
+        >
+          <div className={cn("absolute top-4", compact ? "left-4" : "right-6")}>
+            {settingsButton}
+          </div>
+          <div
+            className={cn(
+              "flex flex-1 flex-col items-center text-center",
+              compact ? "gap-4" : "gap-8",
+            )}
+          >
+            <HeroFan />
+            {title}
+          </div>
+          <div
+            className={cn(
+              "flex shrink-0 flex-col gap-3",
+              compact ? "w-96" : "w-110",
+            )}
+          >
+            <div
+              className={cn(
+                "flex flex-col rounded-panel bg-surface shadow-panel",
+                compact ? "gap-4 p-5" : "gap-[22px] p-8",
+              )}
+            >
+              {forms}
+            </div>
+            {howToPlay}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col gap-[22px] px-6 pt-safe pb-safe">
+      {/* 1 — settings icon, aligned right */}
+      <div className="flex h-11 justify-end">{settingsButton}</div>
+
+      {/* 2 — hero card fan */}
+      <HeroFan />
+
+      {/* 3 — title + tagline */}
+      {title}
+
+      {/* 4–7 — name, Create a room, divider, room code + Join */}
+      {forms}
 
       {/* 8 — spacer + "How to play" link */}
       <div className="flex-1" />
-      <Link
-        to="/how-to-play"
-        className="self-center p-3 text-body text-ink underline"
-      >
-        How to play
-      </Link>
+      {howToPlay}
     </div>
   );
 }
@@ -288,6 +353,36 @@ function GameAlreadyStarted({
   code: string;
   onBackHome: () => void;
 }) {
+  const landscape = useLandscape();
+  // Landscape: the same fan, copy and CTA side by side in one centered panel.
+  if (landscape) {
+    return (
+      <div className="flex h-full items-center justify-center overflow-y-auto px-6 py-4">
+        <div className="flex w-full max-w-190 items-center gap-14 rounded-panel bg-surface px-14 py-10 shadow-panel">
+          <div className="w-60 shrink-0">
+            <BackFan />
+          </div>
+          <div className="flex flex-col items-start gap-3.5">
+            <Chip variant="info">ROOM · {code}</Chip>
+            <h1 className="font-display text-sheet text-ink">
+              This game has already started
+            </h1>
+            <p className="text-paragraph text-ink-muted">
+              New players can join between games. Ask the host to send the link
+              again when this one ends.
+            </p>
+            <Button
+              variant="primary"
+              className="mt-2 w-auto px-9"
+              onClick={onBackHome}
+            >
+              Back to home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex h-full flex-col gap-[22px] px-6 pt-safe pb-safe">
       <div className="h-11 shrink-0" />

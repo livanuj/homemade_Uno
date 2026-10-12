@@ -133,6 +133,8 @@
 /* Installed-app (PWA) safe areas: content never sits under the notch or home bar. */
 @utility pt-safe { padding-top: max(16px, env(safe-area-inset-top)); }
 @utility pb-safe { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+/* Sideways phones put the notch on the left or right; zero everywhere else. */
+@utility px-safe { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 
 @layer base {
   html, body { height: 100%; }

@@ -34,13 +34,16 @@ import { Dialog } from "@/components/Dialog";
 import { MenuDrawer, type MenuCardCount } from "@/components/MenuDrawer";
 import { PlayingCard } from "@/components/PlayingCard";
 import { SpotlightCard } from "@/components/SpotlightCard";
+import { TableLayer } from "@/components/TableLayer";
 import { Toast } from "@/components/Toast";
 import { TurnPill } from "@/components/TurnPill";
 import { WildColorButtons } from "@/components/WildColorButtons";
 import type { Suit } from "@/design/suits";
 import type { OverlayId, OverlayView } from "@/game/view/overlays";
 import type { GameView } from "@/game/view/types";
+import { cn } from "@/lib/cn";
 import { supportsVibration, useSettings } from "@/lib/settings";
+import { useCompactLandscape, useLandscape } from "@/lib/useLandscape";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 import { useState } from "react";
 
@@ -152,6 +155,8 @@ export function GameOverlays({
   onPauseAndWait,
 }: GameOverlaysProps) {
   const reduced = usePrefersReducedMotion();
+  const landscape = useLandscape();
+  const compact = useCompactLandscape();
   const { settings, set } = useSettings();
   const isTeam = view.room.mode === "team";
 
@@ -220,20 +225,51 @@ export function GameOverlays({
     return (
       <>
         {/* The enlarged drawn card floats over the table above the sheet
-            (§5.17), matching the reference — not inside the sheet body. */}
-        <div className="pointer-events-none absolute left-0 top-[240px] flex w-full justify-center">
-          <SpotlightCard
-            {...(data.drew.suit ? { suit: data.drew.suit } : {})}
-            value={data.drew.value}
-            reduced={reduced}
-          />
-        </div>
+            (§5.17), matching the reference — not inside the sheet body. On a
+            phone on its side there is no room above the sheet, so the card
+            sits in the sheet header instead (like the wild picker's). */}
+        {!compact && (
+          <TableLayer>
+            <div
+              className={cn(
+                "pointer-events-none absolute left-0 flex w-full justify-center",
+                landscape ? "top-[200px]" : "top-[240px]",
+              )}
+            >
+              <SpotlightCard
+                {...(data.drew.suit ? { suit: data.drew.suit } : {})}
+                value={data.drew.value}
+                reduced={reduced}
+              />
+            </div>
+          </TableLayer>
+        )}
         <BottomSheet
           title={data.drew.fitsLine}
           subtitle="Play it now, or keep it and end your turn."
           reduced={reduced}
+          {...(compact
+            ? {
+                header: (
+                  <div>
+                    <PlayingCard
+                      variant="partner"
+                      {...(data.drew.suit ? { suit: data.drew.suit } : {})}
+                      value={data.drew.value}
+                      disabled
+                      tabIndex={-1}
+                    />
+                  </div>
+                ),
+              }
+            : {})}
         >
-          <div className="flex flex-col gap-2.5 pt-1">
+          <div
+            className={cn(
+              "gap-2.5 pt-1",
+              compact ? "grid grid-cols-2" : "flex flex-col",
+            )}
+          >
             <Button
               variant="primary"
               className="font-display text-cta"
@@ -257,30 +293,48 @@ export function GameOverlays({
   if (overlay === "disconnected" && data.disconnected) {
     const dc = data.disconnected;
     const grace = dc.graceSeconds ?? 60;
+    const pauseAndWait = (
+      <Button
+        variant="soft"
+        className={cn("h-9", compact && "bg-surface")}
+        onClick={() => onPauseAndWait?.()}
+        // The ring fraction the countdown maps to (documented seam for 9.6).
+        data-grace-seconds={grace}
+      >
+        Pause and wait
+      </Button>
+    );
     return (
-      <>
+      <TableLayer>
         {/* "[name] lost connection" toast, centered above the piles (§5.19). */}
-        <div className="pointer-events-none absolute left-0 top-[214px] flex w-full justify-center">
+        <div
+          className={cn(
+            "pointer-events-none absolute left-0 flex w-full justify-center",
+            compact ? "top-[116px]" : "top-[214px]",
+          )}
+        >
           <Toast>{dc.name} lost connection</Toast>
         </div>
 
         {/* Waiting/skipping pill + "Pause and wait" chip under it (§5.5, Req 25.2).
-            Overlaid at the turn-pill position so it replaces the table's pill. */}
-        <div className="absolute left-0 top-[512px] flex w-full flex-col items-center gap-2">
+            Overlaid at the turn-pill position so it replaces the table's pill.
+            On a phone on its side the chip moves to the right edge, clear of
+            the hand. */}
+        <div
+          className={cn(
+            "absolute left-0 flex w-full flex-col items-center gap-2",
+            compact ? "top-[280px]" : landscape ? "top-[470px]" : "top-[512px]",
+          )}
+        >
           <TurnPill tone="yellow">
             Waiting for {dc.name} · skipping in {dc.secondsLeft}s
           </TurnPill>
-          <Button
-            variant="soft"
-            className="h-9"
-            onClick={() => onPauseAndWait?.()}
-            // The ring fraction the countdown maps to (documented seam for 9.6).
-            data-grace-seconds={grace}
-          >
-            Pause and wait
-          </Button>
+          {!compact && pauseAndWait}
         </div>
-      </>
+        {compact && (
+          <div className="absolute top-[288px] right-4">{pauseAndWait}</div>
+        )}
+      </TableLayer>
     );
   }
 

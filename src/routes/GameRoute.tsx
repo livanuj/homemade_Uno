@@ -343,6 +343,9 @@ function FixtureGame() {
       onDraw={() => {
         /* preview seam */
       }}
+      onPlayCard={() => {
+        /* preview seam — lift / drag-to-throw work; the play itself is live-only */
+      }}
       onCallLastCard={() => {
         /* preview seam */
       }}

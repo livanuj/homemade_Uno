@@ -15,6 +15,7 @@
  * (token-policy.md). Reuses `Suit` / `SUIT_*` (reuse-before-create).
  */
 import { cn } from "@/lib/cn";
+import { useLandscape } from "@/lib/useLandscape";
 import {
   SUIT_FILL,
   SUIT_NAME,
@@ -33,8 +34,16 @@ export interface WildColorButtonsProps {
 }
 
 export function WildColorButtons({ onSelect, className }: WildColorButtonsProps) {
+  // Landscape: the four colors sit in one row of the wider sheet.
+  const landscape = useLandscape();
   return (
-    <div className={cn("grid grid-cols-2 gap-3", className)}>
+    <div
+      className={cn(
+        "grid gap-3",
+        landscape ? "grid-cols-4" : "grid-cols-2",
+        className,
+      )}
+    >
       {PICKER_ORDER.map((suit) => (
         <button
           key={suit}
