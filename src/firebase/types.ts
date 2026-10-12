@@ -128,8 +128,8 @@ export interface StateDoc {
   phase: StatePhase;
   /** One draw per turn (Req 10.3). */
   drewThisTurn: boolean;
-  /** Current turn's Last_Card_Call (Req 11). */
-  lastCardCalledSeat: number | null;
+  /** Seats with a recorded Last_Card_Call; an uncalled 1-card seat is catchable (Req 11). */
+  lastCardCalledSeats: number[];
   /** Who paused (Req 25.4). */
   pausedBy: string | null;
   /** Drives "Paused for m:ss" (Req 25). */
@@ -165,6 +165,7 @@ export type ActionType =
   | "keep"
   | "choose_color"
   | "call_last"
+  | "catch_last"
   | "pause"
   | "resume"
   | "continue_without"

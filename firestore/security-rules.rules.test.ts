@@ -94,7 +94,7 @@ async function seed(): Promise<void> {
       pendingPenaltyKind: null,
       phase: "active",
       drewThisTurn: false,
-      lastCardCalledSeat: null,
+      lastCardCalledSeats: [],
       pausedBy: null,
       pausedAt: null,
       pendingChoice: null,

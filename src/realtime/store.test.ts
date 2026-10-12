@@ -60,7 +60,7 @@ function state(overrides: Partial<StateDoc> = {}): StateDoc {
     pendingPenaltyKind: null,
     phase: "active",
     drewThisTurn: false,
-    lastCardCalledSeat: null,
+    lastCardCalledSeats: [],
     pausedBy: null,
     pausedAt: null,
     pendingChoice: null,

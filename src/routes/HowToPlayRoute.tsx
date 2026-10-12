@@ -7,7 +7,7 @@
  * `h-full overflow-y-auto`. A round back control returns to the previous screen.
  *
  * Sections, in order (design.md §5.24): the goal, "On your turn" with ✓/✗
- * matching examples, Action cards, Stacking, Last card!, 2v2 teams, and what
+ * matching examples, Action cards, Stacking, Uno!, 2v2 teams, and what
  * happens when someone drops out.
  *
  * Card illustrations reuse `PlayingCard` at the 46×68 `partner` size. The ✓/✗
@@ -142,14 +142,15 @@ export function HowToPlayRoute() {
           </div>
         </Section>
 
-        {/* Last card! */}
-        <Section title="Last card!">
+        {/* Uno! */}
+        <Section title="Uno!">
           <p className="text-paragraph text-ink">
-            When you have 2 cards on your turn, tap LAST CARD! before you play.
-            If you forget, you draw 2 cards.
+            When you have 2 cards on your turn, tap UNO before you play.
+            Forgot? Tap it as soon as you can: if another player catches you
+            first, you draw 2 cards.
           </p>
-          <span className="mt-1 self-start rounded-full border-2 border-ink px-[18px] py-2.5 font-display text-body uppercase tracking-[0.04em] text-ink">
-            LAST CARD!
+          <span className="mt-1 grid size-14 place-items-center self-start rounded-full border-2 border-suit-red bg-suit-red font-display text-cta uppercase text-surface shadow-cta">
+            <span className="-rotate-6">UNO</span>
           </span>
         </Section>
 

@@ -42,6 +42,8 @@ function pendingKind(name: ActionName): ActionType | null {
       return "choose_color";
     case "callLast":
       return "call_last";
+    case "catchLast":
+      return "catch_last";
     case "pause":
       return "pause";
     case "resume":
@@ -66,6 +68,8 @@ export interface ActionClient {
   chooseColor(color: Suit): Promise<CallResult>;
   keep(): Promise<CallResult>;
   callLast(): Promise<CallResult>;
+  /** Catch an opponent sitting on 1 card without calling (they draw 2). */
+  catchLast(targetPlayerId: string): Promise<CallResult>;
   pause(): Promise<CallResult>;
   resume(): Promise<CallResult>;
   continueWithout(): Promise<CallResult>;
@@ -134,6 +138,7 @@ export function makeActionClient(store: RealtimeStore, dispatch: Dispatch): Acti
     chooseColor: (color) => run("chooseColor", { color }),
     keep: () => run("keep"),
     callLast: () => run("callLast"),
+    catchLast: (targetPlayerId) => run("catchLast", { targetPlayerId }),
     pause: () => run("pause"),
     resume: () => run("resume"),
     continueWithout: () => run("continueWithout"),

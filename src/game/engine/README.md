@@ -14,7 +14,8 @@ The pure rules engine — no React, no I/O, injected seeded RNG. See
 - `turn.ts` — turn advancement with reverse/skip incl. the exact-2-player case.
 - `rules.ts` — match legality and asymmetric +2/+4 stacking predicates.
 - `reducer.ts` — `reducer(state, action, ctx)`: the single transition function
-  (play, choose_color, draw, keep, call_last), win detection, last-card penalty.
+  (play, choose_color, draw, keep, call_last, catch_last), win detection, and
+  the last-card call / catch (an uncalled 1-card player is penalized only when caught).
 - `autopause.ts` — `shouldAutoPause`, a pure predicate over connection state.
 - `index.ts` — the public API barrel.
 

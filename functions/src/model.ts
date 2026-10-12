@@ -76,7 +76,8 @@ export interface StateDoc {
   pendingPenaltyKind: PendingPenaltyKind | null;
   phase: StatePhase;
   drewThisTurn: boolean;
-  lastCardCalledSeat: number | null;
+  /** Seats with a recorded Last_Card_Call (uncalled 1-card seats are catchable). */
+  lastCardCalledSeats: number[];
   pausedBy: string | null;
   pausedAt: Timestamp | null;
   pendingChoice: PendingChoice | null;
@@ -98,6 +99,7 @@ export type ActionType =
   | "keep"
   | "choose_color"
   | "call_last"
+  | "catch_last"
   | "pause"
   | "resume"
   | "continue_without"

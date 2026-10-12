@@ -7,7 +7,7 @@
  * versioned Firestore transactions; the draw order lives only in
  * `private/deck` (Req 23.2).
  */
-export { callLast, chooseColor, drawOne, keep, playCard } from "./actions";
+export { callLast, catchLast, chooseColor, drawOne, keep, playCard } from "./actions";
 export { enforceGrace } from "./grace";
 export {
     continueWithout,

@@ -1,9 +1,9 @@
 import { GameTable } from "@/components/GameTable";
 import { makeGameView } from "@/game/view/fixtures";
 import type { GameView, HandCardView } from "@/game/view/types";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GameRoute } from "./GameRoute";
 
 /**
@@ -92,13 +92,13 @@ describe("GameRoute — normal table (04)", () => {
   });
 });
 
-describe("GameTable — LAST CARD! enablement (Req 11.1)", () => {
+describe("GameTable — UNO button enablement (Req 11.1)", () => {
   function viewWithHand(hand: HandCardView[], canCall: boolean): GameView {
     const base = makeGameView("04");
     return { ...base, hand, canCallLastCard: canCall };
   }
 
-  it("disables LAST CARD! when the hand is not exactly two cards", () => {
+  it("hides UNO while the hand holds more than two cards", () => {
     render(
       <GameTable
         view={viewWithHand(
@@ -111,10 +111,29 @@ describe("GameTable — LAST CARD! enablement (Req 11.1)", () => {
         )}
       />,
     );
-    expect(screen.getByRole("button", { name: "LAST CARD!" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "UNO" })).not.toBeInTheDocument();
   });
 
-  it("enables LAST CARD! only at exactly two cards on your turn", () => {
+  it("shows UNO (disabled) at two cards when it can't be called yet", () => {
+    render(
+      <GameTable
+        view={viewWithHand(
+          [
+            { id: "a", suit: "red", value: 5, playable: true },
+            { id: "b", suit: "blue", value: 1, playable: true },
+          ],
+          false,
+        )}
+      />,
+    );
+    const uno = screen.getByRole("button", { name: "UNO" });
+    expect(uno).toBeDisabled();
+    // Visibly different from the callable state: faint outline, not red.
+    expect(uno.className).toContain("text-ink-faint");
+    expect(uno.className).not.toContain("bg-suit-red");
+  });
+
+  it("enables UNO only at exactly two cards on your turn, as a round button", () => {
     render(
       <GameTable
         view={viewWithHand(
@@ -126,7 +145,73 @@ describe("GameTable — LAST CARD! enablement (Req 11.1)", () => {
         )}
       />,
     );
-    expect(screen.getByRole("button", { name: "LAST CARD!" })).toBeEnabled();
+    const uno = screen.getByRole("button", { name: "UNO" });
+    expect(uno).toBeEnabled();
+    expect(uno.className).toContain("size-14");
+    expect(uno.className).toContain("bg-suit-red");
+    expect(uno.className).toContain("rounded-full");
+  });
+});
+
+describe("GameTable — catch an uncalled last card (Req 11.3)", () => {
+  it("shows no catch button when nobody is catchable", () => {
+    render(<GameTable view={makeGameView("04")} />);
+    expect(screen.queryByRole("button", { name: /^Catch / })).not.toBeInTheDocument();
+  });
+
+  it("shows a catch button per catchable opponent and reports who was caught", () => {
+    const onCatch = vi.fn();
+    const view: GameView = {
+      ...makeGameView("04"),
+      catchTargets: [
+        { id: "p1", name: "Nora" },
+        { id: "p2", name: "Leo" },
+      ],
+    };
+    render(<GameTable view={view} onCatch={onCatch} />);
+    fireEvent.click(screen.getByRole("button", { name: "Catch Leo!" }));
+    expect(onCatch).toHaveBeenCalledWith("p2");
+    expect(screen.getByRole("button", { name: "Catch Nora!" })).toBeInTheDocument();
+  });
+});
+
+describe("GameTable — opponent card flights (Req 10.6 / 17.2)", () => {
+  it("keeps the old discard top showing while an opponent's played card flies in", () => {
+    const before = makeGameView("04"); // Nora's turn, green 3 on top
+    const { rerender, container } = render(<GameTable view={before} reduced={false} />);
+    const after: GameView = {
+      ...before,
+      activeSeatId: "omar",
+      discardTop: { id: "played", suit: "blue", value: 3 },
+      discardPrev: before.discardTop,
+      opponents: before.opponents.map((o) =>
+        o.id === "nora" ? { ...o, cardCount: o.cardCount - 1 } : o,
+      ),
+    };
+    rerender(<GameTable view={after} reduced={false} />);
+    // The pile still shows green 3; the only blue 3 is the in-flight card.
+    const flightLayer = container.querySelector("[aria-hidden='true'].pointer-events-none")!;
+    expect(within(flightLayer as HTMLElement).getByLabelText("Blue 3")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Blue 3")).toHaveLength(1);
+    expect(screen.getByLabelText("Green 3")).toBeInTheDocument();
+  });
+
+  it("flies one back per card an opponent draws", () => {
+    const before = makeGameView("04");
+    const { rerender, container } = render(<GameTable view={before} reduced={false} />);
+    const after: GameView = {
+      ...before,
+      opponents: before.opponents.map((o) =>
+        o.id === "nora" ? { ...o, cardCount: o.cardCount + 4 } : o,
+      ),
+    };
+    rerender(<GameTable view={after} reduced={false} />);
+    const flightLayer = container.querySelector("[aria-hidden='true'].pointer-events-none")!;
+    expect(flightLayer.children).toHaveLength(4);
+    // Nora's seat still shows her old 5 cards until the flying ones land.
+    const seat = screen.getByText("Nora").parentElement!;
+    expect(within(seat).getByText("5")).toBeInTheDocument();
+    expect(seat.querySelectorAll("[aria-label='Face-down card']")).toHaveLength(5);
   });
 });
 

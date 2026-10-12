@@ -81,7 +81,7 @@ export function deal(input: DealInput, rng: Rng): GameState {
     pendingPenaltyKind: null,
     phase: "active",
     drewThisTurn: false,
-    lastCardCalledSeat: null,
+    lastCardCalledSeats: [],
     winner: null,
   };
 }

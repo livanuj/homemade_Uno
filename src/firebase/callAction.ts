@@ -26,6 +26,7 @@ export type ActionName =
   | "drawOne"
   | "keep"
   | "callLast"
+  | "catchLast"
   | "pause"
   | "resume"
   | "continueWithout"

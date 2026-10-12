@@ -13,6 +13,7 @@
  *   drawOne     → { type: "draw" }                (Req 10.x)
  *   keep        → { type: "keep" }                (Req 10.4)
  *   callLast    → { type: "call_last" }           (Req 11.1, 11.2)
+ *   catchLast   → { type: "catch_last", targetPlayerId } (Req 11.3)
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { runAction, requireAuth } from "./harness";
@@ -87,5 +88,18 @@ export const callLast = onCall(async (request) => {
   return runAction(roomId, uid, basedOnVersion, (playerId) => ({
     type: "call_last",
     playerId,
+  }));
+});
+
+export const catchLast = onCall(async (request) => {
+  const uid = requireAuth(request.auth);
+  const { roomId, basedOnVersion } = readActionArgs(request.data);
+  const targetPlayerId = String((request.data as Record<string, unknown>)?.targetPlayerId ?? "");
+  if (!targetPlayerId) throw new HttpsError("invalid-argument", "targetPlayerId is required.");
+
+  return runAction(roomId, uid, basedOnVersion, (playerId) => ({
+    type: "catch_last",
+    playerId,
+    targetPlayerId,
   }));
 });

@@ -173,7 +173,7 @@ The document id equals the player's Firebase Anonymous Auth `uid` (Req 3.1).
 | `pendingPenaltyKind` | string \| null    | `two` \| `four` — governs stacking eligibility (Req 9.5)                                           |
 | `phase`              | string            | `dealing` \| `active` \| `wild_pending` \| `drew_decision` \| `paused` \| `auto_paused` \| `ended` |
 | `drewThisTurn`       | boolean           | one draw per turn (Req 10.3)                                                                       |
-| `lastCardCalledSeat` | number \| null    | current turn's Last_Card_Call (Req 11)                                                             |
+| `lastCardCalledSeats` | number[]         | seats with a recorded Last_Card_Call; an uncalled 1-card seat is catchable (Req 11)                |
 | `pausedBy`           | string \| null    | who paused (Req 25.4)                                                                              |
 | `pausedAt`           | timestamp \| null | drives "Paused for m:ss" (Req 25)                                                                  |
 | `pendingChoice`      | map \| null       | wild-color or play/keep choice to re-show after resume (Req 25.14)                                 |
@@ -287,9 +287,9 @@ The rules engine is a pure module (`src/game/engine`) that takes an authoritativ
 
 ### Last-card call and penalty (Req 11)
 
-- The "LAST CARD!" button is always visible, enabled only on the player's turn while holding exactly 2 cards (Req 11.1).
-- Pressing it records `last_card_called_seat` for the turn.
-- If a turn ends with the player holding 1 card and no call was recorded, that player draws 2 and a toast is shown (Req 11.3).
+- The "UNO" button is shown only while the player holds 2 or fewer cards. It is enabled on the player's turn while holding exactly 2 cards, and at any time while holding 1 card without a recorded call (a late call) (Req 11.1).
+- Pressing it adds the player's seat to `lastCardCalledSeats`.
+- There is no automatic penalty. While a player holds 1 card without a call, each opponent (not a 2v2 partner) sees a "Catch <name>!" button. The first catch makes that player draw 2, silently, without changing the turn (Req 11.3).
 - When a hand grows above 1 card, the call is cleared (Req 11.4).
 
 ### Win conditions (Req 12)
@@ -518,7 +518,7 @@ sequenceDiagram
 
 ### Last-card penalty (Req 11)
 
-On turn resolution the Cloud Function checks: if the acting player now holds 1 card and no `lastCardCalledSeat` was set this turn, it adds a 2-card penalty and writes a toast for all clients.
+The `catchLast` Cloud Function applies the 2-card penalty when an opponent catches a player on 1 card whose seat is not in `lastCardCalledSeats`. `callLast` and `catchLast` are off-turn actions: the harness skips the active-player and `basedOnVersion` checks for them (they race other players' moves), and the engine validates them against the current state. A losing catch rejects with `not_catchable`.
 
 ### Disconnect → grace → skip (Req 15)
 
@@ -619,13 +619,13 @@ _For any_ reachable state, the penalty count returns to 0 only when the targeted
 
 ### Property 12: Last-card penalty
 
-_For any_ turn that ends with the acting player holding exactly 1 card and no Last_Card_Call recorded that turn, that player draws exactly 2 cards.
+_For any_ player holding exactly 1 card with no Last_Card_Call recorded, no penalty is applied when their turn ends; when an opponent catches them, that player draws exactly 2 cards and the active player is unchanged. A player with a recorded call cannot be caught.
 
 **Validates: Requirements 11.3**
 
 ### Property 13: Last-card flag hygiene
 
-_For any_ reachable state, no seat whose hand holds more than 1 card retains a recorded Last_Card_Call.
+_For any_ reachable state, a seat with a recorded Last_Card_Call holds at most 1 card, or is the active seat holding exactly 2 (a call made before playing).
 
 **Validates: Requirements 11.4**
 
@@ -679,7 +679,7 @@ A dual approach: unit + integration tests for concrete behavior and infrastructu
 - Initial-discard reshuffle when the flipped card is an action card (Req 5.5).
 - `+2` onto pending `+4` rejected; `wild4` onto `+2` accepted (Req 9.5).
 - Reshuffle-on-empty (≥2 discards) vs. no-draw (only top) (Req 10.7, 10.8).
-- Last-card penalty when a player ends a turn on 1 card without calling (Req 11.3).
+- Last-card catch: no automatic penalty, late calls, first catch wins, partners can't catch (Req 11.3).
 - Winning wild requires color before win resolves (Req 8.6).
 
 ### Property-based tests (invariants from the Game Engine section)
