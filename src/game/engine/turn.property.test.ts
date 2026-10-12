@@ -1,16 +1,16 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { deal } from "./deal";
-import { reducer } from "./reducer";
-import { createSeededRng } from "./rng";
+import { deal } from "./deal.ts";
+import { reducer } from "./reducer.ts";
+import { createSeededRng } from "./rng.ts";
 import {
   activePlayerId,
   activeSeatIsValid,
   makeState,
   playerList,
   runLegalSequence,
-} from "./testkit";
-import type { Card, GameMode, GameState, Seat, Suit } from "./types";
+} from "./testkit.ts";
+import type { Card, GameMode, GameState, Seat, Suit } from "./types.ts";
 
 const RUNS = 100;
 const MAX_STEPS = 60;

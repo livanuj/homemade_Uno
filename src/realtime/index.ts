@@ -1,7 +1,7 @@
 /**
  * Public surface of the realtime layer (Task 5).
  *
- * The read-only authoritative store + Firestore `onSnapshot` subscriptions
+ * The read-only authoritative store + Supabase Realtime subscription
  * (5.1), the versioned action client / `useGameActions` (5.1), the presence
  * heartbeat (5.2), and the reconnect resync wired together in
  * {@link useRoomChannel} (5.3). Task 9 adopts `useRoomChannel` to back the

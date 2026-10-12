@@ -1,11 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { deal } from "./deal";
-import { reducer } from "./reducer";
-import { createSeededRng } from "./rng";
-import { isLegalStack } from "./rules";
-import { makeState, playerList, runLegalSequence } from "./testkit";
-import type { Card, PenaltyKind, Seat } from "./types";
+import { deal } from "./deal.ts";
+import { reducer } from "./reducer.ts";
+import { createSeededRng } from "./rng.ts";
+import { isLegalStack } from "./rules.ts";
+import { makeState, playerList, runLegalSequence } from "./testkit.ts";
+import type { Card, PenaltyKind, Seat } from "./types.ts";
 
 const RUNS = 100;
 const MAX_STEPS = 60;

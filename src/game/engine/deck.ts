@@ -1,4 +1,4 @@
-import type { Card, NumberValue, Rng, Suit } from "./types";
+import type { Card, NumberValue, Rng, Suit } from "./types.ts";
 
 /** The four suits, in a stable order used for deck construction. */
 export const SUITS: readonly Suit[] = ["red", "yellow", "green", "blue"];

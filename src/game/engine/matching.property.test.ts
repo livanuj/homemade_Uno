@@ -1,10 +1,10 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { reducer } from "./reducer";
-import { createSeededRng } from "./rng";
-import { discardTop, isLegalPlay } from "./rules";
-import { ALL_SUITS, makeState } from "./testkit";
-import type { Card, CardValue, Seat, Suit } from "./types";
+import { reducer } from "./reducer.ts";
+import { createSeededRng } from "./rng.ts";
+import { discardTop, isLegalPlay } from "./rules.ts";
+import { ALL_SUITS, makeState } from "./testkit.ts";
+import type { Card, CardValue, Seat, Suit } from "./types.ts";
 
 const RUNS = 100;
 

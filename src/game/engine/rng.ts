@@ -1,4 +1,4 @@
-import type { Rng } from "./types";
+import type { Rng } from "./types.ts";
 
 /**
  * A small, seedable, deterministic PRNG (mulberry32). It is used only for tests

@@ -19,13 +19,13 @@
  * hand card raises it (optimistic `pendingAction`) and calls `playCard`; a
  * server rejection is recorded on the store's `rejection`, which the live
  * container turns into a one-shot shake on that card (Req 7.3) and reverts to
- * the last confirmed snapshot. Accepts arrive via the `onSnapshot` listeners.
+ * the last confirmed snapshot. Accepts arrive via the Realtime subscription.
  */
 import { GameOverlays } from "@/components/GameOverlays";
 import { GameTable } from "@/components/GameTable";
 import { PausedOverlay } from "@/components/PausedOverlay";
 import type { Suit } from "@/design/suits";
-import { useSession } from "@/firebase/useSession";
+import { useSession } from "@/backend/useSession";
 import { makeGameView, makePausedView } from "@/game/view/fixtures";
 import {
   selectAutoOverlay,

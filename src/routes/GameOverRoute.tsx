@@ -10,7 +10,7 @@
  *    live realtime channel (`state/current.phase === "ended"`, `winner`, plus
  *    each player's denormalized count) through `mappers.ts`, wires "Play again"
  *    (host → `playAgain`, returns everyone to the lobby with the round bumped)
- *    and "Back to home" to the Cloud Functions / navigation. Host transfer is
+ *    and "Back to home" to the server actions / navigation. Host transfer is
  *    handled server-side on leave, so `selfIsHost` simply reflects the current
  *    host after any succession (Req 12.7).
  *  - `FixtureGameOver` (preview/tests): when a `?state=` param is present,
@@ -22,8 +22,8 @@
 import { Avatar, type AvatarRing } from "@/components/Avatar";
 import { Button } from "@/components/Button";
 import { Confetti } from "@/components/Confetti";
-import { callAction } from "@/firebase/callAction";
-import { useSession } from "@/firebase/useSession";
+import { callAction } from "@/backend/callAction";
+import { useSession } from "@/backend/useSession";
 import { makeResultView } from "@/game/view/fixtures";
 import { toResultView } from "@/game/view/mappers";
 import type {

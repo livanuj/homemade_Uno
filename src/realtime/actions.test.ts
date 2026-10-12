@@ -1,7 +1,7 @@
 /**
  * Unit tests for the versioned action client (Task 5.1).
  *
- * Pure/mocked — no emulator — so they run under the default `npm run test`. They
+ * Pure/mocked — no backend — so they run under the default `npm run test`. They
  * verify the client stamps `basedOnVersion` from the store, records an
  * optimistic pending action, and on a REJECTION dispatches the revert marker
  * (Req 14.5). `callAction` is mocked so no network/SDK is touched.
@@ -9,13 +9,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const callActionMock = vi.fn();
-vi.mock("@/firebase/callAction", () => ({
+vi.mock("@/backend/callAction", () => ({
   callAction: (...args: unknown[]) => callActionMock(...args),
 }));
 
 import { makeActionClient } from "./actions";
 import { initialStore, type RealtimeStore, type StoreAction } from "./store";
-import type { StateDoc } from "@/firebase/types";
+import type { StateDoc } from "@/backend/types";
 
 function stateAt(version: number): StateDoc {
   return {

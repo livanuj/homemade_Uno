@@ -5,7 +5,7 @@
  *
  * Two containers feed it:
  *  - `LiveLobby` (the real route): subscribes to the room's realtime channel via
- *    `useRoomChannel`, derives the `LobbyView` from live Firestore data through
+ *    `useRoomChannel`, derives the `LobbyView` from live room data through
  *    `mappers.ts`, and wires the buttons/mode/team controls to the Cloud
  *    Functions (`setMode`, `setTeams`, `startGame`, `leave`) plus the clipboard
  *    / native-share flows (Task 9.1/9.2/9.3).
@@ -28,8 +28,8 @@ import { PlayerRow } from "@/components/PlayerRow";
 import { StartControl } from "@/components/StartControl";
 import { TeamCard } from "@/components/TeamCard";
 import { Toast } from "@/components/Toast";
-import { callAction } from "@/firebase/callAction";
-import { useSession } from "@/firebase/useSession";
+import { callAction } from "@/backend/callAction";
+import { useSession } from "@/backend/useSession";
 import { makeLobbyView } from "@/game/view/fixtures";
 import { startEnablement, toLobbyView } from "@/game/view/mappers";
 import { dropAssignment, swapAssignment } from "@/game/view/teams";

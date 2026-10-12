@@ -5,14 +5,14 @@
  * (`LobbyView` / `GameView` / `GameResultView` / `PausedView` + the in-game
  * overlay selection) FROM the authoritative realtime store
  * (`@/realtime/store`'s {@link RealtimeStore}) — the same shapes the Task 8
- * fixtures produced, now sourced from live Firestore `onSnapshot` data.
+ * fixtures produced, now sourced from live Realtime room data.
  *
  * They are the seam that lets the routes swap their `?state=` fixtures for live
  * data without changing a single screen component. Everything here is PURE and
- * SYNCHRONOUS (no firebase, no React, no I/O), so the whole derivation surface —
+ * SYNCHRONOUS (no backend, no React, no I/O), so the whole derivation surface —
  * host vs. guest, start enablement, the 2v2 rules, wild/drew/paused/game-over
  * selection, and LAST CARD! enablement — is unit-testable by feeding a plain
- * store object (see `mappers.test.ts`). The routes and the emulator integration
+ * store object (see `mappers.test.ts`). The routes and the local-stack integration
  * test cover the live round-trips.
  *
  * The client-side `playable` flags and the "advisory" turn text are exactly
@@ -27,7 +27,7 @@ import type {
     PlayerDoc,
     StateDoc,
     Team
-} from "@/firebase/types";
+} from "@/backend/types";
 import type { RealtimeStore, StorePlayer } from "@/realtime/store";
 import { inviteLinkForCode } from "@/lib/share";
 import type { OverlayId } from "./overlays";
@@ -59,12 +59,12 @@ import type {
 /** The disconnect Grace_Period in seconds (mirrors the server, Req 15.3). */
 export const GRACE_SECONDS = 60;
 
-/** Map a Firestore connection state to the coarser view connection. */
+/** Map a stored connection state to the coarser view connection. */
 function viewConnection(c: DocConnectionState): ConnectionState {
   return c === "connected" ? "online" : "offline";
 }
 
-/** Map a Firestore room phase → the view-model's room phase. */
+/** Map a stored room phase → the view-model's room phase. */
 function viewRoomPhase(state: StateDoc | null): RoomPhase {
   if (!state) return "lobby";
   switch (state.phase) {
@@ -447,7 +447,7 @@ export function selectAutoOverlay(
 
 /** Whole seconds left in the grace countdown, clamped to [0, GRACE_SECONDS]. */
 export function graceSecondsLeft(doc: PlayerDoc, nowMs: number): number {
-  const lastSeenMs = doc.lastSeen ? doc.lastSeen.toMillis() : nowMs;
+  const lastSeenMs = doc.lastSeen ?? nowMs;
   const elapsed = Math.max(0, nowMs - lastSeenMs);
   const left = GRACE_SECONDS - Math.floor(elapsed / 1000);
   return Math.max(0, Math.min(GRACE_SECONDS, left));
@@ -486,7 +486,7 @@ export function toPausedView(store: RealtimeStore, nowMs: number): PausedView | 
     "Someone";
   const offline = seated.filter((p) => p.doc.connectionState !== "connected");
   const first = offline[0];
-  const pausedAtMs = state.pausedAt ? state.pausedAt.toMillis() : null;
+  const pausedAtMs = state.pausedAt ?? null;
   const label = elapsedLabel(pausedAtMs, nowMs);
   const tableState = isTeam ? "03" : "04";
 

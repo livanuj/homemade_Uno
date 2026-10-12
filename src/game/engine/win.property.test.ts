@@ -1,11 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { shouldAutoPause } from "./autopause";
-import { deal } from "./deal";
-import { reducer } from "./reducer";
-import { createSeededRng } from "./rng";
-import { makeState, playerList, runLegalSequence } from "./testkit";
-import type { ConnectionSnapshot, ConnectionState, GameMode, Seat, Suit } from "./types";
+import { shouldAutoPause } from "./autopause.ts";
+import { deal } from "./deal.ts";
+import { reducer } from "./reducer.ts";
+import { createSeededRng } from "./rng.ts";
+import { makeState, playerList, runLegalSequence } from "./testkit.ts";
+import type { ConnectionSnapshot, ConnectionState, GameMode, Seat, Suit } from "./types.ts";
 
 const RUNS = 100;
 const MAX_STEPS = 200;

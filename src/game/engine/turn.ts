@@ -1,4 +1,4 @@
-import type { Direction, GameState } from "./types";
+import type { Direction, GameState } from "./types.ts";
 
 /**
  * The seat index reached by stepping `steps` positions from `fromSeat` in the

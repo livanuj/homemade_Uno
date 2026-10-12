@@ -1,5 +1,5 @@
-import { buildDeck, isNumberCard, shuffle } from "./deck";
-import type { Card, GameMode, GameState, Rng, Seat, Suit, Team } from "./types";
+import { buildDeck, isNumberCard, shuffle } from "./deck.ts";
+import type { Card, GameMode, GameState, Rng, Seat, Suit, Team } from "./types.ts";
 
 
 /** Number of cards dealt to each player. */

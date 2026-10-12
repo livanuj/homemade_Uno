@@ -1,11 +1,11 @@
-import { isWildCard, shuffle } from "./deck";
+import { isWildCard, shuffle } from "./deck.ts";
 import {
     discardTop,
     isLegalPlay,
     penaltyKindOf,
     penaltyValue,
-} from "./rules";
-import { advanceActive, resolveReverse, resolveSkip } from "./turn";
+} from "./rules.ts";
+import { advanceActive, resolveReverse, resolveSkip } from "./turn.ts";
 import type {
     Action,
     Card,
@@ -15,7 +15,7 @@ import type {
     Result,
     Suit,
     Winner
-} from "./types";
+} from "./types.ts";
 
 /** Cards a player draws when caught on one card without calling. */
 const LAST_CARD_PENALTY = 2;

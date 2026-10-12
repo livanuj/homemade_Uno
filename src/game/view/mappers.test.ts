@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Timestamp } from "firebase/firestore";
 import type {
   HandDoc,
   PlayerDoc,
   StateDoc,
-} from "@/firebase/types";
+} from "@/backend/types";
 import type { RealtimeStore, StorePlayer } from "@/realtime/store";
 import { initialStore } from "@/realtime/store";
 import {
@@ -21,15 +20,15 @@ import {
 
 /**
  * Unit tests for the store → view-model mappers (Task 9). These feed a plain
- * `RealtimeStore` (no firebase, no emulator) and assert the derivation logic:
+ * `RealtimeStore` (no backend) and assert the derivation logic:
  * host/guest, start enablement + the 2v2 rules, the game-table projection,
  * wild/drew/paused/game-over overlay selection, and LAST CARD! enablement.
- * They keep the default `npm run test` run emulator-independent.
+ * They keep the default `npm run test` run backend-independent.
  */
 
-/** A fake Firestore Timestamp with just the `toMillis` the mappers use. */
-function ts(ms: number): Timestamp {
-  return { toMillis: () => ms } as unknown as Timestamp;
+/** Timestamps are epoch milliseconds. */
+function ts(ms: number): number {
+  return ms;
 }
 
 function player(

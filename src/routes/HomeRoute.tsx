@@ -4,7 +4,7 @@
  *
  * The screen reads/creates rooms through the injectable `RoomStore`
  * (`@/game/view/store`) rather than talking to a backend directly — the
- * realtime layer + Cloud Functions (tasks 4/5/9) plug into that same seam
+ * realtime layer + server actions (tasks 4/5/9) plug into that same seam
  * later. Today the store is fixture-backed.
  *
  * Screen states are driven by URL so Playwright (and links) can reach them:

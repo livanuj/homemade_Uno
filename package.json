@@ -11,15 +11,14 @@
     "e2e": "playwright test",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:rules": "firebase emulators:exec --only firestore,auth --project homemadeuno \"vitest run --config firestore/vitest.rules.config.ts\"",
-    "test:functions": "npm --prefix functions run build && npm --prefix functions run test:integration",
-    "test:integration": "npm run test:rules",
-    "emulators": "firebase emulators:start --only firestore,auth,functions --project homemadeuno"
+    "test:supabase": "vitest run --config supabase/vitest.config.ts",
+    "supabase:start": "supabase start",
+    "functions:check": "npx -y deno@2.1.4 check supabase/functions/game/index.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "@tailwindcss/vite": "4.3.3",
     "clsx": "2.1.1",
-    "firebase": "^12.19.0",
     "motion": "^13.4.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -28,7 +27,6 @@
     "tailwindcss": "4.3.3"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^5.0.2",
     "@playwright/test": "^1.63.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

@@ -5,10 +5,10 @@
  *
  * These are the read-only shapes the `GameOverlays` composition consumes,
  * derived (in the future) from the authoritative public state + the caller's
- * own hand. The realtime layer (task 5) and Cloud Functions (task 4) are
+ * own hand. The realtime layer (task 5) and server actions (task 4) are
  * DEFERRED, so today they are produced by in-memory fixtures keyed by an
  * `?overlay=` query param so Playwright and links reach each distinct state.
- * Nothing here imports firebase or performs I/O.
+ * Nothing here imports the backend or performs I/O.
  *
  * The menu drawer, wild picker, drew sheet, and leave-confirm dialog float over
  * a table (any `GameView`); the disconnected state is a *table state* — it

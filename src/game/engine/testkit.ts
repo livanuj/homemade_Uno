@@ -2,10 +2,10 @@
 // public engine API; imported only by *.test.ts files. Kept pure and
 // deterministic (any randomness is derived from an injected Rng).
 
-import { isWildCard } from "./deck";
-import { reducer } from "./reducer";
-import { discardTop, isLegalPlay } from "./rules";
-import type { Card, EngineContext, GameMode, GameState, Rng, Suit } from "./types";
+import { isWildCard } from "./deck.ts";
+import { reducer } from "./reducer.ts";
+import { discardTop, isLegalPlay } from "./rules.ts";
+import type { Card, EngineContext, GameMode, GameState, Rng, Suit } from "./types.ts";
 
 export const ALL_SUITS: readonly Suit[] = ["red", "yellow", "green", "blue"];
 

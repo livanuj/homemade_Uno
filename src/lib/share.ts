@@ -99,7 +99,7 @@ export async function shareInvite(data: ShareData): Promise<ShareResult> {
  * prefilled via `?code=…`, which `HomeRoute` reads to pre-populate the join
  * field. We never hardcode a domain: the origin is read from
  * `window.location.origin` at call time so the link is correct whether the app
- * runs on localhost, a Firebase Hosting URL, or a custom domain.
+ * runs on localhost, a Vercel URL, or a custom domain.
  *
  * In a non-DOM context (tests / SSR) there is no origin, so we return a
  * root-relative URL (`/?code=…`) — still a valid, shareable path.

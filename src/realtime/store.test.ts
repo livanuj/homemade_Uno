@@ -1,13 +1,13 @@
 /**
  * Unit tests for the read-only authoritative store reducer (Task 5.1).
  *
- * These are pure — no Firestore, no emulator — so they run under the default
+ * These are pure — no backend — so they run under the default
  * `npm run test` (jsdom). They verify the store mirrors server snapshots, keeps
  * itself read-only, and handles the optimistic pending/rejection bookkeeping the
  * action client relies on for revert (Req 14.5).
  */
 import { describe, expect, it } from "vitest";
-import type { HandDoc, PlayerDoc, RoomDoc, StateDoc } from "@/firebase/types";
+import type { HandDoc, PlayerDoc, RoomDoc, StateDoc } from "@/backend/types";
 import {
   initialStore,
   selectActivePlayer,
@@ -25,9 +25,8 @@ function room(overrides: Partial<RoomDoc> = {}): RoomDoc {
     gameMode: "normal",
     phase: "playing",
     roundNumber: 1,
-    // Timestamps aren't inspected by the reducer; cast a stub.
-    createdAt: { toMillis: () => 0 } as unknown as RoomDoc["createdAt"],
-    lastActivityAt: { toMillis: () => 0 } as unknown as RoomDoc["lastActivityAt"],
+    createdAt: 0,
+    lastActivityAt: 0,
     ...overrides,
   };
 }
