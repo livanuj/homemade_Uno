@@ -33,6 +33,7 @@ import { MotionCard } from "@/components/MotionCard";
 import { OfflineAvatar } from "@/components/OfflineAvatar";
 import { PlayingCard } from "@/components/PlayingCard";
 import { TableStageContext } from "@/components/TableLayer";
+import { TableEventLayer, tableEventText, useTableEvent } from "@/components/TableEventLayer";
 import {
   TableFlights,
   useTableFlights,
@@ -42,7 +43,7 @@ import {
 } from "@/components/TableFlights";
 import { TurnPill } from "@/components/TurnPill";
 import { TurnTag } from "@/components/TurnTag";
-import { cardAriaLabel, type Suit } from "@/design/suits";
+import { cardAriaLabel, isWild, type Suit } from "@/design/suits";
 import {
   dealDelay,
   drawSlideTransition,
@@ -50,6 +51,8 @@ import {
   handTurnTransition,
   motionTransition,
   playSpring,
+  reversePulse,
+  tableEventPop,
 } from "@/design/motion";
 import type {
   CardView,
@@ -188,17 +191,17 @@ interface SeatSlot {
 
 /**
  * Every position on the table, per layout. Portrait is the phone design
- * (§7.5–§7.7); landscape is the wide-screen layout drawn on a fixed 1280×800
- * stage, and compact the phone-on-its-side layout on a 900×440 stage, each
- * scaled by `GameTable` to fit the window. Class strings are whole static
+ * (§7.5–§7.7) on a 390×844 stage; landscape is the wide-screen layout on a
+ * 1280×800 stage, and compact the phone-on-its-side layout on a 900×440 stage.
+ * `GameTable` scales each stage to fit the space it has. Class strings are whole static
  * literals (styling.md); px points feed the flight math.
  */
 interface TableGeometry {
   /** Stage width in px — right-anchored seats measure from it. */
   width: number;
-  /** Stage height in px (landscape stages only). */
+  /** Stage height in px. */
   height: number;
-  /** Stage classes: fixed size (landscape stages only). */
+  /** Stage classes: the fixed stage size. */
   stage: string;
   /** Width of the hand band the fan lays out in (px). */
   handWidth: number;
@@ -218,6 +221,10 @@ interface TableGeometry {
   discardSlot: Point;
   discardCenter: Point;
   partnerLandingY: number;
+  /** Skip / reverse banner position (over the piles). */
+  eventBanner: string;
+  /** "You're skipped!" stamp position (centered on the piles). */
+  eventStamp: string;
   /** 2v2: the two opponents' side seats. */
   teamSeats: [SeatSlot, SeatSlot];
   /** Normal: clockwise from your left — left, top-left, top-right, right. */
@@ -233,7 +240,7 @@ const TABLE_GEOMETRY: Record<"portrait" | "landscape" | "compact", TableGeometry
   portrait: {
     width: 390,
     height: 844,
-    stage: "",
+    stage: "h-[844px] w-[390px]",
     handWidth: 390,
     partner: "top-[70px]",
     maxStep: MAX_STEP,
@@ -249,6 +256,8 @@ const TABLE_GEOMETRY: Record<"portrait" | "landscape" | "compact", TableGeometry
     discardSlot: { x: 204, y: 344 },
     discardCenter: { x: 241, y: 398 },
     partnerLandingY: 150,
+    eventBanner: "top-[214px]",
+    eventStamp: "top-[300px]",
     teamSeats: [SIDE_LEFT, SIDE_RIGHT],
     normalSeats: [
       SIDE_LEFT,
@@ -276,6 +285,8 @@ const TABLE_GEOMETRY: Record<"portrait" | "landscape" | "compact", TableGeometry
     discardSlot: { x: 649, y: 268 },
     discardCenter: { x: 686, y: 322 },
     partnerLandingY: 140,
+    eventBanner: "top-[214px]",
+    eventStamp: "top-[226px]",
     teamSeats: [WIDE_LEFT, WIDE_RIGHT],
     normalSeats: [
       WIDE_LEFT,
@@ -308,6 +319,8 @@ const TABLE_GEOMETRY: Record<"portrait" | "landscape" | "compact", TableGeometry
     discardSlot: { x: 459, y: 160 },
     discardCenter: { x: 496, y: 214 },
     partnerLandingY: 120,
+    eventBanner: "top-[120px]",
+    eventStamp: "top-[128px]",
     teamSeats: [
       { kind: "left", style: { left: 12, top: 60, width: 76 } },
       { kind: "right", style: { right: 12, top: 60, width: 76 } },
@@ -328,7 +341,6 @@ const TABLE_GEOMETRY: Record<"portrait" | "landscape" | "compact", TableGeometry
  */
 function useStageScale(
   container: HTMLElement | null,
-  enabled: boolean,
   w: number,
   h: number,
 ): number {
@@ -336,7 +348,6 @@ function useStageScale(
     Math.min(window.innerWidth / w, window.innerHeight / h),
   );
   useEffect(() => {
-    if (!enabled) return;
     const update = () => {
       const box = container?.getBoundingClientRect();
       const cw = box?.width || window.innerWidth;
@@ -354,7 +365,7 @@ function useStageScale(
       window.removeEventListener("resize", update);
       observer?.disconnect();
     };
-  }, [container, enabled, w, h]);
+  }, [container, w, h]);
   return scale;
 }
 
@@ -443,6 +454,30 @@ function BackStack({ kind, count }: { kind: SeatKind; count: number }) {
 // ---------------------------------------------------------------------------
 
 /**
+ * A ⊘ badge that pops onto a skipped player's avatar (Req 6.4/6.5), shown
+ * while the skip callout is on screen.
+ */
+function SkipBadge({ show, reduced }: { show: boolean; reduced: boolean }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.span
+          variants={tableEventPop}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          {...(reduced ? { transition: { duration: 0 } } : {})}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-full bg-danger font-display text-sheet text-surface"
+        >
+          ⊘
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/**
  * One opponent seat — avatar (ring + real-count badge) + name + face-down
  * backs. When the seat is disconnected (`seat.connection === "offline"`, Req
  * 15.1) it renders the faded `OfflineAvatar` instead, with the grace
@@ -454,6 +489,8 @@ function OpponentSeat({
   kind,
   ring,
   activeTurn,
+  skipped,
+  reduced,
   countdown,
   style,
 }: {
@@ -461,6 +498,9 @@ function OpponentSeat({
   kind: SeatKind;
   ring: AvatarRing;
   activeTurn: boolean;
+  /** This player was just skipped — ⊘ badge + "Skipped" tag. */
+  skipped: boolean;
+  reduced: boolean;
   countdown?: { progress: number; secondsLeft: number };
   style: CSSProperties;
 }) {
@@ -470,31 +510,39 @@ function OpponentSeat({
     <div
       className={cn(
         "absolute flex flex-col items-center gap-1",
-        !activeTurn && "opacity-60",
+        !activeTurn && !skipped && "opacity-60",
       )}
       style={style}
     >
-      {offline ? (
-        <OfflineAvatar
-          name={seat.name}
-          cardCount={seat.cardCount}
-          {...(countdown ? { countdown } : {})}
-        />
-      ) : (
-        <Avatar
-          name={seat.name}
-          size={44}
-          ring={ring}
-          cardCount={seat.cardCount}
-          activeTurn={activeTurn}
-        />
-      )}
+      <div className="relative">
+        {offline ? (
+          <OfflineAvatar
+            name={seat.name}
+            cardCount={seat.cardCount}
+            {...(countdown ? { countdown } : {})}
+          />
+        ) : (
+          <Avatar
+            name={seat.name}
+            size={44}
+            ring={ring}
+            cardCount={seat.cardCount}
+            activeTurn={activeTurn}
+          />
+        )}
+        <SkipBadge show={skipped} reduced={reduced} />
+      </div>
       <span className="text-caption font-bold text-ink">
         {offline ? `${seat.name} · offline` : seat.name}
       </span>
       {/* Whose turn: a "Playing" tag under the active player (an offline
-          active player shows its grace countdown instead). */}
-      {activeTurn && !offline && <TurnTag>Playing</TurnTag>}
+          active player shows its grace countdown instead); a just-skipped
+          player shows "Skipped". */}
+      {skipped ? (
+        <TurnTag className="bg-danger text-surface">Skipped</TurnTag>
+      ) : (
+        activeTurn && !offline && <TurnTag>Playing</TurnTag>
+      )}
       <div className={kind === "top" ? undefined : "mt-1.5"}>
         <BackStack kind={kind} count={seat.cardCount} />
       </div>
@@ -506,11 +554,16 @@ function OpponentSeat({
 function PartnerSeat({
   partner,
   activeTurn,
+  skipped,
+  reduced,
   className,
 }: {
   partner: PartnerSeatView;
   /** Whether it is the partner's turn — pulse + "Playing" tag; else faded. */
   activeTurn: boolean;
+  /** The partner was just skipped — ⊘ badge + "Skipped" tag. */
+  skipped: boolean;
+  reduced: boolean;
   /** Top offset (per table layout). */
   className: string;
 }) {
@@ -518,17 +571,20 @@ function PartnerSeat({
     <div
       className={cn(
         "absolute left-0 flex w-full flex-col items-center gap-1",
-        !activeTurn && "opacity-60",
+        !activeTurn && !skipped && "opacity-60",
         className,
       )}
     >
       <div className="flex items-center gap-2.5">
-        <Avatar
-          name={partner.name}
-          size={40}
-          ring={TEAM_RING[partner.team]}
-          activeTurn={activeTurn}
-        />
+        <div className="relative">
+          <Avatar
+            name={partner.name}
+            size={40}
+            ring={TEAM_RING[partner.team]}
+            activeTurn={activeTurn}
+          />
+          <SkipBadge show={skipped} reduced={reduced} />
+        </div>
         <div className="flex flex-col">
           <span className="text-body text-ink">{partner.name}</span>
           <span
@@ -540,7 +596,11 @@ function PartnerSeat({
             Partner · {partner.hand.length} cards
           </span>
         </div>
-        {activeTurn && <TurnTag>Playing</TurnTag>}
+        {skipped ? (
+          <TurnTag className="bg-danger text-surface">Skipped</TurnTag>
+        ) : (
+          activeTurn && <TurnTag>Playing</TurnTag>
+        )}
       </div>
       {/* Partner recipe: perspective on the parent, rotateX on the card row. */}
       <div style={{ perspective: "420px", paddingTop: 2 }}>
@@ -563,58 +623,59 @@ function PartnerSeat({
 // Piles + direction ring.
 // ---------------------------------------------------------------------------
 
-/** SVG dashed direction ring in the active color; arrowheads flip when reversed. */
+/** Direction arrows round the piles in the active color; they flip when reversed. */
 function DirectionRing({
   color,
   direction,
   className,
+  reduced,
 }: {
   color: Suit;
   direction: Direction;
   /** Position classes (per table layout). */
   className: string;
+  reduced: boolean;
 }) {
   const stroke = SUIT_STROKE[color];
   return (
-    <svg
-      className={cn("absolute", className)}
-      width="210"
-      height="210"
-      viewBox="0 0 210 210"
-      fill="none"
+    // Keyed by direction: a reverse remounts it, so the arrows pulse
+    // (§ reversePulse) as they flip to the new direction.
+    <motion.div
+      key={direction}
+      className={cn("absolute size-[210px]", className)}
+      variants={reversePulse}
+      initial={reduced ? false : "initial"}
+      animate="animate"
       aria-hidden="true"
-      style={
-        direction === -1
-          ? { transform: "scaleX(-1)", transformOrigin: "center" }
-          : undefined
-      }
     >
-      <circle
-        cx="105"
-        cy="105"
-        r="96"
-        stroke={stroke}
-        strokeOpacity="0.45"
-        strokeWidth="2"
-        strokeDasharray="10 12"
-      />
-      <path
-        d="M190 70 l6 14 l-15 -2"
-        stroke={stroke}
-        strokeOpacity="0.8"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 140 l-6 -14 l15 2"
-        stroke={stroke}
-        strokeOpacity="0.8"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+      <svg
+        width="210"
+        height="210"
+        viewBox="0 0 210 210"
+        fill="none"
+        className="overflow-visible"
+      >
+        {/* Two small curved arrows, pointing the way play moves (clockwise);
+            mirrored when play is counter-clockwise. */}
+        <g
+          stroke={stroke}
+          strokeOpacity="0.9"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          transform={
+            direction === -1 ? "translate(210 0) scale(-1 1)" : undefined
+          }
+        >
+          {/* Two short arcs: one above the piles, one below, pointing the
+              opposite ways round the table. */}
+          <path d="M49.9 26.4 A96 96 0 0 1 160.1 26.4" />
+          <path d="M154.9 13 L160.1 26.4 L145.7 26.1" />
+          <path d="M160.1 183.6 A96 96 0 0 1 49.9 183.6" />
+          <path d="M55.1 197.1 L49.9 183.6 L64.3 183.9" />
+        </g>
+      </svg>
+    </motion.div>
   );
 }
 
@@ -626,9 +687,12 @@ function Piles({
   onDraw,
   reduced = false,
   className,
+  chosenColor,
 }: {
   /** Position classes (per table layout). */
   className: string;
+  /** The color chosen for a wild on top of the pile (shown on the card). */
+  chosenColor?: Suit | undefined;
   discardTop: CardView;
   discardPrev?: CardView;
   /**
@@ -680,7 +744,14 @@ function Piles({
             }}
             transition={motionTransition(reduced, playSpring)}
           >
-            <PlayingCard variant="pile" {...faceProps(discardTop)} tabIndex={-1} />
+            <PlayingCard
+              variant="pile"
+              {...faceProps(discardTop)}
+              {...(chosenColor && isWild(discardTop.value)
+                ? { chosenColor }
+                : {})}
+              tabIndex={-1}
+            />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1014,8 +1085,6 @@ export interface GameTableProps {
    * hand cards (Req 7.5/7.6). Defaults to on (matches the reference).
    */
   highlight?: boolean;
-  /** Container width in px for the fan math (§7.7). Defaults to 390 (design). */
-  width?: number;
   /** Open the in-game menu (task 8.5 renders the drawer). */
   onMenu?: () => void;
   /** Draw a card (task 9 wires the flow). */
@@ -1052,7 +1121,6 @@ export interface GameTableProps {
 export function GameTable({
   view,
   highlight = true,
-  width = 390,
   onMenu,
   onDraw,
   onCallLastCard,
@@ -1070,10 +1138,10 @@ export function GameTable({
     TABLE_GEOMETRY[compact ? "compact" : landscape ? "landscape" : "portrait"];
   const [tableEl, setTableEl] = useState<HTMLDivElement | null>(null);
   const [stageEl, setStageEl] = useState<HTMLDivElement | null>(null);
-  const stageScale = useStageScale(tableEl, landscape, geo.width, geo.height);
+  const stageScale = useStageScale(tableEl, geo.width, geo.height);
   // Landscape lays out on a fixed stage, so the fan and seats measure that.
-  const tableWidth = landscape ? geo.width : width;
-  const handWidth = landscape ? geo.handWidth : width;
+  const tableWidth = geo.width;
+  const handWidth = geo.handWidth;
   const isYourTurn = view.activeSeatId === view.selfId;
 
   // Screen-reader announcements (Req 18.4/18.7): mirror the visible turn pill
@@ -1081,9 +1149,18 @@ export function GameTable({
   // the "card just played" surface, phrased via the shared card label
   // ("Red 7", "Wild draw four"). Composed so a card play landing with a turn
   // change keeps the newest of each.
+  // Skip / reverse callouts on every player's screen (Req 6.2–6.5).
+  const tableEvent = useTableEvent(view);
+  const skippedId =
+    tableEvent?.event.kind === "skip" ? tableEvent.event.seatId : null;
+
   const announcement = useGameAnnouncements({
     turnText: view.turnText,
-    lastPlay: `Top card ${cardAriaLabel(view.discardTop.value, view.discardTop.suit)}`,
+    lastPlay: `Top card ${cardAriaLabel(view.discardTop.value, view.discardTop.suit)}${
+      isWild(view.discardTop.value) && !view.colorPending
+        ? `, ${view.activeColor} chosen`
+        : ""
+    }${tableEvent ? `. ${tableEventText(tableEvent.event, view)}` : ""}`,
   });
 
   // Opponent draw / play flights (Req 10.6 / 17.2).
@@ -1133,6 +1210,8 @@ export function GameTable({
         <PartnerSeat
           className={geo.partner}
           activeTurn={view.activeSeatId === view.partner.id}
+          skipped={skippedId === view.partner.id}
+          reduced={reduced}
           partner={{
             ...view.partner,
             // Drawn cards still in the air are shown once they land.
@@ -1160,6 +1239,8 @@ export function GameTable({
             kind={kind}
             ring={ringForOpponent(seat, isTeam, seatActive)}
             activeTurn={seatActive}
+            skipped={skippedId === seat.id}
+            reduced={reduced}
             {...(countdown ? { countdown } : {})}
             style={style}
           />
@@ -1171,6 +1252,7 @@ export function GameTable({
         color={view.activeColor}
         direction={view.direction}
         className={geo.ring}
+        reduced={reduced}
       />
 
       {/* Piles — draw (left) + discard (right). Glow var drives the top-card glow. */}
@@ -1179,6 +1261,8 @@ export function GameTable({
       >
         <Piles
           className={geo.piles}
+          // A wild on top shows the color its player chose (once chosen).
+          chosenColor={view.colorPending ? undefined : view.activeColor}
           discardTop={view.discardTop}
           {...(view.discardPrev ? { discardPrev: view.discardPrev } : {})}
           holdTopId={flights.holdTopId}
@@ -1283,6 +1367,15 @@ export function GameTable({
       />
 
       {/* Cards flying between the piles and the other players' seats. */}
+      {/* Skip / reverse callouts over the piles. */}
+      <TableEventLayer
+        shown={tableEvent}
+        view={view}
+        bannerClassName={geo.eventBanner}
+        stampClassName={geo.eventStamp}
+        reduced={reduced}
+      />
+
       <TableFlights
         flights={flights.flights}
         geometry={flightGeometry(view, placedSeats, tableWidth, geo)}
@@ -1294,38 +1387,33 @@ export function GameTable({
   return (
     <div
       ref={setTableEl}
-      // Landscape fills the shell's padded box (safe areas included) so the
-      // scaled stage never runs under a notch or past the bottom edge.
-      className={cn(
-        "relative w-full select-none overflow-hidden bg-paper",
-        landscape ? "h-full" : "h-dvh",
-      )}
+      // Fills the shell's padded box (safe areas included) so the scaled
+      // stage never runs under a notch or past the bottom edge.
+      className="relative h-full w-full select-none overflow-hidden bg-paper"
       style={{ touchAction: "manipulation" }}
     >
       {/* Polite live region — turn changes + the card in play (Req 18.4/18.7). */}
       <LiveAnnouncer message={announcement} />
 
-      {landscape ? (
-        // Landscape: the table is laid out on a fixed stage (1280×800, or
-        // 900×440 compact), centered and scaled uniformly to fit the window.
-        <div
-          ref={setStageEl}
-          className={cn(
-            "absolute top-1/2 left-1/2 origin-center -translate-x-1/2 -translate-y-1/2 scale-(--stage-scale)",
-            geo.stage,
-          )}
-          style={{ "--stage-scale": stageScale } as CSSProperties}
-        >
-          {table}
-        </div>
-      ) : (
-        table
-      )}
+      {/* The table is laid out on a fixed stage (390×844 portrait, 1280×800
+          landscape, 900×440 on a phone on its side), centered and scaled
+          uniformly to fit — so short screens (Safari with its toolbars, a
+          notch) still show the whole table, hand included (Req 16.4). */}
+      <div
+        ref={setStageEl}
+        className={cn(
+          "absolute top-1/2 left-1/2 origin-center -translate-x-1/2 -translate-y-1/2 scale-(--stage-scale)",
+          geo.stage,
+        )}
+        style={{ "--stage-scale": stageScale } as CSSProperties}
+      >
+        {table}
+      </div>
 
       {/* Overlay slot — task 8.5 / 8.7 render here over the table (outside
           the landscape stage, so they cover the whole window unscaled;
           table-anchored pieces portal into the stage via `TableLayer`). */}
-      <TableStageContext.Provider value={landscape ? stageEl : null}>
+      <TableStageContext.Provider value={stageEl}>
         {overlay}
       </TableStageContext.Provider>
     </div>

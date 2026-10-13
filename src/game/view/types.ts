@@ -208,8 +208,19 @@ export interface GameView {
   discardPrev?: CardView;
   /** The active color to match (Req 6.7) — drives the ring + turn-pill dot. */
   activeColor: Suit;
-  /** Turn direction (Req 6.6). */
+  /**
+   * A wild was just played and its player is still choosing the color, so the
+   * wild on the discard pile shows no chosen color yet.
+   */
+  colorPending?: boolean;
+  /** Turn direction (Req 6.6). 1 = clockwise on screen (seat order). */
   direction: Direction;
+  /**
+   * Every player id in seat order, starting with the viewer — the order turns
+   * move in when `direction` is 1. Optional: `turnOrderOf` derives it from the
+   * seats when absent (fixtures).
+   */
+  turnOrder?: string[];
   /** The id of the player whose turn it is (Req 6.4/6.5). */
   activeSeatId: string;
   /** The turn-pill message (§5.5), already composed for the active state. */

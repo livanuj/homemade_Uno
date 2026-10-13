@@ -19,6 +19,7 @@ import {
   isWild,
   SUIT_FILL,
   SUIT_INK,
+  SUIT_NAME,
   SUIT_ON_FILL,
   SUIT_SHAPE,
   valueGlyph,
@@ -45,6 +46,12 @@ export interface PlayingCardProps extends NativeButtonProps {
   selected?: boolean;
   /** Not-playable dimming (only when "Highlight playable cards" is on). */
   dim?: boolean;
+  /**
+   * Wild / Wild+4 on the discard pile after its color was chosen: the face
+   * fills with that color and carries its suit shape, so every player can see
+   * what to match (never by color alone, Req 18.3).
+   */
+  chosenColor?: Suit;
 }
 
 /** Per-variant geometry (size, border, numeral, corner visibility). */
@@ -82,6 +89,7 @@ export function PlayingCard({
   variant = "hand",
   selected = false,
   dim = false,
+  chosenColor,
   className,
   ...rest
 }: PlayingCardProps) {
@@ -96,33 +104,56 @@ export function PlayingCard({
   );
 
   if (isWild(value)) {
+    // With a chosen color every quadrant takes that fill (the 2×2 grid keeps
+    // it readable as a wild); otherwise the four suit colors.
+    const fills = chosenColor
+      ? WILD_QUADRANT_FILL.map(() => SUIT_FILL[chosenColor])
+      : WILD_QUADRANT_FILL;
     return (
       <button
         type="button"
-        aria-label={label}
+        aria-label={
+          chosenColor
+            ? `${label}, ${SUIT_NAME[chosenColor].toLowerCase()} chosen`
+            : label
+        }
         aria-pressed={selected}
         className={cn(base, "overflow-hidden bg-card-back-deep p-1.5")}
         {...rest}
       >
         {/* 2×2 suit-color grid: red TL, yellow TR, blue BL, green BR. */}
         <span className="absolute inset-1.5 grid grid-cols-2 grid-rows-2 gap-0.5 rounded-card-sm">
-          {WILD_QUADRANT_FILL.map((fill, i) => (
+          {fills.map((fill, i) => (
             <span
               key={i}
               className={cn("h-full w-full rounded-card-back", fill)}
             />
           ))}
         </span>
-        {/* Surface oval in the middle; +4 text on wild4, empty on plain wild. */}
+        {/* Surface oval in the middle; +4 text on wild4, empty on plain wild.
+            With a chosen color the glyph takes that suit's ink. */}
         <span
           className={cn(
-            "relative z-10 grid place-items-center rounded-full bg-surface font-display text-ink",
+            "relative z-10 grid place-items-center rounded-full bg-surface font-display",
+            chosenColor ? SUIT_INK[chosenColor] : "text-ink",
             VARIANT_CIRCLE[variant],
             VARIANT_NUMERAL[variant],
           )}
         >
           {valueGlyph(value)}
         </span>
+        {/* The chosen color's suit shape, like a suited card's corner. */}
+        {chosenColor && (
+          <span
+            className={cn(
+              "absolute bottom-1 right-[7px] z-10 text-label leading-none",
+              SUIT_ON_FILL[chosenColor],
+            )}
+            aria-hidden="true"
+          >
+            {SUIT_SHAPE[chosenColor]}
+          </span>
+        )}
       </button>
     );
   }
