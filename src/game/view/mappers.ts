@@ -298,6 +298,10 @@ export function toGameView(store: RealtimeStore): GameView | null {
     opponents,
     discardTop: top,
     activeColor: state.activeColor as Suit,
+    colorPending: state.phase === "wild_pending",
+    turnOrder: clockwiseFromSelf(seated, me?.doc.seatIndex ?? 0).map(
+      (p) => p.playerId,
+    ),
     direction: state.direction as Direction,
     activeSeatId,
     turnText: turnText(state, isYourTurn, activeName, state.activeColor as Suit),

@@ -46,6 +46,8 @@ export const DURATION = {
   dealStagger: 0.06,
   /** Hand rising for your turn / sinking while you wait. */
   handTurn: 0.25,
+  /** How long a skip / reverse callout stays on screen. */
+  tableEvent: 1.8,
 } as const;
 
 /**
@@ -182,6 +184,26 @@ export const handTurnState: Variants = {
 export const handTurnTransition: Transition = {
   duration: DURATION.handTurn,
   ease: EASE_CARD,
+};
+
+/**
+ * Skip / reverse callouts (Req 6.2–6.5): a stamp or banner pops in (slight
+ * overshoot), holds for {@link DURATION.tableEvent}, then fades out.
+ */
+export const tableEventPop: Variants = {
+  hidden: { opacity: 0, scale: 0.5 },
+  visible: {
+    opacity: 1,
+    scale: [0.5, 1.12, 1],
+    transition: { duration: 0.35, ease: EASE_CARD },
+  },
+  exit: { opacity: 0, scale: 0.9, transition: { duration: 0.25, ease: EASE_CARD } },
+};
+
+/** The direction ring pulses when play reverses. */
+export const reversePulse: Variants = {
+  initial: { scale: 1.2, opacity: 0.4 },
+  animate: { scale: 1, opacity: 1, transition: { duration: 0.5, ease: EASE_CARD } },
 };
 
 /**
