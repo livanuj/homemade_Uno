@@ -95,6 +95,10 @@ function LiveGame() {
     const r = store.rejection;
     if (!r || r.at === lastRejectionAt.current) return;
     lastRejectionAt.current = r.at;
+    // The table moved on under the move (e.g. someone was just caught): the
+    // optimistic action is already reverted and the fresh state is on screen,
+    // so the player simply tries again — no shake, no "Catching up…" toast.
+    if (r.reason === "stale_version") return;
     if (r.kind === "play" && store.pendingAction === null) {
       // The card that was optimistically raised is the one to shake. We stored
       // its id on the pending action before it was cleared; fall back to the
@@ -274,8 +278,6 @@ function rejectionToast(reason: string): string {
       return "That card can't be played right now";
     case "not_active":
       return "It's not your turn yet";
-    case "stale_version":
-      return "Catching up…";
     case "paused":
       return "The game is paused";
     default:

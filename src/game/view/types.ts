@@ -221,6 +221,8 @@ export interface GameView {
    * seats when absent (fixtures).
    */
   turnOrder?: string[];
+  /** Players who have called UNO for their last card (Req 11) — drives the burst. */
+  unoCalledIds?: string[];
   /** The id of the player whose turn it is (Req 6.4/6.5). */
   activeSeatId: string;
   /** The turn-pill message (§5.5), already composed for the active state. */

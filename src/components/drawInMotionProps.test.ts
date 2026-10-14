@@ -33,4 +33,10 @@ describe("drawInMotionProps", () => {
     expect(props.initial).toBe(false);
     expect(props.animate).toEqual({ opacity: 1, y: 0, x: 0, rotateY: 0 });
   });
+
+  it("holds a caught player's cards back, hidden, until the punishment plays", () => {
+    const props = drawInMotionProps(0, false, 0.8);
+    expect(props.initial).toMatchObject({ opacity: 0 });
+    expect((props.transition as { delay: number }).delay).toBeGreaterThanOrEqual(0.8);
+  });
 });

@@ -302,6 +302,13 @@ export function toGameView(store: RealtimeStore): GameView | null {
     turnOrder: clockwiseFromSelf(seated, me?.doc.seatIndex ?? 0).map(
       (p) => p.playerId,
     ),
+    unoCalledIds: seated
+      .filter(
+        (p) =>
+          p.doc.seatIndex !== null &&
+          state.lastCardCalledSeats.includes(p.doc.seatIndex),
+      )
+      .map((p) => p.playerId),
     direction: state.direction as Direction,
     activeSeatId,
     turnText: turnText(state, isYourTurn, activeName, state.activeColor as Suit),

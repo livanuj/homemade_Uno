@@ -33,7 +33,14 @@ import { MotionCard } from "@/components/MotionCard";
 import { OfflineAvatar } from "@/components/OfflineAvatar";
 import { PlayingCard } from "@/components/PlayingCard";
 import { TableStageContext } from "@/components/TableLayer";
-import { TableEventLayer, tableEventText, useTableEvent } from "@/components/TableEventLayer";
+import {
+  TableEventLayer,
+  tableEventText,
+  unoCallText,
+  useCatchEvent,
+  useTableEvent,
+  useUnoBursts,
+} from "@/components/TableEventLayer";
 import {
   TableFlights,
   useTableFlights,
@@ -45,14 +52,17 @@ import { TurnPill } from "@/components/TurnPill";
 import { TurnTag } from "@/components/TurnTag";
 import { cardAriaLabel, isWild, type Suit } from "@/design/suits";
 import {
+  DURATION,
   dealDelay,
   drawSlideTransition,
   handTurnState,
   handTurnTransition,
+  illegalShake,
   motionTransition,
   playSpring,
   reversePulse,
   tableEventPop,
+  unoBurst,
 } from "@/design/motion";
 import type {
   CardView,
@@ -453,14 +463,33 @@ function BackStack({ kind, count }: { kind: SeatKind; count: number }) {
 // Seats.
 // ---------------------------------------------------------------------------
 
+/** A penalty that just landed on a seat: skipped, or caught without UNO. */
+type SeatPenalty = "skip" | "caught" | null;
+
+const PENALTY_GLYPH: Record<"skip" | "caught", string> = {
+  skip: "⊘",
+  caught: "+2",
+};
+
+const PENALTY_TAG: Record<"skip" | "caught", string> = {
+  skip: "Skipped",
+  caught: "Caught!",
+};
+
 /**
- * A ⊘ badge that pops onto a skipped player's avatar (Req 6.4/6.5), shown
- * while the skip callout is on screen.
+ * A badge that pops onto a player's avatar while a skip (⊘, Req 6.4/6.5) or a
+ * catch (+2, Req 11.3) callout is on screen.
  */
-function SkipBadge({ show, reduced }: { show: boolean; reduced: boolean }) {
+function PenaltyBadge({
+  penalty,
+  reduced,
+}: {
+  penalty: SeatPenalty;
+  reduced: boolean;
+}) {
   return (
     <AnimatePresence>
-      {show && (
+      {penalty && (
         <motion.span
           variants={tableEventPop}
           initial="hidden"
@@ -470,10 +499,59 @@ function SkipBadge({ show, reduced }: { show: boolean; reduced: boolean }) {
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-full bg-danger font-display text-sheet text-surface"
         >
-          ⊘
+          {PENALTY_GLYPH[penalty]}
         </motion.span>
       )}
     </AnimatePresence>
+  );
+}
+
+/**
+ * A red "UNO!" burst that pops above a player's avatar when they call UNO
+ * (Req 11), on every screen. Announced through the live region instead.
+ */
+function UnoBurst({ show, reduced }: { show: boolean; reduced: boolean }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.span
+          variants={unoBurst}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          {...(reduced ? { transition: { duration: 0 } } : {})}
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 rounded-full border-2 border-surface bg-suit-red px-2.5 py-0.5 font-display text-body whitespace-nowrap text-surface uppercase shadow-cta"
+        >
+          UNO!
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/**
+ * The avatar box a seat's badges hang off; it shakes when the player is caught
+ * without calling UNO (Req 11.3).
+ */
+function SeatAvatarBox({
+  caught,
+  reduced,
+  children,
+}: {
+  caught: boolean;
+  reduced: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <motion.div
+      className="relative"
+      variants={illegalShake}
+      initial={false}
+      animate={caught && !reduced ? "shake" : "still"}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -489,7 +567,8 @@ function OpponentSeat({
   kind,
   ring,
   activeTurn,
-  skipped,
+  penalty,
+  unoCalled,
   reduced,
   countdown,
   style,
@@ -498,8 +577,10 @@ function OpponentSeat({
   kind: SeatKind;
   ring: AvatarRing;
   activeTurn: boolean;
-  /** This player was just skipped — ⊘ badge + "Skipped" tag. */
-  skipped: boolean;
+  /** A skip (⊘) or catch (+2) just landed here — badge + tag. */
+  penalty: SeatPenalty;
+  /** This player just called UNO — "UNO!" burst. */
+  unoCalled: boolean;
   reduced: boolean;
   countdown?: { progress: number; secondsLeft: number };
   style: CSSProperties;
@@ -510,11 +591,11 @@ function OpponentSeat({
     <div
       className={cn(
         "absolute flex flex-col items-center gap-1",
-        !activeTurn && !skipped && "opacity-60",
+        !activeTurn && !penalty && "opacity-60",
       )}
       style={style}
     >
-      <div className="relative">
+      <SeatAvatarBox caught={penalty === "caught"} reduced={reduced}>
         {offline ? (
           <OfflineAvatar
             name={seat.name}
@@ -530,16 +611,19 @@ function OpponentSeat({
             activeTurn={activeTurn}
           />
         )}
-        <SkipBadge show={skipped} reduced={reduced} />
-      </div>
+        <PenaltyBadge penalty={penalty} reduced={reduced} />
+        <UnoBurst show={unoCalled} reduced={reduced} />
+      </SeatAvatarBox>
       <span className="text-caption font-bold text-ink">
         {offline ? `${seat.name} · offline` : seat.name}
       </span>
       {/* Whose turn: a "Playing" tag under the active player (an offline
           active player shows its grace countdown instead); a just-skipped
           player shows "Skipped". */}
-      {skipped ? (
-        <TurnTag className="bg-danger text-surface">Skipped</TurnTag>
+      {penalty ? (
+        <TurnTag className="bg-danger text-surface">
+          {PENALTY_TAG[penalty]}
+        </TurnTag>
       ) : (
         activeTurn && !offline && <TurnTag>Playing</TurnTag>
       )}
@@ -554,15 +638,18 @@ function OpponentSeat({
 function PartnerSeat({
   partner,
   activeTurn,
-  skipped,
+  penalty,
+  unoCalled,
   reduced,
   className,
 }: {
   partner: PartnerSeatView;
+  /** The partner just called UNO — "UNO!" burst. */
+  unoCalled: boolean;
   /** Whether it is the partner's turn — pulse + "Playing" tag; else faded. */
   activeTurn: boolean;
-  /** The partner was just skipped — ⊘ badge + "Skipped" tag. */
-  skipped: boolean;
+  /** A skip (⊘) or catch (+2) just landed on the partner — badge + tag. */
+  penalty: SeatPenalty;
   reduced: boolean;
   /** Top offset (per table layout). */
   className: string;
@@ -571,20 +658,21 @@ function PartnerSeat({
     <div
       className={cn(
         "absolute left-0 flex w-full flex-col items-center gap-1",
-        !activeTurn && !skipped && "opacity-60",
+        !activeTurn && !penalty && "opacity-60",
         className,
       )}
     >
       <div className="flex items-center gap-2.5">
-        <div className="relative">
+        <SeatAvatarBox caught={penalty === "caught"} reduced={reduced}>
           <Avatar
             name={partner.name}
             size={40}
             ring={TEAM_RING[partner.team]}
             activeTurn={activeTurn}
           />
-          <SkipBadge show={skipped} reduced={reduced} />
-        </div>
+          <PenaltyBadge penalty={penalty} reduced={reduced} />
+          <UnoBurst show={unoCalled} reduced={reduced} />
+        </SeatAvatarBox>
         <div className="flex flex-col">
           <span className="text-body text-ink">{partner.name}</span>
           <span
@@ -596,8 +684,10 @@ function PartnerSeat({
             Partner · {partner.hand.length} cards
           </span>
         </div>
-        {skipped ? (
-          <TurnTag className="bg-danger text-surface">Skipped</TurnTag>
+        {penalty ? (
+          <TurnTag className="bg-danger text-surface">
+            {PENALTY_TAG[penalty]}
+          </TurnTag>
         ) : (
           activeTurn && <TurnTag>Playing</TurnTag>
         )}
@@ -811,12 +901,18 @@ const DRAW_IN_FROM = { opacity: 0.6, y: -320, x: 40, rotateY: 180 } as const;
 export function drawInMotionProps(
   batchIndex: number | undefined,
   reduced: boolean,
+  /** Extra delay (s), e.g. a caught player's cards wait for the punishment. */
+  holdBack = 0,
 ): Pick<MotionProps, "initial" | "animate" | "transition"> {
   const isDrawnIn = batchIndex !== undefined && !reduced;
   return {
-    initial: isDrawnIn ? DRAW_IN_FROM : false,
+    // Held-back cards start hidden so they don't wait in view at the pile.
+    initial: isDrawnIn ? (holdBack ? { ...DRAW_IN_FROM, opacity: 0 } : DRAW_IN_FROM) : false,
     animate: DRAW_IN_REST,
-    transition: { ...drawSlideTransition, delay: dealDelay(batchIndex ?? 0) },
+    transition: {
+      ...drawSlideTransition,
+      delay: holdBack + dealDelay(batchIndex ?? 0),
+    },
   };
 }
 
@@ -862,6 +958,7 @@ function HandFan({
   isYourTurn,
   width,
   maxStep,
+  holdBack,
   className,
   onPlayCard,
   shakeCardId,
@@ -874,6 +971,8 @@ function HandFan({
   width: number;
   /** Max horizontal step between cards (§7.7; wider in landscape). */
   maxStep: number;
+  /** Seconds newly drawn cards wait (a catch's punishment plays first). */
+  holdBack: number;
   /** Position + height classes for the hand band (per table layout). */
   className: string;
   /** Tap a hand card → attempt to play it (Task 9.4). */
@@ -945,7 +1044,11 @@ function HandFan({
             // Draw-in flight (Req 10.6): a newly arrived card slides up/in from
             // the draw-pile direction and flips face-up. For a multi-card
             // penalty draw, each card is delayed by its batch index.
-            drawInProps={drawInMotionProps(drawInOrder.get(card.id), reduced)}
+            drawInProps={drawInMotionProps(
+              drawInOrder.get(card.id),
+              reduced,
+              holdBack,
+            )}
             {...(onPlayCard
               ? {
                   onTap: () =>
@@ -1150,9 +1253,23 @@ export function GameTable({
   // ("Red 7", "Wild draw four"). Composed so a card play landing with a turn
   // change keeps the newest of each.
   // Skip / reverse callouts on every player's screen (Req 6.2–6.5).
-  const tableEvent = useTableEvent(view);
-  const skippedId =
-    tableEvent?.event.kind === "skip" ? tableEvent.event.seatId : null;
+  // A catch without a UNO call (Req 11.3) plays its punishment first; it
+  // takes over the callout while it shows.
+  const catchEvent = useCatchEvent(view);
+  const playEvent = useTableEvent(view);
+  const tableEvent = catchEvent.shown ?? playEvent;
+  const penaltyFor = (id: string): SeatPenalty => {
+    const e = tableEvent?.event;
+    if (!e || e.kind === "reverse" || e.seatId !== id) return null;
+    return e.kind;
+  };
+  // Your own new cards wait for your punishment stamp before sliding in.
+  const handHoldBack =
+    !reduced && catchEvent.justCaught.includes(view.selfId)
+      ? DURATION.catchPunish
+      : 0;
+  // "UNO!" bursts over whoever just called it (Req 11).
+  const unoBursts = useUnoBursts(view);
 
   const announcement = useGameAnnouncements({
     turnText: view.turnText,
@@ -1160,7 +1277,9 @@ export function GameTable({
       isWild(view.discardTop.value) && !view.colorPending
         ? `, ${view.activeColor} chosen`
         : ""
-    }${tableEvent ? `. ${tableEventText(tableEvent.event, view)}` : ""}`,
+    }${tableEvent ? `. ${tableEventText(tableEvent.event, view)}` : ""}${unoBursts
+      .map((id) => `. ${unoCallText(id, view)}`)
+      .join("")}`,
   });
 
   // Opponent draw / play flights (Req 10.6 / 17.2).
@@ -1210,7 +1329,8 @@ export function GameTable({
         <PartnerSeat
           className={geo.partner}
           activeTurn={view.activeSeatId === view.partner.id}
-          skipped={skippedId === view.partner.id}
+          penalty={penaltyFor(view.partner.id)}
+          unoCalled={unoBursts.includes(view.partner.id)}
           reduced={reduced}
           partner={{
             ...view.partner,
@@ -1239,7 +1359,8 @@ export function GameTable({
             kind={kind}
             ring={ringForOpponent(seat, isTeam, seatActive)}
             activeTurn={seatActive}
-            skipped={skippedId === seat.id}
+            penalty={penaltyFor(seat.id)}
+            unoCalled={unoBursts.includes(seat.id)}
             reduced={reduced}
             {...(countdown ? { countdown } : {})}
             style={style}
@@ -1308,12 +1429,18 @@ export function GameTable({
         )}
       >
         <div className="flex items-center gap-2.5">
-          <Avatar
-            name={view.selfName}
-            size={44}
-            ring={isYourTurn && !isTeam ? "turn" : selfRing}
-            activeTurn={isYourTurn}
-          />
+          <div className="relative">
+            <Avatar
+              name={view.selfName}
+              size={44}
+              ring={isYourTurn && !isTeam ? "turn" : selfRing}
+              activeTurn={isYourTurn}
+            />
+            <UnoBurst
+              show={unoBursts.includes(view.selfId)}
+              reduced={reduced}
+            />
+          </div>
           <div className="flex flex-col">
             <span className="flex items-center gap-1.5 text-body text-ink">
               You
@@ -1360,6 +1487,7 @@ export function GameTable({
         isYourTurn={isYourTurn}
         width={handWidth}
         maxStep={geo.maxStep}
+        holdBack={handHoldBack}
         className={geo.hand}
         reduced={reduced}
         {...(onPlayCard ? { onPlayCard } : {})}
@@ -1471,6 +1599,7 @@ function tableSnapshot(view: GameView): TableSnapshot {
     activeSeatId: view.activeSeatId,
     counts,
     discardTop: view.discardTop,
+    penaltyCount: view.penaltyCount ?? 0,
   };
 }
 

@@ -36,7 +36,7 @@ test("06a-wild-color-picker captures the wild picker sheet", async ({
     "/room/K7QX/game?state=04&overlay=wild",
     "06a-wild-color-picker",
   );
-  const sheet = page.getByRole("dialog", { name: "Choose a color" });
+  const sheet = page.getByRole("group", { name: "Choose a color" });
   await expect(sheet.getByRole("button", { name: "Red" })).toBeVisible();
   await expect(sheet.getByRole("button", { name: "Blue" })).toBeVisible();
   // No cancel / close in the picker (§5.16).

@@ -16,6 +16,7 @@
  * Reduced motion (Req 17.6) disables every flight.
  */
 import { DURATION, drawSlideTransition } from "@/design/motion";
+import { CATCH_PENALTY } from "@/game/view/tableEvents";
 import type { CardView } from "@/game/view/types";
 import { motion } from "motion/react";
 import { useState, type CSSProperties } from "react";
@@ -38,14 +39,17 @@ export interface TableSnapshot {
   /** Card count per OTHER player (opponents + 2v2 partner), keyed by id. */
   counts: Record<string, number>;
   discardTop: CardView;
+  /** Pending +2/+4 count — tells a catch penalty from a penalty draw. */
+  penaltyCount?: number;
 }
 
 export type FlightSpec =
-  | { kind: "draw"; seatId: string; count: number }
+  /** `delay` (s): a caught player's cards wait for the punishment to play. */
+  | { kind: "draw"; seatId: string; count: number; delay?: number }
   | { kind: "play"; seatId: string; card: CardView };
 
 export type Flight =
-  | { kind: "draw"; key: string; seatId: string; index: number }
+  | { kind: "draw"; key: string; seatId: string; index: number; delay?: number }
   | { kind: "play"; key: string; seatId: string; card: CardView; index: 0 };
 
 /** What should fly between two snapshots of the table. Pure. */
@@ -54,7 +58,19 @@ export function diffFlights(prev: TableSnapshot, next: TableSnapshot): FlightSpe
   for (const [seatId, count] of Object.entries(next.counts)) {
     const before = prev.counts[seatId];
     if (before !== undefined && count > before) {
-      specs.push({ kind: "draw", seatId, count: Math.min(count - before, MAX_DRAW_FLIGHTS) });
+      // Caught without calling UNO (1 → 3 with nothing else moving): the cards
+      // follow the punishment instead of arriving with it.
+      const caught =
+        before === 1 &&
+        count === 1 + CATCH_PENALTY &&
+        next.discardTop.id === prev.discardTop.id &&
+        (next.penaltyCount ?? 0) === (prev.penaltyCount ?? 0);
+      specs.push({
+        kind: "draw",
+        seatId,
+        count: Math.min(count - before, MAX_DRAW_FLIGHTS),
+        ...(caught ? { delay: DURATION.catchPunish } : {}),
+      });
     }
   }
   // The state doc carries the discard and the active seat together, so the
@@ -106,6 +122,7 @@ export function useTableFlights(snapshot: TableSnapshot, reduced: boolean) {
             key: `f${nextKey++}`,
             seatId: spec.seatId,
             index,
+            ...(spec.delay ? { delay: spec.delay } : {}),
           })),
     );
     // A newer play supersedes any play still in the air.
@@ -203,8 +220,11 @@ export function TableFlights({
             animate={{ x: seat.x - drawPile.x, y: seat.y - drawPile.y, scale: 1, opacity: 1 }}
             transition={{
               ...drawSlideTransition,
-              delay: drawFlightDelay(flight.index),
-              opacity: { duration: 0, delay: drawFlightDelay(flight.index) },
+              delay: (flight.delay ?? 0) + drawFlightDelay(flight.index),
+              opacity: {
+                duration: 0,
+                delay: (flight.delay ?? 0) + drawFlightDelay(flight.index),
+              },
             }}
             onAnimationComplete={() => onDone(flight.key)}
           >
