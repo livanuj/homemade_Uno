@@ -225,6 +225,39 @@ describe("engine unit — last card: call it, or get caught", () => {
     expect(caught).toEqual({ ok: false, reason: "not_catchable" });
   });
 
+  it("after drawing a playable card, a player who had called must (and can) call UNO again", () => {
+    // p0 called UNO and is down to 1 card. On their next turn they draw a
+    // playable card: the hand grows to 2, so the earlier call is cleared.
+    const state = makeState({
+      seats: threeSeats,
+      hands: [
+        [{ id: "last", suit: "green", value: 7 }],
+        [{ id: "x", suit: "green", value: 1 }, { id: "y", suit: "green", value: 2 }],
+        [{ id: "z", suit: "green", value: 3 }, { id: "w", suit: "green", value: 6 }],
+      ],
+      drawPile: [{ id: "drawn", suit: "red", value: 9 }],
+      discardPile: [{ id: "top", suit: "red", value: 5 }],
+      activeColor: "red",
+      lastCardCalledSeats: [0],
+    });
+    const drew = reducer(state, { type: "draw", playerId: "p0" }, ctx());
+    if (!drew.ok) throw new Error(`draw rejected: ${drew.reason}`);
+    expect(drew.state.phase).toBe("drew_decision");
+    expect(drew.state.lastCardCalledSeats).toEqual([]);
+
+    // While deciding, they call UNO again, then play the drawn card.
+    const called = reducer(drew.state, { type: "call_last", playerId: "p0" }, ctx());
+    if (!called.ok) throw new Error(`call rejected: ${called.reason}`);
+    const played = reducer(called.state, { type: "play", playerId: "p0", cardId: "drawn" }, ctx());
+    if (!played.ok) throw new Error(`play rejected: ${played.reason}`);
+    expect(played.state.hands[0]).toHaveLength(1);
+    expect(played.state.lastCardCalledSeats).toEqual([0]);
+    // The call stands, so they cannot be caught.
+    expect(
+      reducer(played.state, { type: "catch_last", playerId: "p1", targetPlayerId: "p0" }, ctx()),
+    ).toEqual({ ok: false, reason: "not_catchable" });
+  });
+
   it("calling twice is rejected", () => {
     const called = reducer(playedDownToOne(false), { type: "call_last", playerId: "p0" }, ctx());
     if (!called.ok) throw new Error("call rejected");

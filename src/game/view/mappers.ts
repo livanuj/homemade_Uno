@@ -302,6 +302,13 @@ export function toGameView(store: RealtimeStore): GameView | null {
     turnOrder: clockwiseFromSelf(seated, me?.doc.seatIndex ?? 0).map(
       (p) => p.playerId,
     ),
+    unoCalledIds: seated
+      .filter(
+        (p) =>
+          p.doc.seatIndex !== null &&
+          state.lastCardCalledSeats.includes(p.doc.seatIndex),
+      )
+      .map((p) => p.playerId),
     direction: state.direction as Direction,
     activeSeatId,
     turnText: turnText(state, isYourTurn, activeName, state.activeColor as Suit),
@@ -317,8 +324,11 @@ export function toGameView(store: RealtimeStore): GameView | null {
 
 /**
  * LAST CARD! is enabled on your turn with exactly two cards (call before you
- * play), or at any time on one card you have not called yet — a late call that
- * closes the window in which opponents can catch you (Req 11.1).
+ * play) — including while deciding on a playable drawn card, since the draw
+ * cleared any earlier call and playing it takes you to one card again — or at
+ * any time on one card you have not called yet: a late call that closes the
+ * window in which opponents can catch you (Req 11.1). Mirrors the engine's
+ * `call_last` rule.
  */
 function canCallLastCard(
   state: StateDoc,
@@ -329,7 +339,11 @@ function canCallLastCard(
   if (selfSeat === null || state.phase === "ended") return false;
   if (state.lastCardCalledSeats.includes(selfSeat)) return false;
   if (handSize === 1) return true;
-  return isYourTurn && state.phase === "active" && handSize === 2;
+  return (
+    isYourTurn &&
+    (state.phase === "active" || state.phase === "drew_decision") &&
+    handSize === 2
+  );
 }
 
 /**

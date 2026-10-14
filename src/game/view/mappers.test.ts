@@ -249,6 +249,33 @@ describe("toGameView", () => {
     expect(toGameView(called)!.canCallLastCard).toBe(false);
   });
 
+  it("re-enables UNO after drawing a playable card on 2 cards (play-or-keep)", () => {
+    // Called on 2, threw down to 1, then drew next turn: the draw cleared the
+    // call, and the drawn card is playable. Before playing it down to 1 card
+    // again, the player must be able to call UNO again.
+    const two: HandDoc = {
+      cards: [
+        { id: "h1", suit: "red", value: 3 },
+        { id: "h2", suit: "red", value: 4 },
+      ],
+      cardCount: 2,
+    };
+    const deciding = store({
+      ...seatedStore(0, two),
+      state: baseState({ activeSeat: 0, phase: "drew_decision", lastCardCalledSeats: [] }),
+    });
+    expect(toGameView(deciding)!.canCallLastCard).toBe(true);
+  });
+
+  it("lists who has a standing UNO call (the UNO tag)", () => {
+    const one: HandDoc = { cards: [{ id: "h1", suit: "red", value: 3 }], cardCount: 1 };
+    const s = store({
+      ...seatedStore(1, one),
+      state: baseState({ activeSeat: 1, lastCardCalledSeats: [0] }),
+    });
+    expect(toGameView(s)!.unoCalledIds).toEqual(["self"]);
+  });
+
   describe("catchTargets", () => {
     const three: HandDoc = {
       cards: [

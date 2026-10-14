@@ -67,10 +67,10 @@ describe("05-menu — the in-game menu drawer", () => {
   });
 });
 
-describe("06a-wild-color-picker — the wild color picker sheet", () => {
+describe("06a-wild-color-picker — the wild color choice on the table", () => {
   it("shows the four color buttons and NO cancel option (Req 8.1/8.2/9.6)", () => {
     renderOverlay("wild");
-    const sheet = screen.getByRole("dialog", { name: "Choose a color" });
+    const sheet = screen.getByRole("group", { name: "Choose a color" });
     expect(
       within(sheet).getByRole("button", { name: "Red" }),
     ).toBeInTheDocument();
@@ -98,15 +98,22 @@ describe("06a-wild-color-picker — the wild color picker sheet", () => {
       screen.getByText("Leo draws 4 unless he can stack"),
     ).toBeInTheDocument();
   });
+
+  it("sits on the table instead of a popup, so the hand stays visible", () => {
+    renderOverlay("wild");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });
 
-describe("06b-drew-playable-card — the drew-a-card sheet", () => {
+describe("06b-drew-playable-card — the drew-a-card choice on the table", () => {
   it("shows the drawn card fits line and Play it / Keep it (Req 10.2)", () => {
     renderOverlay("drew");
-    expect(screen.getByText("Red 3 fits the pile")).toBeInTheDocument();
-    expect(screen.getByText("You drew")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Play it" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Keep it" })).toBeInTheDocument();
+    const group = screen.getByRole("group", { name: "You drew a card" });
+    expect(within(group).getByText("Red 3 fits the pile")).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Red 3" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Play it" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Keep it" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 

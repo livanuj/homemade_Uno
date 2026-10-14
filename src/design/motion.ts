@@ -48,6 +48,8 @@ export const DURATION = {
   handTurn: 0.25,
   /** How long a skip / reverse callout stays on screen. */
   tableEvent: 1.8,
+  /** A caught player's punishment plays this long before the +2 cards arrive. */
+  catchPunish: 0.8,
 } as const;
 
 /**
@@ -198,6 +200,21 @@ export const tableEventPop: Variants = {
     transition: { duration: 0.35, ease: EASE_CARD },
   },
   exit: { opacity: 0, scale: 0.9, transition: { duration: 0.25, ease: EASE_CARD } },
+};
+
+/**
+ * "UNO!" burst over a player who just called it (Req 11): pops in big with a
+ * twist, settles, holds for {@link DURATION.tableEvent}, then fades.
+ */
+export const unoBurst: Variants = {
+  hidden: { opacity: 0, scale: 0.3, rotate: -24 },
+  visible: {
+    opacity: 1,
+    scale: [0.3, 1.3, 1],
+    rotate: [-24, 4, -6],
+    transition: { duration: 0.45, ease: EASE_CARD },
+  },
+  exit: { opacity: 0, scale: 0.8, transition: { duration: 0.25, ease: EASE_CARD } },
 };
 
 /** The direction ring pulses when play reverses. */

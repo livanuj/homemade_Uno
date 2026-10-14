@@ -83,16 +83,17 @@ describe("landscape layouts", () => {
     );
   });
 
-  it("a phone on its side shows the drawn card in the sheet, not over the table", () => {
+  it("a phone on its side shows the drawn-card choice on the table, no popup", () => {
     renderLandscape(
       "/room/K7QX/game?state=03&overlay=drew",
       <GameRoute />,
       "compact",
     );
-    const sheet = screen.getByRole("dialog");
-    expect(sheet).toHaveTextContent("Play it now, or keep it");
+    const group = screen.getByRole("group", { name: "You drew a card" });
+    expect(group).toHaveTextContent("Red 3 fits the pile");
     expect(
-      within(sheet).getByRole("button", { name: "Play it" }),
+      within(group).getByRole("button", { name: "Play it" }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

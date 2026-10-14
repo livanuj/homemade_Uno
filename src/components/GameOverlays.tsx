@@ -11,10 +11,11 @@
  *                    (wired to `useSettings`, task 8.2), Pause game (Req 25.1),
  *                    How to play (→ route), and Leave game (danger → the
  *                    leave-confirm dialog).
- * - `wild`         → `BottomSheet` + the played wild card + `WildColorButtons`
- *                    (four, NO cancel — §5.16, Req 8.1/8.2/9.6).
- * - `drew`         → `BottomSheet` + `SpotlightCard` ("You drew") + a
- *                    "<card> fits the pile" line + Play it / Keep it (Req 10.2).
+ * - `wild`         → a choice ON the table, above the hand (no popup, so the
+ *                    hand stays visible): who draws next + one row of four
+ *                    `WildColorButtons` (NO cancel — §5.16, Req 8.1/8.2/9.6).
+ * - `drew`         → a choice on the table: the drawn card + "<card> fits the
+ *                    pile" + Play it / Keep it (Req 10.2).
  * - `disconnected` → a table STATE: the waiting/skipping `TurnPill` + a
  *                    "Pause and wait" chip + a "[name] lost connection" `Toast`
  *                    over the same table; the disconnected seat's offline
@@ -28,12 +29,10 @@
  * color choice). The backend is not involved: settings come from the device store, the
  * rest from the view-model. Tokens only; reuse before create.
  */
-import { BottomSheet } from "@/components/BottomSheet";
 import { Button } from "@/components/Button";
 import { Dialog } from "@/components/Dialog";
 import { MenuDrawer, type MenuCardCount } from "@/components/MenuDrawer";
 import { PlayingCard } from "@/components/PlayingCard";
-import { SpotlightCard } from "@/components/SpotlightCard";
 import { TableLayer } from "@/components/TableLayer";
 import { Toast } from "@/components/Toast";
 import { TurnPill } from "@/components/TurnPill";
@@ -45,7 +44,7 @@ import { cn } from "@/lib/cn";
 import { supportsVibration, useSettings } from "@/lib/settings";
 import { useCompactLandscape, useLandscape } from "@/lib/useLandscape";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export interface GameOverlaysProps {
   /** Which overlay to show (from the `?overlay=` param). */
@@ -197,96 +196,93 @@ export function GameOverlays({
     );
   }
 
+  // Wild color / drew-a-card choices sit ON the table between the piles and
+  // the hand — no popup or backdrop — so the hand stays in view while
+  // choosing. Positions are table (stage) coordinates via `TableLayer`.
+  const trayPosition = compact
+    ? "top-[266px] w-[440px]"
+    : landscape
+      ? "top-[440px] w-[520px]"
+      : "top-[470px] w-[358px]";
+
   if (overlay === "wild" && data.wild) {
     return (
-      <BottomSheet
-        spacious
-        title="Choose a color"
-        subtitle={data.wild.consequence}
-        // NO onClose — the wild picker has no cancel (§5.16, Req 8.5/8.6).
-        reduced={reduced}
-        header={
-          <div className="flex items-center gap-4">
-            <PlayingCard
-              variant="partner"
-              value={data.wild.card}
-              disabled
-              tabIndex={-1}
+      <TableLayer>
+        {/* NO cancel — the wild picker requires a choice (§5.16, Req 8.5/8.6). */}
+        <ChoiceTray label="Choose a color" className={trayPosition}>
+          <div
+            className={cn(
+              "flex flex-col gap-1.5 rounded-panel bg-surface shadow-cta",
+              compact ? "p-1.5" : "p-2.5",
+            )}
+          >
+            <p
+              className={cn(
+                "text-center text-label text-ink",
+                compact && "sr-only",
+              )}
+            >
+              {data.wild.consequence}
+            </p>
+            <WildColorButtons
+              compact={compact}
+              onSelect={(suit: Suit) => onChooseColor?.(suit)}
             />
           </div>
-        }
-      >
-        <WildColorButtons onSelect={(suit: Suit) => onChooseColor?.(suit)} />
-      </BottomSheet>
+        </ChoiceTray>
+      </TableLayer>
     );
   }
 
   if (overlay === "drew" && data.drew) {
     return (
-      <>
-        {/* The enlarged drawn card floats over the table above the sheet
-            (§5.17), matching the reference — not inside the sheet body. On a
-            phone on its side there is no room above the sheet, so the card
-            sits in the sheet header instead (like the wild picker's). */}
-        {!compact && (
-          <TableLayer>
-            <div
-              className={cn(
-                "pointer-events-none absolute left-0 flex w-full justify-center",
-                landscape ? "top-[200px]" : "top-[240px]",
-              )}
-            >
-              <SpotlightCard
-                {...(data.drew.suit ? { suit: data.drew.suit } : {})}
-                value={data.drew.value}
-                reduced={reduced}
-              />
-            </div>
-          </TableLayer>
-        )}
-        <BottomSheet
-          title={data.drew.fitsLine}
-          subtitle="Play it now, or keep it and end your turn."
-          reduced={reduced}
-          {...(compact
-            ? {
-                header: (
-                  <div>
-                    <PlayingCard
-                      variant="partner"
-                      {...(data.drew.suit ? { suit: data.drew.suit } : {})}
-                      value={data.drew.value}
-                      disabled
-                      tabIndex={-1}
-                    />
-                  </div>
-                ),
-              }
-            : {})}
+      <TableLayer>
+        <ChoiceTray
+          label="You drew a card"
+          className={cn(trayPosition, "flex-row items-center justify-center")}
         >
           <div
             className={cn(
-              "gap-2.5 pt-1",
-              compact ? "grid grid-cols-2" : "flex flex-col",
+              "flex items-center gap-3 rounded-panel bg-surface shadow-cta",
+              compact ? "px-3 py-1" : "p-2.5 pr-3",
             )}
           >
-            <Button
-              variant="primary"
-              className="font-display text-cta"
-              onClick={() => onPlayDrawn?.()}
+            {!compact && (
+              <PlayingCard
+                variant="partner"
+                {...(data.drew.suit ? { suit: data.drew.suit } : {})}
+                value={data.drew.value}
+                disabled
+                tabIndex={-1}
+              />
+            )}
+            <div
+              className={cn(
+                "flex gap-2",
+                compact ? "flex-row items-center" : "flex-col",
+              )}
             >
-              Play it
-            </Button>
-            <Button
-              variant="outline"
-              className="h-[50px] font-extrabold"
-              onClick={() => onKeepDrawn?.()}
-            >
-              Keep it
-            </Button>
+              <span className="text-label text-ink">{data.drew.fitsLine}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="primary-small"
+                  className={cn("px-5", compact && "h-9")}
+                  onClick={() => onPlayDrawn?.()}
+                >
+                  Play it
+                </Button>
+                <Button
+                  variant="outline"
+                  className={cn("px-5", compact && "h-9")}
+                  onClick={() => onKeepDrawn?.()}
+                >
+                  Keep it
+                </Button>
+              </div>
+            </div>
           </div>
-        </BottomSheet>
-      </>
+        </ChoiceTray>
+      </TableLayer>
     );
   }
 
@@ -349,4 +345,37 @@ export function GameOverlays({
   }
 
   return null;
+}
+
+/**
+ * A labelled group of choices placed on the table (wild color, drew a card).
+ * Focus moves to its first button so keyboard and screen-reader users land on
+ * the choice; it is not modal, so the table — your hand — stays visible.
+ */
+function ChoiceTray({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  }, []);
+  return (
+    <div
+      ref={ref}
+      role="group"
+      aria-label={label}
+      className={cn(
+        "absolute left-1/2 z-30 flex -translate-x-1/2 flex-col gap-1.5",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
