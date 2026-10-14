@@ -64,6 +64,7 @@ import {
   tableEventPop,
   unoBurst,
 } from "@/design/motion";
+import { penaltyPrompt } from "@/game/view/penalty";
 import type {
   CardView,
   Direction,
@@ -507,21 +508,33 @@ function PenaltyBadge({
 }
 
 /**
- * A red "UNO!" burst that pops above a player's avatar when they call UNO
- * (Req 11), on every screen. Announced through the live region instead.
+ * The red "UNO!" tag above a player's avatar while their UNO call stands
+ * (Req 11): from the moment they call it until their hand grows past one card
+ * (a draw or penalty — the engine then clears the call). It pops in when the
+ * call is made, on every screen; a call already standing when the table loads
+ * just appears. Announced through the live region instead.
  */
 function UnoBurst({ show, reduced }: { show: boolean; reduced: boolean }) {
+  const className =
+    "pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 rounded-full border-2 border-surface bg-suit-red px-2.5 py-0.5 font-display text-body whitespace-nowrap text-surface uppercase shadow-cta";
+  // Reduced motion: no pop and no fade — the tag simply appears and goes.
+  if (reduced) {
+    return show ? (
+      <span aria-hidden="true" className={cn(className, "-rotate-6")}>
+        UNO!
+      </span>
+    ) : null;
+  }
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {show && (
         <motion.span
           variants={unoBurst}
           initial="hidden"
           animate="visible"
           exit="exit"
-          {...(reduced ? { transition: { duration: 0 } } : {})}
           aria-hidden="true"
-          className="pointer-events-none absolute -top-7 left-1/2 z-20 -translate-x-1/2 rounded-full border-2 border-surface bg-suit-red px-2.5 py-0.5 font-display text-body whitespace-nowrap text-surface uppercase shadow-cta"
+          className={className}
         >
           UNO!
         </motion.span>
@@ -778,9 +791,12 @@ function Piles({
   reduced = false,
   className,
   chosenColor,
+  drawPenalty,
 }: {
   /** Position classes (per table layout). */
   className: string;
+  /** A +2/+4 pending on you: the deck reads "Draw N" (tap to take them). */
+  drawPenalty?: number | undefined;
   /** The color chosen for a wild on top of the pile (shown on the card). */
   chosenColor?: Suit | undefined;
   discardTop: CardView;
@@ -804,7 +820,23 @@ function Piles({
         className,
       )}
     >
-      <CardBack variant="draw-pile" {...(onDraw ? { onClick: onDraw } : {})} />
+      <div className="relative">
+        <CardBack
+          variant="draw-pile"
+          {...(drawPenalty
+            ? { "aria-label": `Draw ${drawPenalty} cards` }
+            : {})}
+          {...(onDraw ? { onClick: onDraw } : {})}
+        />
+        {drawPenalty ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border-2 border-surface bg-danger px-2 py-0.5 text-micro font-extrabold whitespace-nowrap text-surface shadow-cta"
+          >
+            Draw {drawPenalty}
+          </span>
+        ) : null}
+      </div>
       <div className="relative h-[108px] w-[74px]">
         {discardPrev && (
           <div
@@ -956,6 +988,7 @@ function HandFan({
   view,
   highlight,
   isYourTurn,
+  penaltyLock,
   width,
   maxStep,
   holdBack,
@@ -968,6 +1001,11 @@ function HandFan({
   highlight: boolean;
   /** Your turn: the hand rises to full strength; otherwise it sinks and fades. */
   isYourTurn: boolean;
+  /**
+   * A +2/+4 is pending on you: only cards that can stack on it stay enabled
+   * (the rest are dimmed and disabled whatever the highlight setting).
+   */
+  penaltyLock: boolean;
   width: number;
   /** Max horizontal step between cards (§7.7; wider in landscape). */
   maxStep: number;
@@ -1038,7 +1076,8 @@ function HandFan({
             card={card}
             style={style}
             selected={selected}
-            dim={highlight && isYourTurn && !card.playable}
+            dim={(highlight || penaltyLock) && isYourTurn && !card.playable}
+            disabled={penaltyLock && !card.playable}
             shake={shakeCardId === card.id}
             reduced={reduced}
             // Draw-in flight (Req 10.6): a newly arrived card slides up/in from
@@ -1049,7 +1088,7 @@ function HandFan({
               reduced,
               holdBack,
             )}
-            {...(onPlayCard
+            {...(onPlayCard && !(penaltyLock && !card.playable)
               ? {
                   onTap: () =>
                     card.id === lifted
@@ -1082,6 +1121,7 @@ function HandCardSlot({
   style,
   selected,
   dim,
+  disabled,
   shake,
   reduced,
   drawInProps,
@@ -1092,6 +1132,8 @@ function HandCardSlot({
   style: CSSProperties;
   selected: boolean;
   dim: boolean;
+  /** Can't be played right now (e.g. can't stack on a pending +2/+4). */
+  disabled: boolean;
   shake: boolean;
   reduced: boolean;
   drawInProps: Pick<MotionProps, "initial" | "animate" | "transition">;
@@ -1160,6 +1202,7 @@ function HandCardSlot({
             variant="hand"
             selected={selected}
             dim={dim}
+            disabled={disabled}
             shake={shake}
             reduced={reduced}
             {...(onTap
@@ -1268,8 +1311,14 @@ export function GameTable({
     !reduced && catchEvent.justCaught.includes(view.selfId)
       ? DURATION.catchPunish
       : 0;
-  // "UNO!" bursts over whoever just called it (Req 11).
+  // Who has a standing UNO call: their "UNO!" tag stays until it clears.
+  const unoCalled = new Set(view.unoCalledIds ?? []);
+  // Fresh calls, for a one-off announcement (Req 11).
   const unoBursts = useUnoBursts(view);
+
+  // A +2/+4 pending on you: stack with an eligible card, or take it from the
+  // deck; with nothing to stack, the route draws it for you (Req 9.4).
+  const penalty = penaltyPrompt(view);
 
   const announcement = useGameAnnouncements({
     turnText: view.turnText,
@@ -1279,7 +1328,11 @@ export function GameTable({
         : ""
     }${tableEvent ? `. ${tableEventText(tableEvent.event, view)}` : ""}${unoBursts
       .map((id) => `. ${unoCallText(id, view)}`)
-      .join("")}`,
+      .join("")}${
+      penalty && !penalty.canStack
+        ? `. Nothing to stack, drawing ${penalty.count}`
+        : ""
+    }`,
   });
 
   // Opponent draw / play flights (Req 10.6 / 17.2).
@@ -1330,7 +1383,7 @@ export function GameTable({
           className={geo.partner}
           activeTurn={view.activeSeatId === view.partner.id}
           penalty={penaltyFor(view.partner.id)}
-          unoCalled={unoBursts.includes(view.partner.id)}
+          unoCalled={unoCalled.has(view.partner.id)}
           reduced={reduced}
           partner={{
             ...view.partner,
@@ -1360,7 +1413,7 @@ export function GameTable({
             ring={ringForOpponent(seat, isTeam, seatActive)}
             activeTurn={seatActive}
             penalty={penaltyFor(seat.id)}
-            unoCalled={unoBursts.includes(seat.id)}
+            unoCalled={unoCalled.has(seat.id)}
             reduced={reduced}
             {...(countdown ? { countdown } : {})}
             style={style}
@@ -1382,6 +1435,7 @@ export function GameTable({
       >
         <Piles
           className={geo.piles}
+          drawPenalty={penalty?.count}
           // A wild on top shows the color its player chose (once chosen).
           chosenColor={view.colorPending ? undefined : view.activeColor}
           discardTop={view.discardTop}
@@ -1436,10 +1490,7 @@ export function GameTable({
               ring={isYourTurn && !isTeam ? "turn" : selfRing}
               activeTurn={isYourTurn}
             />
-            <UnoBurst
-              show={unoBursts.includes(view.selfId)}
-              reduced={reduced}
-            />
+            <UnoBurst show={unoCalled.has(view.selfId)} reduced={reduced} />
           </div>
           <div className="flex flex-col">
             <span className="flex items-center gap-1.5 text-body text-ink">
@@ -1485,6 +1536,7 @@ export function GameTable({
         view={view}
         highlight={highlight}
         isYourTurn={isYourTurn}
+        penaltyLock={!!penalty}
         width={handWidth}
         maxStep={geo.maxStep}
         holdBack={handHoldBack}
@@ -1495,6 +1547,27 @@ export function GameTable({
       />
 
       {/* Cards flying between the piles and the other players' seats. */}
+      {/* Nothing in your hand can stack on the pending +2/+4: say so while
+          the route draws it for you. */}
+      {penalty && !penalty.canStack && (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 z-30 flex justify-center",
+            geo.eventBanner,
+          )}
+        >
+          <motion.span
+            variants={tableEventPop}
+            initial={reduced ? false : "hidden"}
+            animate="visible"
+            className="inline-flex items-center gap-2 rounded-full bg-danger px-4 py-2 text-body text-surface shadow-cta"
+          >
+            Nothing to stack · drawing {penalty.count}
+          </motion.span>
+        </div>
+      )}
+
       {/* Skip / reverse callouts over the piles. */}
       <TableEventLayer
         shown={tableEvent}

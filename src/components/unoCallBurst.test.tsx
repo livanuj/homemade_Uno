@@ -26,17 +26,27 @@ describe("GameTable — UNO call burst", () => {
     expect(screen.getByRole("status")).toHaveTextContent("You called UNO");
   });
 
-  it("does not burst for calls already made when the table first loads", () => {
+  it("keeps the UNO tag while the call stands — already-made calls included", () => {
     render(<GameTable view={{ ...base, unoCalledIds: [nora] }} />);
-    expect(screen.queryByText("UNO!")).not.toBeInTheDocument();
+    expect(screen.getByText("UNO!")).toBeInTheDocument();
+    // A call that was already made is not announced again.
+    expect(screen.getByRole("status")).not.toHaveTextContent("called UNO");
   });
 
-  it("clears the burst after a moment", () => {
+  it("keeps the tag after the announcement clears, and drops it when the call does", () => {
     const { rerender } = render(<GameTable view={{ ...base, unoCalledIds: [] }} />);
     rerender(<GameTable view={{ ...base, unoCalledIds: [nora] }} />);
     act(() => {
       vi.advanceTimersByTime(5000);
     });
     expect(screen.getByRole("status")).not.toHaveTextContent("called UNO");
+    expect(screen.getByText("UNO!")).toBeInTheDocument();
+
+    // Nora drew (her hand grew past 1): the call is cleared, so is the tag.
+    rerender(<GameTable view={{ ...base, unoCalledIds: [] }} />);
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.queryByText("UNO!")).not.toBeInTheDocument();
   });
 });

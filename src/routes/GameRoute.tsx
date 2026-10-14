@@ -38,10 +38,12 @@ import {
   type OverlayId,
   type OverlayView,
 } from "@/game/view/overlays";
+import { penaltyPrompt } from "@/game/view/penalty";
 import type { GameView } from "@/game/view/types";
 import { useSettings } from "@/lib/settings";
 import { copyToClipboard } from "@/lib/share";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
+import { useAutoDrawPenalty } from "@/realtime/useAutoDrawPenalty";
 import { useRoomChannel } from "@/realtime/useRoomChannel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -141,6 +143,14 @@ function LiveGame() {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2200);
   }, []);
+
+  // A +2/+4 on you with nothing to stack: draw it for you (Req 9.4).
+  useAutoDrawPenalty(
+    view ? penaltyPrompt(view) : null,
+    view?.discardTop.id ?? "",
+    !!paused,
+    () => void actions.drawOne(),
+  );
 
   if (!view) {
     return <GameLoading />;
